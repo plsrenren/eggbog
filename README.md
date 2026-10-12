@@ -8,3 +8,5 @@ A two-player card game in a single HTML file. It has a normal mode, a Crazy mode
 - `vercel.json`: serves `eggbog.html` at the site root.
 
 To play locally, open `eggbog.html` in a browser.
+
+Pushing to `main` redeploys the site on Vercel.
