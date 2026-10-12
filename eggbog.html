@@ -13,11 +13,12 @@
 :root.theme-crazy.deathmatch{--felt:#11305c;--felt2:#05122d;--felt3:#010614;--panel:#0b1a36;--dim:#010614d9;--diffbg:#06122af2}
 :root.deathmatch .side{--sov:#000000b8}
 #dm{position:fixed;inset:0;z-index:58;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;background:radial-gradient(circle at 50% 45%,#1a1a1ae0,#000000f0 75%);overflow:hidden}
+#dm .dm-in{display:flex;flex-direction:column;align-items:center;gap:2px;max-width:100%}
 #dm .dm-w{position:relative;width:240px;height:176px}
 #dm .dm-s,#dm .dm-a{position:absolute;top:10px;width:40px;height:160px;transform-origin:50% 91%;filter:drop-shadow(0 6px 10px #000c)}
 #dm .dm-s{left:60px}#dm .dm-a{right:60px}
 #dm .dm-x{position:absolute;left:50%;top:50%;width:24px;height:24px;margin:-12px;border-radius:50%;background:radial-gradient(#fff,#ffd23f 40%,#ff6b0000 70%);opacity:0}
-#dm .dm-t{font-size:clamp(2.6rem,12vw,6rem);font-weight:900;letter-spacing:.08em;color:#ff3b30;text-shadow:0 0 22px #ff0000aa,0 4px 24px #000}
+#dm .dm-t{font-size:clamp(1.8rem,9.5vw,6rem);white-space:nowrap;font-weight:900;letter-spacing:.08em;color:#ff3b30;text-shadow:0 0 22px #ff0000aa,0 4px 24px #000}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:flow-root;color:#eef5f1;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   background:radial-gradient(ellipse at 50% 30%,var(--felt) 0%,var(--felt2) 80%) fixed}
@@ -156,8 +157,8 @@ header h2{margin:0;font-size:1.3rem}
 :root.jokerfx .side::before{content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;pointer-events:none;--a:0deg;background:conic-gradient(from var(--a) at 50% 50%,hsl(320 95% 70%),hsl(260 90% 70%),hsl(205 95% 68%),hsl(165 90% 65%),hsl(100 85% 65%),hsl(50 95% 68%),hsl(20 95% 70%),hsl(320 95% 70%));opacity:.24;mix-blend-mode:screen;animation:holo 6s linear infinite}
 :root.jokerfx .side::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;pointer-events:none;--a:0deg;background:conic-gradient(from var(--a),#ff8bd8,#b98bff,#6bd6ff,#7dffb0,#ffe37a,#ff9b6b,#ff8bd8);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:holo 2.5s linear infinite;filter:drop-shadow(0 0 6px #c58bffaa)}
 @media (prefers-reduced-motion:reduce){:root.jokerfx .side::before,:root.jokerfx .side::after{animation:none}}
-.jkthink{outline:3px solid #c58bff;box-shadow:0 0 14px 4px #c58bffaa;filter:brightness(1.12)}
-.jkchosen{outline:3px solid #fff;box-shadow:0 0 0 2px #c58bff,0 0 22px 8px #e08bffcc,0 0 40px 14px #6bd6ff88;filter:brightness(1.15);animation:jkChosen .5s ease-out}
+.jkthink{translate:0 -6px;outline:3px solid #c58bff;box-shadow:0 0 14px 4px #c58bffaa;filter:brightness(1.12)}
+.jkchosen{translate:0 -14px;outline:3px solid #fff;box-shadow:0 0 0 2px #c58bff,0 0 22px 8px #e08bffcc,0 0 40px 14px #6bd6ff88;filter:brightness(1.15);animation:jkChosen .5s ease-out}
 @keyframes jkChosen{0%{scale:1}40%{scale:1.12}100%{scale:1}}
 .jkspark{position:fixed;pointer-events:none;z-index:70;font-size:18px;color:#fff;text-shadow:0 0 6px #c58bff,0 0 12px #6bd6ff}
 @media (prefers-reduced-motion:reduce){.card.joker,.card.joker::after{animation:none}}
@@ -2089,7 +2090,7 @@ function discoverSync(v,OPP){
   const you=v.you,chooser=pend.chooser===you;
   if(pend.jk&&pend.ready){   // a Joker card's Discover: the Joker picks, the player watches
     const opts=chooser?(pend.opts||[]).filter(Boolean):[];
-    const lab='🃏 Discover — '+(pend.jkSet?'the Joker picked '+(chooser?'this card for you':'a card for '+OPP):'the Joker is choosing '+(chooser?'for you…':'for '+OPP+'…'));
+    const lab='🃏 Discover — '+(pend.jkSet?'the Joker picked '+(chooser?'this one':'for '+OPP):'the Joker is choosing…');
     const {tr,fresh}=hovShow('jdisc'+(chooser?opts.map(c=>c.id).join(','):'O'+pend.n),chooser?'me':'opp',lab,chooser?opts.map(c=>cardEl(c)).join(''):Array.from({length:pend.n||0},()=>'<div class="card back"></div>').join(''));
     if(fresh&&!reduced()&&tr.animate)[...tr.querySelectorAll('.card')].forEach((el,i)=>el.animate([{opacity:0,translate:'0 40px'},{opacity:1,translate:'0 0'}],{duration:320,delay:i*90,easing:'cubic-bezier(.2,.9,.3,1.2)',fill:'backwards'}));
     jkThinkFor(pend,()=>[...tr.querySelectorAll('.card')]);
@@ -2148,7 +2149,7 @@ function stealSync(v,OPP){
    if(jp){   // a Joker card's Steal: the Joker picks the card to give, from whoever has to give it
     document.querySelectorAll('#hand .card.stealpick').forEach(e=>e.classList.remove('stealpick'));
     const mine=jp.chooser===v.you,who=mine?'your':OPP+"'s";
-    const {tr}=hovShow('stealJ'+v.logN,mine?'me':'opp','🃏 '+(jp.jkSet?'The Joker picked a card from '+who+' hand':'The Joker is picking a card from '+who+' hand to give…'),'');
+    const {tr}=hovShow('stealJ'+v.logN,mine?'me':'opp','🃏 Steal — '+(jp.jkSet?'the Joker picked from '+who+' hand':'the Joker is picking from '+who+' hand…'),'');
     {const r=tr.querySelector('.ht-row');if(r)r.remove();}
     if(mine){tr.style.top=($('hand').getBoundingClientRect().top-30)+'px';hovClamp(tr);}
     jkThinkFor(jp,()=>[...document.querySelectorAll(mine?'#hand .card':'#oppHand .oc')]);
@@ -2648,7 +2649,7 @@ function deathMatchFx(gid){
   if(!view||view.gameId!==gid){dmPending=null;return;}
   const old=$('dm');if(old)old.remove();
   const d=document.createElement('div');d.id='dm';
-  d.innerHTML='<div class="dm-w"><svg class="dm-s" viewBox="0 0 40 160"><polygon points="20,0 27,12 27,108 13,108 13,12" fill="#e3e9f0" stroke="#7d8a99" stroke-width="2"/><line x1="20" y1="12" x2="20" y2="104" stroke="#a9b5c2" stroke-width="2"/><rect x="2" y="107" width="36" height="9" rx="3" fill="#d4a72c"/><rect x="15" y="116" width="10" height="29" rx="3" fill="#5e3519"/><circle cx="20" cy="150" r="7" fill="#d4a72c"/></svg><svg class="dm-a" viewBox="0 0 40 160"><polygon points="20,0 27,12 27,108 13,108 13,12" fill="#e3e9f0" stroke="#7d8a99" stroke-width="2"/><line x1="20" y1="12" x2="20" y2="104" stroke="#a9b5c2" stroke-width="2"/><rect x="2" y="107" width="36" height="9" rx="3" fill="#d4a72c"/><rect x="15" y="116" width="10" height="29" rx="3" fill="#5e3519"/><circle cx="20" cy="150" r="7" fill="#d4a72c"/></svg><div class="dm-x"></div></div><div class="dm-t">DEATH MATCH</div>';
+  d.innerHTML='<div class="dm-in"><div class="dm-w"><svg class="dm-s" viewBox="0 0 40 160"><polygon points="20,0 27,12 27,108 13,108 13,12" fill="#e3e9f0" stroke="#7d8a99" stroke-width="2"/><line x1="20" y1="12" x2="20" y2="104" stroke="#a9b5c2" stroke-width="2"/><rect x="2" y="107" width="36" height="9" rx="3" fill="#d4a72c"/><rect x="15" y="116" width="10" height="29" rx="3" fill="#5e3519"/><circle cx="20" cy="150" r="7" fill="#d4a72c"/></svg><svg class="dm-a" viewBox="0 0 40 160"><polygon points="20,0 27,12 27,108 13,108 13,12" fill="#e3e9f0" stroke="#7d8a99" stroke-width="2"/><line x1="20" y1="12" x2="20" y2="104" stroke="#a9b5c2" stroke-width="2"/><rect x="2" y="107" width="36" height="9" rx="3" fill="#d4a72c"/><rect x="15" y="116" width="10" height="29" rx="3" fill="#5e3519"/><circle cx="20" cy="150" r="7" fill="#d4a72c"/></svg><div class="dm-x"></div></div><div class="dm-t">DEATH MATCH</div></div>';
   document.body.appendChild(d);
   const darken=()=>{dmPending=null;document.documentElement.classList.add('deathmatch');};
   if(reduced()||!d.animate){darken();setTimeout(()=>d.remove(),1800);return;}
@@ -2658,7 +2659,7 @@ function deathMatchFx(gid){
   d.querySelector('.dm-x').animate([{transform:'scale(0)',opacity:0},{transform:'scale(1)',opacity:1,offset:.1},{transform:'scale(9)',opacity:0}],{duration:600,delay:HIT*.8+100,fill:'forwards'});
   d.querySelector('.dm-t').animate([{transform:'scale(2.6)',opacity:0},{transform:'scale(.94)',opacity:1,offset:.6},{transform:'scale(1)',opacity:1}],{duration:420,delay:HIT,easing:'ease-out',fill:'backwards'});
   setTimeout(()=>{thud();noiseBurst(.35,'highpass',4000,900,.45);darken();
-    d.animate([{transform:'none'},{transform:'translate(-8px,4px)'},{transform:'translate(7px,-3px)'},{transform:'translate(-4px,2px)'},{transform:'none'}],{duration:380});},HIT*.8+100);
+    d.querySelector('.dm-in').animate([{transform:'none'},{transform:'translate(-8px,4px)'},{transform:'translate(7px,-3px)'},{transform:'translate(-4px,2px)'},{transform:'none'}],{duration:380});},HIT*.8+100);
   d.animate([{opacity:1},{opacity:1,offset:.85},{opacity:0}],{duration:2800,fill:'forwards'}).onfinish=()=>d.remove();
 }
 function roundFx(prev,v){
