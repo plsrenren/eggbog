@@ -152,6 +152,10 @@ header h2{margin:0;font-size:1.3rem}
 .card.joker.ghost{transition:filter .18s,box-shadow .18s}
 .card.joker.ghost.boost{filter:brightness(1.22) saturate(1.5);animation:holo 2.2s linear infinite,jkBoost .7s ease-in-out infinite alternate;box-shadow:0 0 0 2px #fff,0 0 26px 8px #fff,0 0 52px 18px #e08bffee,0 0 90px 34px #6bd6ffbb}
 @keyframes jkBoost{from{box-shadow:0 0 0 2px #fff,0 0 22px 6px #fff,0 0 44px 14px #e08bffcc,0 0 74px 26px #6bd6ff99}to{box-shadow:0 0 0 3px #fff,0 0 34px 12px #fff,0 0 66px 26px #ff9be8,0 0 110px 44px #6bd6ffcc}}
+:root.jokerfx .side{isolation:isolate}
+:root.jokerfx .side::before{content:"";position:absolute;inset:0;border-radius:inherit;z-index:-1;pointer-events:none;--a:0deg;background:conic-gradient(from var(--a) at 50% 50%,hsl(320 95% 70%),hsl(260 90% 70%),hsl(205 95% 68%),hsl(165 90% 65%),hsl(100 85% 65%),hsl(50 95% 68%),hsl(20 95% 70%),hsl(320 95% 70%));opacity:.24;mix-blend-mode:screen;animation:holo 6s linear infinite}
+:root.jokerfx .side::after{content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;pointer-events:none;--a:0deg;background:conic-gradient(from var(--a),#ff8bd8,#b98bff,#6bd6ff,#7dffb0,#ffe37a,#ff9b6b,#ff8bd8);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;animation:holo 2.5s linear infinite;filter:drop-shadow(0 0 6px #c58bffaa)}
+@media (prefers-reduced-motion:reduce){:root.jokerfx .side::before,:root.jokerfx .side::after{animation:none}}
 .jkspark{position:fixed;pointer-events:none;z-index:70;font-size:18px;color:#fff;text-shadow:0 0 6px #c58bff,0 0 12px #6bd6ff}
 @media (prefers-reduced-motion:reduce){.card.joker,.card.joker::after{animation:none}}
 #handwrap,#stlHandwrap{margin-top:0;min-width:0;background:#00000033;border-radius:12px;padding:6px 10px 8px}
@@ -2249,6 +2253,15 @@ function jokerSync(prev,v){
     setTimeout(close,760);
   },800);
 }
+// while a Joker's five cards are being played out, the whole table shimmers like the holographic Joker
+let jkFxIv=null,jkFxOff=null;
+function jokerFxSet(on,now){
+  const r=document.documentElement,stop=()=>{clearTimeout(jkFxOff);jkFxOff=null;clearInterval(jkFxIv);jkFxIv=null;r.classList.remove('jokerfx');};
+  if(now){stop();return;}
+  if(on){clearTimeout(jkFxOff);jkFxOff=null;r.classList.add('jokerfx');
+    if(!jkFxIv&&!reduced()){let k=0;jkFxIv=setInterval(()=>{const e=$(k++%2?'oppSide':'mySide');if(e)jokerSparks(e,1);},420);}}
+  else if(r.classList.contains('jokerfx')&&!jkFxOff)jkFxOff=setTimeout(stop,900);   // linger a moment after the last card lands
+}
 function jokerSparks(el,n){
   if(reduced())return;
   const r=el.getBoundingClientRect();
@@ -2730,7 +2743,7 @@ function faceFx(prev,v,oldCards){
   return handled;
 }
 function applyTheme(on){document.documentElement.classList.toggle('theme-crazy',!!on);}
-function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.toggle('deathmatch',!!(v&&v.round>=3&&dmPending!==v.gameId));
+function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.toggle('deathmatch',!!(v&&v.round>=3&&dmPending!==v.gameId));jokerFxSet(!!(v&&v.jq>0&&v.phase!=='over'));
   const prev=lastV;lastV=JSON.parse(JSON.stringify(v)); // a copy: in host/practice mode the view shares arrays with the live game state
   view=v;
   const oldCards=new Map();
@@ -3200,7 +3213,7 @@ function toTitle(){
   dealt={0:false,1:false};dealFx=false;newcShown=null;fxUntil=0;cpuHeldKey=null;clearTimeout(cpuHoverTimer);cpuPre=null;oppK=-1;oppPtr={k:null,suit:null};oppN=0;oppGame=null;lastSentPtr='';mullPending=false;
   ['pack','duel','pf','disc','drw','jkr','jkTray','hovTray','roundfx','victory','stats','newc','mwait','stl'].forEach(id=>{const e=$(id);if(e)e.remove();});
   document.querySelectorAll('.card.ghost,.drag-ghost').forEach(e=>e.remove());
-  $('modalRoot').innerHTML='';dmPending=null;document.documentElement.classList.remove('deathmatch');{const e=$('dm');if(e)e.remove();}
+  $('modalRoot').innerHTML='';dmPending=null;document.documentElement.classList.remove('deathmatch');jokerFxSet(false,true);{const e=$('dm');if(e)e.remove();}
   try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
   $('game').hidden=true;$('lobby').hidden=false;$('lobbyWait').hidden=true;$('lobbyMenu').hidden=false;
   $('shareLink').hidden=true;$('btnCopy').hidden=true;$('joinCode').value='';
