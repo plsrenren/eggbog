@@ -188,7 +188,7 @@ function zones(s){
   if(s.pending&&s.pending.t==='discover')s.pending.opts.forEach(c=>ids.push(c.id));
   s.startCards.forEach(c=>{if(c)ids.push(c.id);});
   (s.jokerQ||[]).forEach(e=>ids.push(e.c.id));
-  return ids.filter(id=>id!=='EGG');   // the Egg is an extra card outside the deck
+  return ids.filter(id=>!/^EG[CSHD]$/.test(id));   // the Egg is an extra card outside the deck
 }
 t('2000 random games: terminate, conserve 52 unique cards',()=>{
   let over=0,byCards=0,byRounds=0;
@@ -610,7 +610,7 @@ t('Crazy: the starter gets a 1-point Egg, and it is never shuffled back into the
   const s=newGame(null,{crazy:true});
   while(s.phase!=='play'){const w=actor(s);assert.equal(act(s,w,cpuChoose(s,w,'normal')),null);}
   const st=s.startReveal.starter,egg=s.p[st].hand.find(c=>c.r==='EG');
-  assert.ok(egg);assert.equal(cardVal(egg),1);assert.equal(s.startReveal.egg.id,'EGG');
+  assert.ok(egg);assert.equal(cardVal(egg),1);assert.equal(s.startReveal.egg.id,'EG'+egg.s,'the id ends in its suit');
   s.p[st].hand.splice(s.p[st].hand.indexOf(egg),1);s.discard.push(egg,{id:'9C',r:'9',s:'C',f:''});s.deck=[];
   fillDeck(s);
   assert.equal(s.deck.length,1);assert.ok(!s.deck.some(c=>c.r==='EG'),'the Egg left the game');

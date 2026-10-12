@@ -848,7 +848,8 @@ function resolveStart(s){
   // (exempt from the hand limit: in normal mode this makes 11)
   if(c0)s.p[0].hand.push(c0);if(c1)s.p[1].hand.push(c1);
   // the Egg: the starter gets a plain card worth a few points (also exempt from the hand limit); it never goes back into the deck
-  const egg={id:'EGG',r:'EG',s:SUITS[Math.floor(Math.random()*SUITS.length)],f:'',v:s.crazy?EGG_VAL.crazy:EGG_VAL.normal};
+  const es=SUITS[Math.floor(Math.random()*SUITS.length)];
+  const egg={id:'EG'+es,r:'EG',s:es,f:'',v:s.crazy?EGG_VAL.crazy:EGG_VAL.normal};   // the id ends in the suit, like every card (the hand reads the suit from it)
   s.p[starter].hand.push(egg);s.startReveal.egg=cp(egg);log(s,starter,'gets the Egg ('+egg.v+' point'+(egg.v>1?'s':'')+')');
   s.phase='play';s.turn=starter;
   settle(s);
@@ -3454,7 +3455,7 @@ function showRules(){
   <h4>The field</h4><p>Each player has a side, organized in suit columns (♣ ♠ ♥ ♦) that face the matching column on the opponent's side.</p>
   ${cz?`<h4>Card effects</h4><p>Every single card gets one of the effects below at random, so two Aces (or two 7s) can do different things. The effect is written on each card, and the 🌀 button shows the effects in this game. Effects trigger when the card is played.</p><ul>${fxList}</ul>`
       :`<h4>Special cards (trigger when played)</h4><ul>${fxList}</ul>${off?`<p>Switched off in this game: ${off}. They play with no effect.</p>`:''}`}
-  <h4>Hand limit</h4><p>You can hold at most 10 cards. A card drawn into a full hand (from the deck${cz?', a booster pack, Discover or a Joker':' or Discover'}) is shown to you and then burned. The card you draw at the start of round 1 is the one exception.</p>
+  <h4>Hand limit</h4><p>You can hold at most 10 cards. A card drawn into a full hand (from the deck${cz?', a booster pack, Discover or a Joker':' or Discover'}) is shown to you and then burned. The card you draw at the start of round 1 and the 🥚 Egg are the only exceptions.</p>
   ${cz?`<h4>Deck reshuffle</h4><p>When the deck is drawn out, every discarded card (removed, burned, mulliganed, or played in an earlier round) is shuffled back in.</p>`:''}
   <h4>Running out</h4><p>If you run out of cards (including drawn ones) and cannot exceed your opponent's total, the game ends and your opponent wins.</p>
   <p style="text-align:right"><button id="closeRules">Close</button></p></div></div>`;
