@@ -185,7 +185,8 @@ header h2{margin:0;font-size:1.3rem}
 .card.gh-card{opacity:.5;outline:2px dashed #ffffffb0;outline-offset:-2px;pointer-events:none;animation:ghPulse 1.1s ease-in-out infinite}
 @keyframes ghPulse{50%{opacity:.28}}
 .card.gh-gone{opacity:.45;filter:grayscale(.7);transition:opacity .2s,filter .2s}
-#ghCap{position:fixed;z-index:65;transform:translateX(-50%);background:#000000d9;color:#fff;font-size:12px;font-weight:600;padding:6px 10px;border-radius:10px;pointer-events:none;white-space:nowrap;box-shadow:0 2px 12px #0009;line-height:1.45;border:1px solid #ffffff2a}
+#ghLayer{position:fixed;inset:0;z-index:56;pointer-events:none;opacity:.5;filter:saturate(.7)}
+#ghLayer .card{pointer-events:none}
 .card.doomed{outline:3px solid #ff2d20;outline-offset:0;box-shadow:0 0 0 2px #ff2d2088,0 0 16px #ff2d20;z-index:30}
 .card.doomed::after{content:'';position:absolute;inset:0;border-radius:6px;background:#ff2d2055;pointer-events:none}
 .card.rK{background:linear-gradient(160deg,#f6fbef,#d9efc8);border:1px solid #3e8f2a;animation:nuke 1.6s ease-in-out infinite alternate}
@@ -1426,32 +1427,68 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
   lines.push(d>0?'✅ You lead by '+d+': your turn ends':d===0?'⚖️ Tied: you play again':'⚠️ Still behind by '+(-d)+': you play again');
   return {gone,swap,lines,turnEnds:d>0};
 }
+let ghostTimers=[];
 function ghostShow(id,suit){
   ghostHide();
   if(!view)return;
   const c=view.me.hand.find(x=>x.id===id);if(!c)return;
   const card=c.r==='JK'?Object.assign({},c,{s:suit}):c;
-  const plan=ghostPlan(view,card,suit);
+  const plan=ghostPlan(view,card,suit),cf=card.r==='JK'?'X':efx(card,view);
   const col=document.querySelector('#myField .col[data-suit="'+suit+'"]');if(!col)return;
   const add=(parent,cc)=>{const w=document.createElement('div');w.innerHTML=cardEl(cc,'gh-card');const e=w.firstChild;parent.appendChild(e);return e;};
-  if(plan.swap){   // the card lands on their side; the card it trades with comes over to yours
+  // the ghost cards sit where the play would leave them
+  let mine=null,oppGh=null,tookGh=null,tookEl=null;
+  if(plan.swap){
     const oc=document.querySelector('#oppField .col[data-suit="'+card.s+'"]');
-    if(oc)add(oc,card);
-    if(plan.swap.t){const te=document.querySelector('#oppField .card[data-id="'+plan.swap.t.id+'"]');if(te)te.classList.add('gh-gone');add(col,plan.swap.t);}
-  }else add(col,card);
-  plan.gone.forEach(g=>{const e=document.querySelector((g.mine?'#myField':'#oppField')+' .card[data-id="'+g.c.id+'"]');if(e)e.classList.add('gh-gone','doomed');});
-  const cap=document.createElement('div');cap.id='ghCap';cap.innerHTML=plan.lines.map(l=>'<div>'+l.replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</div>').join('');
-  document.body.appendChild(cap);
-  const r=$('mySide').getBoundingClientRect(),cr=col.getBoundingClientRect();
-  // just below your side of the table, so it covers neither the totals nor the cards it talks about
-  {const w=cap.offsetWidth,h=cap.offsetHeight;cap.style.top=Math.max(4,Math.min(innerHeight-h-4,r.bottom+6))+'px';cap.style.left=Math.max(w/2+6,Math.min(innerWidth-w/2-6,cr.left+cr.width/2))+'px';}
-  if(cap.animate&&!reduced())cap.animate([{opacity:0,translate:'0 6px'},{opacity:1,translate:'0 0'}],{duration:180,easing:'ease-out'});
+    if(oc)oppGh=add(oc,card);
+    if(plan.swap.t){tookEl=document.querySelector('#oppField .card[data-id="'+plan.swap.t.id+'"]');if(tookEl)tookEl.classList.add('gh-gone');tookGh=add(col,plan.swap.t);}
+  }else mine=add(col,card);
+  const goneEls=plan.gone.map(g=>{const e=document.querySelector((g.mine?'#myField':'#oppField')+' .card[data-id="'+g.c.id+'"]');if(e)e.classList.add('gh-gone');return e;}).filter(Boolean);
+  const G=document.createElement('div');G.id='ghLayer';document.body.appendChild(G);
+  if(reduced()||!document.body.animate)return;
+  const T=(fn,ms)=>{ghostTimers.push(setTimeout(fn,ms));};
+  const R=e=>e.getBoundingClientRect();
+  // a card back (or face) glides from one place to another inside the ghost layer
+  const glide=(from,to,delay,html)=>{
+    const e=document.createElement('div');e.innerHTML=html||'<div class="card back"></div>';const el=e.firstChild;G.appendChild(el);
+    const w=el.offsetWidth||60,h=el.offsetHeight||84;
+    el.style.cssText+=`;position:fixed;margin:0;left:${from.left+from.width/2-w/2}px;top:${from.top+from.height/2-h/2}px`;
+    el.animate([{transform:'translate(0,0) scale(.9)',opacity:0},{opacity:1,offset:.15},{transform:`translate(${to.left+to.width/2-from.left-from.width/2}px,${to.top+to.height/2-from.top-from.height/2}px) scale(1)`,opacity:1,offset:.85},{opacity:0,transform:`translate(${to.left+to.width/2-from.left-from.width/2}px,${to.top+to.height/2-from.top-from.height/2}px) scale(.9)`}],{duration:700,delay,easing:'cubic-bezier(.3,.7,.3,1)',fill:'both'}).onfinish=()=>el.remove();
+  };
+  const deck=()=>R($('deck')),hand=()=>R($('hand')),oppHand=()=>R($('oppHand'));
+  const cycle=()=>{
+    G.innerHTML='';
+    // 1. the card drops into place (a Swap card goes straight across to their side)
+    const land=(el,fromEl)=>{if(!el)return;const a=R(el),f=fromEl?R(fromEl):{left:a.left,top:a.top-60,width:a.width,height:a.height};
+      el.animate([{transform:`translate(${f.left-a.left}px,${f.top-a.top}px)`,opacity:0},{transform:'none',opacity:.55}],{duration:380,easing:'cubic-bezier(.3,1.3,.5,1)',fill:'backwards'});};
+    if(plan.swap){land(oppGh,col);if(tookGh&&tookEl)T(()=>land(tookGh,tookEl),200);}
+    else land(mine);
+    // a Mirror flips into what it copies
+    if(card.f==='M'&&cf&&mine){T(()=>{mine.animate([{transform:'scaleX(1)'},{transform:'scaleX(0)',offset:.5},{transform:'scaleX(1)'}],{duration:360});T(()=>{const w=document.createElement('div');w.innerHTML=cardEl(Object.assign({},card,{f:cf}),'gh-card');const n=w.firstChild;mine.replaceWith(n);mine=n;},180);},420);}
+    const at=card.f==='M'?900:480;
+    // 2. the effect itself, as a see-through replay of the real animation
+    T(()=>{
+      if(cf==='J'||cf==='Q'||cf==='K'){
+        const clones=goneEls.map(e=>{const o={html:e.outerHTML.replace(/\bgh-gone\b|\bdoomed\b/g,''),r:R(e)};const g=document.createElement('div');g.innerHTML=o.html;const el=g.firstChild;el.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:14;pointer-events:none`;G.appendChild(el);return {o,el};});
+        removalAnim(cf,{side:'#myField',c:card},clones,G);
+        let k=0;plan.gone.forEach(g=>{if(efx(g.c,view)==='2')T(()=>glide(deck(),g.mine?hand():oppHand(),0),700+(k++)*160);});   // Deathrattle draws
+      }else if(cf==='A'||cf==='G')glide(deck(),hand(),0);
+      else if(cf==='3'){const h=hand(),up={left:h.left+h.width/2-30,top:h.top-110,width:60,height:84};
+        [-70,0,70].forEach((dx,i)=>glide(deck(),{left:up.left+dx,top:up.top,width:up.width,height:up.height},i*90));
+        T(()=>glide({left:up.left,top:up.top,width:60,height:84},h,0),760);}
+      else if(cf==='T'){glide(oppHand(),hand(),0);}
+      else if(cf==='X'){const ms=R($('mySide')),os=R($('oppSide'));[0,1,2,3,4].forEach(i=>glide(deck(),i%2?os:ms,i*130));}
+    },at);
+  };
+  cycle();
+  ghostTimers.push(setInterval(cycle,2400));
 }
 function ghostHide(){
   clearTimeout(ghostTimer);ghostTimer=null;
+  ghostTimers.forEach(t=>{clearTimeout(t);clearInterval(t);});ghostTimers=[];
   document.querySelectorAll('.card.gh-card').forEach(e=>e.remove());
   document.querySelectorAll('.card.gh-gone').forEach(e=>e.classList.remove('gh-gone'));
-  const c=$('ghCap');if(c)c.remove();
+  {const g=$('ghLayer');if(g)g.remove();}
 }
 function swapTarget(oppField,suit){for(let i=oppField.length-1;i>=0;i--)if(oppField[i].s===suit)return oppField[i];return null;}
 // Press a hand card: a small movement is a tap (used for mulligan selection); a drag either
@@ -2777,6 +2814,92 @@ function boomLow(delay){
     g.gain.setValueAtTime(.5,t);g.gain.exponentialRampToValueAtTime(.001,t+.7);o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+.75);
   }catch(e){}
 }
+// the Cleave / Purge / Wipe animation; G is the ghost layer for a ghost preview (silent, see-through), or null for the real thing
+function removalAnim(kind,pl,clones,G){
+  const host=G||document.body,S=!G;
+  const mk=(o,z)=>{const g=document.createElement('div');g.innerHTML=o.html;const e=g.firstChild;e.classList.remove('targetable','doomed');
+    e.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:${z||14};pointer-events:none`;host.appendChild(e);return e;};
+  const fx=(css,z)=>{const e=document.createElement('i');e.style.cssText='position:fixed;pointer-events:none;z-index:'+(z||57)+';'+css;host.appendChild(e);return e;};
+  const die=(e,ms)=>setTimeout(()=>e.remove(),ms);
+  const ctr=r=>({x:r.left+r.width/2,y:r.top+r.height/2});
+  if(kind==='J'){
+    // Cleave: a wide axe swing sweeps across the opponent's side and chops each removed card in half
+    {
+      S&&noiseBurst(.34,'bandpass',450,2500,.5);S&&boomLow(0);
+      const je=document.querySelector(pl.side+' .card[data-id="'+pl.c.id+'"]');
+      if(je)je.animate([{transform:'none'},{transform:'translateY(14px) rotate(-8deg)',offset:.3},{transform:'translateY(-10px) rotate(6deg)',offset:.6},{transform:'none'}],{duration:480,easing:'ease-out'});
+      // a short axe swing above each affected card only
+      const arcOver=(r,delay)=>{
+        const W=r.width*1.7,H=W*.55,cx=r.left+r.width/2,top=r.top-H*.55;
+        const arc=fx(`left:${cx-W/2}px;top:${top}px;width:${W}px;height:${H}px;border-top:8px solid #fff;border-radius:50% 50% 0 0/100% 100% 0 0;filter:drop-shadow(0 0 6px #bfe8ff) drop-shadow(0 0 14px #6bb6ff);transform:rotate(-8deg);opacity:0`,58);
+        arc.animate([{clipPath:'inset(0 100% 0 0)',opacity:1},{clipPath:'inset(0 0 0 0)',opacity:1,offset:.55},{clipPath:'inset(0 0 0 100%)',opacity:0}],{duration:360,delay,easing:'cubic-bezier(.3,.1,.3,1)',fill:'both'});die(arc,delay+420);
+      };
+      clones.forEach((k,i)=>arcOver(k.el.getBoundingClientRect(),i*60));
+      // each removed card is chopped straight down the middle as the blade passes it
+      clones.forEach((k,i)=>{
+        const r=k.el.getBoundingClientRect();
+        const t=140;
+        setTimeout(()=>{
+          const A=mk(k.o,14),B2=mk(k.o,14);k.el.remove();
+          A.style.clipPath='inset(0 50% 0 0)';B2.style.clipPath='inset(0 0 0 50%)';
+          const cut=fx(`left:${r.left+r.width/2-1.5}px;top:${r.top-8}px;width:3px;height:${r.height+16}px;background:linear-gradient(#fff0,#fff,#fff0);box-shadow:0 0 12px #fff,0 0 20px #9ad8ff;border-radius:2px`,58);
+          cut.animate([{opacity:1,transform:'scaleY(.2)'},{opacity:1,transform:'scaleY(1)',offset:.3},{opacity:0,transform:'scaleY(1)'}],{duration:380,fill:'forwards'});die(cut,420);
+          const mv=(e,sx,rot)=>e.animate([{transform:'none',opacity:1},{transform:`translate(${sx*.35}px,4px) rotate(${rot*.3}deg)`,opacity:1,offset:.3},{transform:`translate(${sx}px,${46+Math.random()*20}px) rotate(${rot}deg)`,opacity:0,filter:'brightness(.6)'}],{duration:640,delay:80,easing:'ease-in',fill:'both'}).onfinish=()=>e.remove();
+          mv(A,-34,-16);mv(B2,34,16);
+          S&&thud();
+        },t+i*60);
+      });
+    }
+  }else if(kind==='Q'){
+    // a katana slash across each removed card; the halves slide apart
+    {
+      S&&noiseBurst(.28,'bandpass',600,5000,.4);
+      const slashAt=(r)=>{const w=r.width,h=r.height,th=Math.atan2(h,w)*180/Math.PI,L=Math.hypot(w,h)*1.5,c=ctr(r);
+        const st=fx(`left:${c.x-L/2}px;top:${c.y-2}px;width:${L}px;height:4px;transform:rotate(${-th}deg);background:linear-gradient(90deg,#fff0,#fff,#fff0);box-shadow:0 0 12px #fff,0 0 22px #9ad8ff;border-radius:3px;opacity:0`,58);
+        st.animate([{clipPath:'inset(0 100% 0 0)',opacity:1},{clipPath:'inset(0 0 0 0)',opacity:1,offset:.5},{clipPath:'inset(0 0 0 100%)',opacity:0}],{duration:320,easing:'ease-out',fill:'forwards'});die(st,380);};
+      if(!clones.length){const col=document.querySelector((pl.side==='#myField'?'#oppField':'#myField')+' .col[data-suit="'+pl.c.s+'"]');if(col){const r=col.getBoundingClientRect();slashAt({left:r.left+r.width/2-31,top:r.top+r.height/2-44,width:62,height:88});}}
+      clones.forEach((k,i)=>{
+        const r=k.el.getBoundingClientRect();
+        setTimeout(()=>{
+          slashAt(r);
+          const A=mk(k.o,14),B=mk(k.o,14);k.el.remove();
+          A.style.clipPath='polygon(0 0,100% 0,0 100%)';B.style.clipPath='polygon(100% 0,100% 100%,0 100%)';
+          const mv=(e,sx,sy,rot)=>e.animate([{transform:'none',opacity:1},{transform:`translate(${sx*.4}px,${sy*.4}px) rotate(${rot*.3}deg)`,opacity:1,offset:.35},{transform:`translate(${sx}px,${sy}px) rotate(${rot}deg)`,opacity:0,filter:'brightness(.6)'}],{duration:620,delay:120,easing:'ease-in',fill:'both'}).onfinish=()=>e.remove();
+          mv(A,-26,-16,-14);mv(B,26,18,14);
+        },i*140);
+      });
+      S&&thud();
+    }
+  }else{
+    // King: a nuke goes off over both sides of the field
+    {
+      S&&boomLow(0);S&&noiseBurst(.9,'lowpass',2500,80,.8);
+      const flash=fx('inset:0;background:radial-gradient(circle,#fff,#ffd23f 40%,#ff4d1a88 80%);mix-blend-mode:screen',60);
+      flash.animate([{opacity:0},{opacity:.9,offset:.12},{opacity:0}],{duration:520,fill:'forwards'});die(flash,560);
+      const b=S&&$('board');if(b)b.animate([{transform:'none'},{transform:'translate(-12px,6px)'},{transform:'translate(10px,-7px)'},{transform:'translate(-8px,4px)'},{transform:'translate(5px,-3px)'},{transform:'none'}],{duration:620});
+      ['#oppField','#myField'].forEach((sel,si)=>{
+        const f=document.querySelector(sel);if(!f)return;const r=f.getBoundingClientRect(),c=ctr(r);
+        const ring=fx(`left:${c.x-60}px;top:${c.y-60}px;width:120px;height:120px;border-radius:50%;border:6px solid #ffe9a8;box-shadow:0 0 30px #ff8a1a`);
+        ring.animate([{transform:'scale(.1)',opacity:1},{transform:`scale(${r.width/90})`,opacity:0}],{duration:700,easing:'cubic-bezier(.1,.7,.3,1)',fill:'forwards'});die(ring,760);
+        for(let k=0;k<7;k++){
+          const sz=90+Math.random()*130,x=r.left+Math.random()*r.width,y=r.top+Math.random()*r.height;
+          const fb=fx(`left:${x-sz/2}px;top:${y-sz/2}px;width:${sz}px;height:${sz}px;border-radius:50%;background:radial-gradient(circle,#fff 0,#ffd23f 25%,#ff6a1a 50%,#7a1a0a 68%,#0000 75%);filter:blur(2px)`);
+          fb.animate([{transform:'scale(.1)',opacity:0},{transform:'scale(1)',opacity:1,offset:.3},{transform:'scale(1.5)',opacity:0}],{duration:800,delay:k*50+si*60,easing:'ease-out',fill:'both'});die(fb,1100);
+        }
+        for(let k=0;k<26;k++){
+          const a=Math.random()*Math.PI*2,d=80+Math.random()*(r.width/2.4);
+          const em=fx(`left:${c.x}px;top:${c.y}px;width:6px;height:6px;border-radius:50%;background:${k%3?'#ff8a1a':'#ffd23f'};box-shadow:0 0 8px #ff4d1a`);
+          em.animate([{transform:'translate(0,0)',opacity:1},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d*.6-30}px) scale(.3)`,opacity:0}],{duration:800+Math.random()*500,easing:'ease-out',fill:'forwards'});die(em,1400);
+        }
+      });
+      // everything removed is blown away from the centre of its side
+      clones.forEach(k=>{
+        const a=Math.random()*Math.PI*2,d=160+Math.random()*120;
+        k.el.animate([{transform:'none',opacity:1,filter:'none'},{transform:'scale(1.15)',filter:'brightness(2)',opacity:1,offset:.12},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d-40}px) rotate(${(Math.random()-.5)*540}deg) scale(.4)`,opacity:0,filter:'brightness(.3)'}],{duration:760,easing:'cubic-bezier(.2,.7,.4,1)',fill:'forwards'}).onfinish=()=>k.el.remove();
+      });
+    }
+  }
+}
 function faceFx(prev,v,oldCards){
   const handled=new Set();
   if(!prev||prev.you!==v.you||!document.body.animate)return handled;
@@ -2799,83 +2922,7 @@ function faceFx(prev,v,oldCards){
   const crumple=(el,delay)=>el.animate([{transform:'none',opacity:1,filter:'none'},{transform:'translateY(-6px) scale(1.06)',opacity:1,offset:.25},{transform:'translateY(18px) scale(.7) rotate('+(Math.random()*30-15)+'deg)',opacity:0,filter:'brightness(.5)'}],{duration:520,delay,easing:'ease-in',fill:'both'}).onfinish=()=>el.remove();
   const targetsOf=side=>clones.filter(k=>true);
   const kind=efx(pl.c,v);
-  if(kind==='J'){
-    // Cleave: a wide axe swing sweeps across the opponent's side and chops each removed card in half
-    later(()=>{
-      noiseBurst(.34,'bandpass',450,2500,.5);boomLow(0);
-      const je=document.querySelector(pl.side+' .card[data-id="'+pl.c.id+'"]');
-      if(je)je.animate([{transform:'none'},{transform:'translateY(14px) rotate(-8deg)',offset:.3},{transform:'translateY(-10px) rotate(6deg)',offset:.6},{transform:'none'}],{duration:480,easing:'ease-out'});
-      // a short axe swing above each affected card only
-      const arcOver=(r,delay)=>{
-        const W=r.width*1.7,H=W*.55,cx=r.left+r.width/2,top=r.top-H*.55;
-        const arc=fx(`left:${cx-W/2}px;top:${top}px;width:${W}px;height:${H}px;border-top:8px solid #fff;border-radius:50% 50% 0 0/100% 100% 0 0;filter:drop-shadow(0 0 6px #bfe8ff) drop-shadow(0 0 14px #6bb6ff);transform:rotate(-8deg);opacity:0`,58);
-        arc.animate([{clipPath:'inset(0 100% 0 0)',opacity:1},{clipPath:'inset(0 0 0 0)',opacity:1,offset:.55},{clipPath:'inset(0 0 0 100%)',opacity:0}],{duration:360,delay,easing:'cubic-bezier(.3,.1,.3,1)',fill:'both'});die(arc,delay+420);
-      };
-      clones.forEach((k,i)=>arcOver(k.el.getBoundingClientRect(),i*60));
-      // each removed card is chopped straight down the middle as the blade passes it
-      clones.forEach((k,i)=>{
-        const r=k.el.getBoundingClientRect();
-        const t=140;
-        setTimeout(()=>{
-          const A=mk(k.o,14),B2=mk(k.o,14);k.el.remove();
-          A.style.clipPath='inset(0 50% 0 0)';B2.style.clipPath='inset(0 0 0 50%)';
-          const cut=fx(`left:${r.left+r.width/2-1.5}px;top:${r.top-8}px;width:3px;height:${r.height+16}px;background:linear-gradient(#fff0,#fff,#fff0);box-shadow:0 0 12px #fff,0 0 20px #9ad8ff;border-radius:2px`,58);
-          cut.animate([{opacity:1,transform:'scaleY(.2)'},{opacity:1,transform:'scaleY(1)',offset:.3},{opacity:0,transform:'scaleY(1)'}],{duration:380,fill:'forwards'});die(cut,420);
-          const mv=(e,sx,rot)=>e.animate([{transform:'none',opacity:1},{transform:`translate(${sx*.35}px,4px) rotate(${rot*.3}deg)`,opacity:1,offset:.3},{transform:`translate(${sx}px,${46+Math.random()*20}px) rotate(${rot}deg)`,opacity:0,filter:'brightness(.6)'}],{duration:640,delay:80,easing:'ease-in',fill:'both'}).onfinish=()=>e.remove();
-          mv(A,-34,-16);mv(B2,34,16);
-          thud();
-        },t+i*60);
-      });
-    });
-  }else if(kind==='Q'){
-    // a katana slash across each removed card; the halves slide apart
-    later(()=>{
-      noiseBurst(.28,'bandpass',600,5000,.4);
-      const slashAt=(r)=>{const w=r.width,h=r.height,th=Math.atan2(h,w)*180/Math.PI,L=Math.hypot(w,h)*1.5,c=ctr(r);
-        const st=fx(`left:${c.x-L/2}px;top:${c.y-2}px;width:${L}px;height:4px;transform:rotate(${-th}deg);background:linear-gradient(90deg,#fff0,#fff,#fff0);box-shadow:0 0 12px #fff,0 0 22px #9ad8ff;border-radius:3px;opacity:0`,58);
-        st.animate([{clipPath:'inset(0 100% 0 0)',opacity:1},{clipPath:'inset(0 0 0 0)',opacity:1,offset:.5},{clipPath:'inset(0 0 0 100%)',opacity:0}],{duration:320,easing:'ease-out',fill:'forwards'});die(st,380);};
-      if(!clones.length){const col=document.querySelector((pl.side==='#myField'?'#oppField':'#myField')+' .col[data-suit="'+pl.c.s+'"]');if(col){const r=col.getBoundingClientRect();slashAt({left:r.left+r.width/2-31,top:r.top+r.height/2-44,width:62,height:88});}}
-      clones.forEach((k,i)=>{
-        const r=k.el.getBoundingClientRect();
-        setTimeout(()=>{
-          slashAt(r);
-          const A=mk(k.o,14),B=mk(k.o,14);k.el.remove();
-          A.style.clipPath='polygon(0 0,100% 0,0 100%)';B.style.clipPath='polygon(100% 0,100% 100%,0 100%)';
-          const mv=(e,sx,sy,rot)=>e.animate([{transform:'none',opacity:1},{transform:`translate(${sx*.4}px,${sy*.4}px) rotate(${rot*.3}deg)`,opacity:1,offset:.35},{transform:`translate(${sx}px,${sy}px) rotate(${rot}deg)`,opacity:0,filter:'brightness(.6)'}],{duration:620,delay:120,easing:'ease-in',fill:'both'}).onfinish=()=>e.remove();
-          mv(A,-26,-16,-14);mv(B,26,18,14);
-        },i*140);
-      });
-      thud();
-    });
-  }else{
-    // King: a nuke goes off over both sides of the field
-    later(()=>{
-      boomLow(0);noiseBurst(.9,'lowpass',2500,80,.8);
-      const flash=fx('inset:0;background:radial-gradient(circle,#fff,#ffd23f 40%,#ff4d1a88 80%);mix-blend-mode:screen',60);
-      flash.animate([{opacity:0},{opacity:.9,offset:.12},{opacity:0}],{duration:520,fill:'forwards'});die(flash,560);
-      const b=$('board');if(b)b.animate([{transform:'none'},{transform:'translate(-12px,6px)'},{transform:'translate(10px,-7px)'},{transform:'translate(-8px,4px)'},{transform:'translate(5px,-3px)'},{transform:'none'}],{duration:620});
-      ['#oppField','#myField'].forEach((sel,si)=>{
-        const f=document.querySelector(sel);if(!f)return;const r=f.getBoundingClientRect(),c=ctr(r);
-        const ring=fx(`left:${c.x-60}px;top:${c.y-60}px;width:120px;height:120px;border-radius:50%;border:6px solid #ffe9a8;box-shadow:0 0 30px #ff8a1a`);
-        ring.animate([{transform:'scale(.1)',opacity:1},{transform:`scale(${r.width/90})`,opacity:0}],{duration:700,easing:'cubic-bezier(.1,.7,.3,1)',fill:'forwards'});die(ring,760);
-        for(let k=0;k<7;k++){
-          const sz=90+Math.random()*130,x=r.left+Math.random()*r.width,y=r.top+Math.random()*r.height;
-          const fb=fx(`left:${x-sz/2}px;top:${y-sz/2}px;width:${sz}px;height:${sz}px;border-radius:50%;background:radial-gradient(circle,#fff 0,#ffd23f 25%,#ff6a1a 50%,#7a1a0a 68%,#0000 75%);filter:blur(2px)`);
-          fb.animate([{transform:'scale(.1)',opacity:0},{transform:'scale(1)',opacity:1,offset:.3},{transform:'scale(1.5)',opacity:0}],{duration:800,delay:k*50+si*60,easing:'ease-out',fill:'both'});die(fb,1100);
-        }
-        for(let k=0;k<26;k++){
-          const a=Math.random()*Math.PI*2,d=80+Math.random()*(r.width/2.4);
-          const em=fx(`left:${c.x}px;top:${c.y}px;width:6px;height:6px;border-radius:50%;background:${k%3?'#ff8a1a':'#ffd23f'};box-shadow:0 0 8px #ff4d1a`);
-          em.animate([{transform:'translate(0,0)',opacity:1},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d*.6-30}px) scale(.3)`,opacity:0}],{duration:800+Math.random()*500,easing:'ease-out',fill:'forwards'});die(em,1400);
-        }
-      });
-      // everything removed is blown away from the centre of its side
-      clones.forEach(k=>{
-        const a=Math.random()*Math.PI*2,d=160+Math.random()*120;
-        k.el.animate([{transform:'none',opacity:1,filter:'none'},{transform:'scale(1.15)',filter:'brightness(2)',opacity:1,offset:.12},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d-40}px) rotate(${(Math.random()-.5)*540}deg) scale(.4)`,opacity:0,filter:'brightness(.3)'}],{duration:760,easing:'cubic-bezier(.2,.7,.4,1)',fill:'forwards'}).onfinish=()=>k.el.remove();
-      });
-    });
-  }
+  later(()=>removalAnim(kind,pl,clones,null));
   return handled;
 }
 function applyTheme(on){document.documentElement.classList.toggle('theme-crazy',!!on);}
