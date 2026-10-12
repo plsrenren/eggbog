@@ -1,0 +1,579 @@
+const fs=require('fs');
+const html=fs.readFileSync('eggbog.html','utf8');
+const m=html.match(/\/\/ ==ENGINE==([\s\S]*?)\/\/ ==END ENGINE==/);
+const src=m[1]+'\nmodule.exports={newGame,act,viewFor,actor,total,cardVal,mkDeck,startRound,settle,cpuChoose};';
+const mod={exports:{}};new Function('module',src)(mod);
+const {newGame,act,viewFor,actor,total,cardVal,mkDeck}=mod.exports;
+const assert=require('assert');
+let n=0;const t=(name,fn)=>{fn();n++;console.log('ok -',name);};
+const C=(r,s)=>({id:r+s,r,s});
+
+function drawFor(s,who){const e=act(s,who,{t:'draw'});assert.equal(e,null,'draw failed: '+e);}
+function setup(p0hand,p1hand,f0,f1,deck){
+  const s=newGame();
+  s.phase='play';s.turn=0;s.first=false;s.pending=null;
+  s.p[0].hand=p0hand;s.p[1].hand=p1hand;s.p[0].field=f0||[];s.p[1].field=f1||[];
+  s.deck=deck||[C('9','D'),C('8','D'),C('7','D'),C('6','D')];s.discard=[];
+  return s;
+}
+
+t('values',()=>{assert.equal(cardVal(C('A','S')),1);assert.equal(cardVal(C('10','S')),10);
+  for(const r of ['J','Q','K'])assert.equal(cardVal(C(r,'H')),1);});
+
+t('turn ends when strictly greater; tie keeps playing',()=>{
+  const s=setup([C('6','C'),C('7','C')],[C('8','S')],[],[C('6','H')]);
+  assert.equal(act(s,0,{t:'play',id:'6C'}),null);
+  assert.equal(s.turn,0,'tie -> must keep playing');
+  assert.equal(act(s,0,{t:'play',id:'7C'}),null);
+  assert.equal(s.turn,1);
+});
+
+t('cannot play out of turn',()=>{
+  const s=setup([C('5','C')],[C('3','S')]);
+  assert.ok(act(s,1,{t:'play',id:'3S'}));
+});
+
+t('out of cards and not ahead ends game',()=>{
+  const s=setup([C('2','C')],[C('3','S')],[],[C('9','H')]);
+  act(s,0,{t:'play',id:'2C'});
+  assert.equal(s.phase,'over');assert.equal(s.winner,1);assert.equal(s.over,'cards');
+});
+
+t('ace draws',()=>{
+  const s=setup([C('A','C')],[C('3','S')],[],[C('9','H')]);
+  act(s,0,{t:'play',id:'AC'});
+  assert.equal(s.p[0].hand.length,0,'not drawn until the player takes it');
+  assert.equal(s.drawQ.length,1);assert.ok(act(s,1,{t:'draw'}),'opponent cannot take it');
+  assert.ok(act(s,0,{t:'concede'}),'cannot act while a draw is owed');
+  drawFor(s,0);
+  assert.equal(s.p[0].hand.length,1);assert.equal(s.p[0].hand[0].id,'6D');
+});
+
+t('Jack cleaves: top card of its suit and of the other suit of the same colour',()=>{
+  const s=setup([C('J','H')],[C('3','S')],[],[C('2','H'),C('6','H'),C('7','D'),C('9','D'),C('8','S'),C('5','C')]);
+  act(s,0,{t:'play',id:'JH'});
+  const ids=s.p[1].field.map(c=>c.id).sort().join();
+  assert.equal(ids,['2H','7D','8S','5C'].sort().join(),'top heart and top diamond removed, black cards untouched');
+  const s2=setup([C('J','C')],[C('3','S')],[],[C('2','C'),C('8','S'),C('6','S'),C('9','H')]);
+  act(s2,0,{t:'play',id:'JC'});
+  assert.equal(s2.p[1].field.map(c=>c.id).sort().join(),['8S','9H'].sort().join(),'the club and the top spade (6S) are gone');
+});
+t('deathrattle on removal by Jack',()=>{
+  const s=setup([C('J','S')],[C('3','S')],[],[C('2','S'),C('9','H')]);
+  act(s,0,{t:'play',id:'JS'});
+  assert.equal(s.p[1].field.some(c=>c.id==='2S'),false);
+  assert.equal(s.drawQ.length,1);assert.equal(s.drawQ[0].who,1);drawFor(s,1);
+  assert.equal(s.p[1].hand.length,2,'owner drew');
+});
+
+t('jack removes the top card of the suit; a Sturdy 4 on top blocks it',()=>{
+  const s=setup([C('J','S')],[],[],[C('2','S'),C('7','S'),C('4','S')]);
+  assert.equal(act(s,0,{t:'play',id:'JS'}),null);
+  assert.equal(s.pending,null);
+  assert.deepEqual(s.p[1].field.map(c=>c.id),['2S','7S','4S'],'the Sturdy 4 on top blocks the Cleave for spades');
+  const s2=setup([C('J','S')],[],[],[C('2','S'),C('4','S'),C('7','S')]);
+  act(s2,0,{t:'play',id:'JS'});
+  assert.deepEqual(s2.p[1].field.map(c=>c.id),['2S','4S'],'a Sturdy 4 under the top card does not block it');
+});
+
+t('queen purges all of suit but not 4',()=>{
+  const s=setup([C('Q','H')],[],[],[C('2','H'),C('7','H'),C('4','H'),C('9','S')]);
+  act(s,0,{t:'play',id:'QH'});
+  assert.deepEqual(s.p[1].field.map(c=>c.id).sort(),['4H','9S']);
+  drawFor(s,1);assert.equal(s.p[1].hand.length,1,'deathrattle drew');
+});
+
+t('king wipes both sides except king and 4s',()=>{
+  const s=setup([C('K','C'),C('5','D')],[],[C('2','C'),C('8','C')],[C('4','D'),C('9','S'),C('2','H')]);
+  act(s,0,{t:'play',id:'KC'});
+  assert.deepEqual(s.p[0].field.map(c=>c.id),['KC']);
+  assert.deepEqual(s.p[1].field.map(c=>c.id),['4D']);
+  assert.equal(s.drawQ.length,2);drawFor(s,0);drawFor(s,1);
+  assert.equal(s.p[0].hand.length,2,'my 2 deathrattled (5D + draw)');
+  assert.equal(s.p[1].hand.length,1);
+});
+
+t('sturdy 4 survives purge/removal',()=>{
+  const s=setup([C('Q','S')],[],[],[C('4','S')]);
+  act(s,0,{t:'play',id:'QS'});
+  assert.equal(s.p[1].field.length,1);
+});
+
+t('swap with matching suit exchanges most recent of that suit',()=>{
+  const s=setup([C('5','H'),C('9','C')],[],[],[C('3','H'),C('8','H'),C('9','S')]);
+  act(s,0,{t:'play',id:'5H'});
+  assert.ok(s.p[0].field.some(c=>c.id==='8H'));assert.ok(!s.p[1].field.some(c=>c.id==='8H'));
+  assert.ok(s.p[1].field.some(c=>c.id==='5H'));assert.ok(!s.p[0].field.some(c=>c.id==='5H'));
+});
+
+t('swap with no match gifts the 5',()=>{
+  const s=setup([C('5','H'),C('9','C')],[],[],[C('9','S')]);
+  act(s,0,{t:'play',id:'5H'});
+  assert.equal(s.p[0].field.length,0);assert.equal(s.p[1].field.length,2);
+});
+
+t('discover: you keep one, a random other goes to the opponent, the last burns',()=>{
+  for(let g=0;g<30;g++){
+    const s=setup([C('3','C')],[C('2','S')],[],[C('9','H')]);
+    act(s,0,{t:'play',id:'3C'});
+    assert.equal(s.pending.t,'discover');assert.equal(s.pending.chooser,0,'the player who played it chooses');
+    assert.ok(act(s,0,{t:'pick',id:'6D'}),'cannot pick before opening');
+    assert.ok(act(s,1,{t:'draw'}),'the opponent cannot open it');
+    drawFor(s,0);assert.equal(s.pending.opts.length,3,'all three turn up at once');
+    assert.ok(act(s,0,{t:'draw'}),'only once');
+    assert.equal(viewFor(s,1).pending.opts,undefined,'the opponent cannot see the options');
+    assert.equal(viewFor(s,0).pending.opts.length,3);
+    assert.ok(act(s,1,{t:'pick',id:'6D'}),'only the chooser picks');
+    const ids=s.pending.opts.map(c=>c.id),keep=ids[g%3];
+    assert.equal(act(s,0,{t:'pick',id:keep}),null);
+    assert.equal(s.p[0].hand.some(c=>c.id===keep),true,'kept card is mine');
+    assert.equal(s.p[0].hand.length,1,'3C played, one kept');
+    assert.equal(s.p[1].hand.length,2,'the opponent received one');
+    const gift=s.p[1].hand.find(c=>ids.includes(c.id));assert.ok(gift&&gift.id!==keep,'the gift is one of the other two');
+    assert.equal(s.discard.length,1);assert.ok(ids.includes(s.discard[0].id)&&s.discard[0].id!==keep&&s.discard[0].id!==gift.id,'the last one burned');
+    assert.equal(viewFor(s,1).discover.kept,null,'the opponent does not see what was kept');
+    assert.equal(viewFor(s,0).discover.kept.id,keep);assert.equal(viewFor(s,1).discover.gift.id,gift.id);
+  }
+});
+
+t('empty deck: draw does nothing',()=>{
+  const s=setup([C('A','C')],[C('3','S')],[],[C('9','H')],[]);
+  act(s,0,{t:'play',id:'AC'});
+  assert.equal(s.p[0].hand.length,0);
+});
+
+t('concede -> loser chooses starter; fields cleared; only one concede per player',()=>{
+  const s=setup([C('2','C'),C('3','C')],[C('3','S'),C('4','S')],[C('5','C')],[C('9','H')]);
+  assert.equal(act(s,0,{t:'concede'}),null);
+  assert.equal(s.p[1].wins,1);assert.equal(s.phase,'choose');assert.equal(s.chooser,0);
+  assert.equal(s.p[0].field.length+s.p[1].field.length,0);
+  assert.equal(act(s,0,{t:'choose',who:1}),null);assert.equal(s.turn,1);assert.equal(s.phase,'play');
+  s.p[1].hand.push(C('7','S'));
+  assert.equal(act(s,1,{t:'play',id:'7S'}),null);
+  assert.ok(act(s,0,{t:'concede'}),'a second concede is refused');
+  assert.equal(s.phase,'play');assert.equal(s.p[1].wins,1);
+  assert.equal(viewFor(s,0).me.conceded,true);assert.equal(viewFor(s,1).me.conceded,false);
+  for(const lvl of ['easy','normal','hard','expert'])for(let k=0;k<30;k++)assert.notEqual(mod.exports.cpuChoose(s,0,lvl).t,'concede',lvl+' conceded twice');
+});
+
+t('mulligan then round 1 start: lowest card decides who goes first, and both cards go to hand',()=>{
+  const s=newGame();
+  assert.equal(s.p[0].hand.length,10);
+  act(s,0,{t:'mulligan',ids:s.p[0].hand.slice(0,5).map(c=>c.id)});
+  assert.ok(act(s,0,{t:'mulligan',ids:[]}),'cannot mulligan twice');
+  assert.equal(s.p[0].hand.length,10);
+  act(s,1,{t:'mulligan',ids:[]});
+  assert.equal(s.phase,'start');assert.equal(s.drawQ.length,2);
+  assert.ok(act(s,0,{t:'play',id:s.p[0].hand[0].id}));
+  drawFor(s,0);assert.equal(s.phase,'start');assert.ok(viewFor(s,0).startMe);assert.equal(viewFor(s,1).startMe,null);
+  drawFor(s,1);
+  assert.equal(s.phase,'play');
+  assert.equal(s.startCards[0]||s.startCards[1],null,'start cards resolved');
+  assert.equal(s.p[0].field.length+s.p[1].field.length,0,'nothing is auto-played');
+  assert.equal(s.p[0].hand.length,11);assert.equal(s.p[1].hand.length,11,'both drawn cards went to hand');
+  assert.ok(s.turn===0||s.turn===1);assert.equal(s.startReveal.starter,s.turn);
+});
+
+t('mulligan max 5',()=>{
+  const s=newGame();assert.ok(act(s,0,{t:'mulligan',ids:s.p[0].hand.slice(0,6).map(c=>c.id)}));
+});
+
+// random full-game simulations
+function zones(s){
+  const ids=[];
+  s.deck.forEach(c=>ids.push(c.id));s.discard.forEach(c=>ids.push(c.id));
+  for(const p of s.p){p.hand.forEach(c=>ids.push(c.id));p.field.forEach(c=>ids.push(c.id));}
+  if(s.pending&&s.pending.t==='discover')s.pending.opts.forEach(c=>ids.push(c.id));
+  s.startCards.forEach(c=>{if(c)ids.push(c.id);});
+  (s.jokerQ||[]).forEach(e=>ids.push(e.c.id));
+  return ids;
+}
+t('2000 random games: terminate, conserve 52 unique cards',()=>{
+  let over=0,byCards=0,byRounds=0;
+  for(let g=0;g<2000;g++){
+    const s=newGame();let steps=0;
+    while(s.phase!=='over'){
+      if(++steps>4000)throw new Error('did not terminate');
+      const who=actor(s);let a;
+      if(s.phase==='mulligan'){const h=s.p[who].hand;const k=Math.floor(Math.random()*6);a={t:'mulligan',ids:h.slice(0,k).map(c=>c.id)};}
+      else if(s.drawQ.length||(s.pending&&s.pending.t==='discover'&&!s.pending.opts.length&&s.deck.length))a={t:'draw'};
+      else if(s.phase==='choose')a={t:'choose',who:Math.random()<.5?0:1};
+      else if(s.pending){const o=s.pending.opts;const x=o[Math.floor(Math.random()*o.length)];a={t:'pick',id:typeof x==='string'?x:x.id};}
+      else{const h=s.p[who].hand;if(s.round<3&&!s.p[who].conceded&&(h.length===0||Math.random()<.04))a={t:'concede'};else a={t:'play',id:h[Math.floor(Math.random()*h.length)].id};}
+      const err=act(s,who,a);
+      if(err)throw new Error('unexpected error '+err+' '+JSON.stringify(a)+' phase '+s.phase);
+      const ids=zones(s);
+      if(ids.length!==52||new Set(ids).size!==52)throw new Error('card conservation broken: '+ids.length);
+    }
+    over++;if(s.over==='cards')byCards++;else byRounds++;
+  }
+  console.log('   finished',over,'games; ended by cards:',byCards,'by rounds:',byRounds);
+});
+t('2000 computer-vs-computer games (all three levels): policy never makes an illegal move',()=>{
+  const {cpuChoose}=mod.exports;let over=0;
+  for(let g=0;g<2000;g++){
+    const s=newGame();let steps=0;
+    while(s.phase!=='over'){
+      if(++steps>4000)throw new Error('did not terminate');
+      const who=actor(s);
+      // the CPU needs to act whenever the engine is waiting on this seat (mulligan is simultaneous)
+      const err=act(s,who,cpuChoose(s,who,['easy','normal','hard'][g%3]));
+      if(err)throw new Error('CPU illegal move: '+err+' phase '+s.phase+' level '+['easy','normal','hard'][g%3]);
+    }
+    over++;
+  }
+  console.log('   finished',over,'CPU games');
+});
+t('Expert computer: 25 full games, never an illegal move (fast settings)',()=>{
+  const {cpuChoose}=mod.exports;
+  for(let g=0;g<25;g++){
+    const s=newGame();let steps=0;
+    while(s.phase!=='over'){
+      if(++steps>4000)throw new Error('did not terminate');
+      const who=actor(s);
+      const err=act(s,who,cpuChoose(s,who,g%2?'expert':'hard'));
+      if(err)throw new Error('expert illegal: '+err+' phase '+s.phase);
+    }
+  }
+});
+t('Crazy mode: every rank has an effect, and the deck reshuffles discards when drawn out',()=>{
+  const {cpuChoose}=mod.exports;
+  let reshuf=0,seenKinds=new Set();
+  for(let g=0;g<600;g++){
+    const s=newGame(null,{crazy:true});
+    const all0=s.deck.concat(s.p[0].hand,s.p[1].hand);
+    if(new Set(all0.map(c=>c.f)).size<5)throw new Error('effects not random enough');
+    const aces=new Set(all0.filter(c=>c.r==='A').map(c=>c.f));if(g===0)seenKinds.add(aces.size);
+    if(s.deck.some(c=>!c.f))throw new Error('card without an effect');
+    const v=viewFor(s,0);if(!v.crazy)throw new Error('view lacks crazy info');
+    let steps=0;const total0=54;
+    while(s.phase!=='over'){
+      if(++steps>6000)throw new Error('crazy game did not terminate');
+      const who=actor(s);
+      const err=act(s,who,cpuChoose(s,who,['easy','normal','hard'][g%3]));
+      if(err)throw new Error('crazy illegal: '+err+' '+s.phase);
+      const all=s.deck.length+s.discard.length+s.p[0].hand.length+s.p[1].hand.length+s.p[0].field.length+s.p[1].field.length+s.drawQ.length*0+((s.pending&&s.pending.opts)?s.pending.opts.length:0)+(s.startCards[0]?1:0)+(s.startCards[1]?1:0);
+      if(all>total0)throw new Error('cards duplicated: '+all);
+    }
+    reshuf+=s.reshuffles;
+  }
+  let varied=0;for(let g=0;g<200;g++){const s=newGame(null,{crazy:true});if(new Set(s.deck.concat(s.p[0].hand,s.p[1].hand).filter(c=>c.r==='A').map(c=>c.f)).size>1)varied++;}
+  if(varied<190)throw new Error('aces do not differ between cards');
+  if(!reshuf)throw new Error('deck never reshuffled in 600 crazy games');
+  console.log('   reshuffles seen:',reshuf);
+});
+t('Normal mode never reshuffles and keeps the standard effects',()=>{
+  const s=newGame();if(s.crazy||s.fm)throw new Error('should not be crazy');
+  const m={};for(const c of s.deck.concat(s.p[0].hand,s.p[1].hand))m[c.r]=c.f;
+  if(m['7']!==''||m.K!=='K'||m['4']!=='4'||s.fm)throw new Error('wrong default effects');
+});
+const X=(r,s,f)=>({id:r+s,r,s,f});
+t('Mirror copies the previous card\'s effect (Removal, then Draw), and nothing when there is none',()=>{
+  // Jack-effect card played first, then a Mirror of the same suit removes the next same-suit card
+  const s=setup([X('7','S','J'),X('9','S','M')],[C('3','C')],[],[C('5','S'),C('6','S'),C('10','H'),C('10','D')]);
+  s.crazy=true;
+  act(s,0,{t:'play',id:'7S'});assert.equal(s.p[1].field.length,3,'first removal');
+  act(s,0,{t:'play',id:'9S'});assert.equal(s.p[1].field.length,2,'mirror removed the next card');
+  const s2=setup([X('9','S','M')],[C('3','C')],[],[C('5','S')]);
+  act(s2,0,{t:'play',id:'9S'});assert.equal(s2.p[1].field.length,1,'nothing to copy');
+  const s3=setup([X('4','H','A'),X('9','S','M')],[C('3','C')],[],[C('9','D')]);
+  act(s3,0,{t:'play',id:'4H'});drawFor(s3,0);
+  act(s3,0,{t:'play',id:'9S'});assert.equal(s3.drawQ.length,1,'mirror copied Draw');
+});
+t('Steal: the opponent chooses which card to give',()=>{
+  const s=setup([X('4','S','T')],[C('2','C'),C('9','H')],[],[C('8','D')]);
+  act(s,0,{t:'play',id:'4S'});
+  assert.equal(s.pending.t,'steal');assert.equal(actor(s),1);
+  assert.ok(act(s,0,{t:'pick',id:'2C'}),'the thief cannot choose');
+  assert.ok(act(s,1,{t:'pick',id:'NOPE'}),'must be a card in hand');
+  const v1=viewFor(s,1);assert.equal(v1.pending.opts.length,2);
+  assert.equal(act(s,1,{t:'pick',id:'9H'}),null);
+  assert.equal(s.p[0].hand.some(c=>c.id==='9H'),true);assert.equal(s.p[1].hand.length,1);assert.equal(s.pending,null);
+  const s2=setup([X('4','S','T')],[],[],[C('8','D')]);
+  act(s2,0,{t:'play',id:'4S'});assert.equal(s2.pending,null,'no cards to steal');
+});
+t('Last stand: each one on the field draws two cards on concede',()=>{
+  const s=setup([C('2','C')],[C('3','S')],[X('5','H','L'),X('6','D','L')],[C('9','H')],[C('9','H'),C('8','H'),C('7','H'),C('6','H'),C('5','H')]);
+  s.crazy=true;
+  assert.equal(act(s,0,{t:'concede'}),null);
+  assert.equal(s.drawQ.length,4);assert.ok(s.drawQ.every(e=>e.who===0&&e.reason==='laststand'));
+  assert.ok(act(s,0,{t:'choose',who:0}),'must draw before choosing');
+  drawFor(s,0);drawFor(s,0);drawFor(s,0);drawFor(s,0);assert.equal(s.p[0].hand.length,5);
+  const s1=setup([C('2','C')],[C('3','S')],[X('5','H','L'),X('6','D','L')],[C('9','H')],[C('7','H')]);
+  s1.crazy=true;act(s1,0,{t:'concede'});assert.equal(s1.drawQ.length,1,'deck of one card: only one draw queued');
+  assert.equal(act(s,0,{t:'choose',who:1}),null);
+  const s2=setup([C('2','C')],[C('3','S')],[C('5','H')],[C('9','H')]);
+  act(s2,0,{t:'concede'});assert.equal(s2.drawQ.length,0,'no Last stand, no draw');
+});
+t('Greed: while on your field, draw a card whenever the turn passes to you',()=>{
+  const s=setup([C('6','C')],[C('10','S'),C('3','H')],[X('4','S','G')],[C('2','D')],[C('9','D'),C('8','D'),C('7','D'),C('6','D'),C('5','D')]);
+  assert.equal(act(s,0,{t:'play',id:'6C'}),null);
+  assert.equal(s.turn,1);assert.equal(s.drawQ.length,0,'the turn passed to the opponent, who has no Greed');
+  assert.equal(act(s,1,{t:'play',id:'10S'}),null);
+  assert.equal(s.turn,0);assert.equal(s.drawQ.length,1);assert.ok(s.drawQ.every(e=>e.who===0&&e.reason==='greedturn'));
+  const h0=s.p[0].hand.length;assert.equal(act(s,0,{t:'draw'}),null);
+  assert.equal(s.p[0].hand.length,h0+1,'drew exactly one card, no burn');assert.equal(s.discard.length,0);
+});
+t('Greed: nothing on play, two Greeds draw two, none once removed',()=>{
+  const s=setup([X('4','S','G'),C('2','C')],[C('2','D')],[],[C('8','D')],[C('9','D'),C('8','D'),C('7','D'),C('6','D'),C('5','D')]);
+  act(s,0,{t:'play',id:'4S'});assert.equal(s.drawQ.length,0,'playing Greed draws nothing');
+  const g=setup([C('6','C')],[C('10','S')],[X('2','S','G'),X('3','H','G')],[C('2','D')],[C('9','D'),C('8','D'),C('7','D'),C('6','D'),C('5','D')]);
+  act(g,0,{t:'play',id:'6C'});act(g,1,{t:'play',id:'10S'});
+  assert.equal(g.drawQ.filter(e=>e.who===0).length,2,'each Greed on the field draws');
+  const r=setup([C('6','C')],[C('10','S')],[],[C('2','D')],[C('9','D'),C('8','D')]);
+  act(r,0,{t:'play',id:'6C'});act(r,1,{t:'play',id:'10S'});assert.equal(r.drawQ.length,0,'no Greed on the field, no draw');
+});
+t('the four extra effects exist only in Crazy mode',()=>{
+  const n=newGame();const kinds=new Set(n.deck.concat(n.p[0].hand,n.p[1].hand).map(c=>c.f));
+  for(const k of ['M','T','L','G'])assert.ok(!kinds.has(k),k+' in a normal game');
+  const seen=new Set();for(let g=0;g<40;g++){const c=newGame(null,{crazy:true});c.deck.concat(c.p[0].hand,c.p[1].hand).forEach(x=>seen.add(x.f));}
+  for(const k of ['M','T','L','G'])assert.ok(seen.has(k),k+' never appears in crazy games');
+});
+t('Mirror becomes the copied effect on the field (passives too) and turns back when it leaves',()=>{
+  // copy Sturdy: cannot be removed by a Jack afterwards
+  const s=setup([X('9','S','4'),X('7','H','M')],[X('3','H','J'),C('2','D')],[],[C('10','D'),C('10','C'),C('10','S')]);
+  s.turn=0;act(s,0,{t:'play',id:'9S'});act(s,0,{t:'play',id:'7H'});
+  const m=s.p[0].field.find(c=>c.id==='7H');assert.equal(m.f,'4','mirror became Sturdy');assert.equal(m.was,'M');
+  s.turn=1;s.p[1].field=[C('8','D')];s.p[0].field=s.p[0].field.concat([C('9','D'),C('9','C')]);act(s,1,{t:'play',id:'3H'});
+  assert.ok(s.p[0].field.some(c=>c.id==='7H'),'a Sturdy mirror survives a Jack of its suit');
+  // copy Deathrattle: owner draws when it is removed; it is a Mirror again in the discard pile
+  const s2=setup([X('4','H','2'),X('6','S','M'),C('2','C')],[X('3','S','J')],[],[C('10','D'),C('10','C'),C('10','H')]);
+  act(s2,0,{t:'play',id:'4H'});act(s2,0,{t:'play',id:'6S'});
+  assert.equal(s2.p[0].field.find(c=>c.id==='6S').f,'2');
+  s2.turn=1;act(s2,1,{t:'play',id:'3S'});
+  assert.equal(s2.drawQ.length,1,'deathrattle from a mirrored card');assert.equal(s2.drawQ[0].who,0);
+  const d=s2.discard.find(c=>c.id==='6S');assert.equal(d.f,'M');assert.equal(d.was,undefined);
+  // round end also resets
+  const s3=setup([X('4','H','L'),X('6','S','M'),C('2','C')],[C('3','S')],[],[C('10','D'),C('10','C'),C('10','H')]);
+  act(s3,0,{t:'play',id:'4H'});act(s3,0,{t:'play',id:'6S'});act(s3,0,{t:'concede'});
+  assert.equal(s3.discard.find(c=>c.id==='6S').f,'M');
+});
+t('Effect settings: switched-off effects disappear in both modes',()=>{
+  const s=newGame(null,{crazy:false,fx:['A','3','5','Q','K','2','4']});   // Jack off
+  const all=s.deck.concat(s.p[0].hand,s.p[1].hand);
+  assert.ok(all.filter(c=>c.r==='J').every(c=>c.f===''),'jacks are plain');
+  assert.ok(all.filter(c=>c.r==='K').every(c=>c.f==='K'),'kings keep their effect');
+  const j=setup([X('J','S',''),C('3','C')],[C('3','S')],[],[C('2','S'),C('9','H')]);
+  act(j,0,{t:'play',id:'JS'});assert.ok(j.p[1].field.some(c=>c.id==='2S'),'a plain Jack removes nothing');
+  const c=newGame(null,{crazy:true,fx:['A','G']});
+  const ca=c.deck.concat(c.p[0].hand,c.p[1].hand).filter(x=>x.r!=='JK');
+  assert.ok(ca.every(x=>x.f==='A'||x.f==='G'),'only enabled crazy effects');
+  assert.ok(ca.some(x=>x.f==='A')&&ca.some(x=>x.f==='G'));
+  assert.deepEqual(viewFor(c,0).fxOn,['A','G']);
+  const d=newGame(null,{crazy:true,fx:['Z']});assert.ok(d.deck.every(x=>x.f),'bad settings fall back to a full pool');
+  const n0=newGame(null,{});assert.equal(n0.deck.concat(n0.p[0].hand,n0.p[1].hand).filter(x=>x.f).length,32);
+  // rematch-style: settings travel with the state
+  assert.deepEqual(newGame(null,{crazy:false,fx:c.fx}).fx,c.fx.filter(k=>['A','2','3','4','5','J','Q','K'].includes(k)));
+});
+
+const J=id=>({id,r:'JK',s:'*',f:'X'});
+t('Joker: crazy only, 2 in the deck, worth 1, needs a suit',()=>{
+  const n=newGame();assert.equal(n.deck.concat(n.p[0].hand,n.p[1].hand).length,52);
+  const c=newGame(null,{crazy:true}),all=c.deck.concat(c.p[0].hand,c.p[1].hand);
+  assert.equal(all.length,54);assert.equal(all.filter(x=>x.r==='JK').length,2);
+  assert.equal(cardVal({r:'JK',s:'*'}),1);
+  const s=setup([J('JK1'),X('3','C','')],[X('3','S','')],[],[X('2','H','')]);
+  assert.ok(act(s,0,{t:'play',id:'JK1'}),'needs a suit');assert.ok(act(s,0,{t:'play',id:'JK1',suit:'Z'}));
+});
+t('Joker: draws 5, 3 highest to the player, 2 lowest to the opponent',()=>{
+  const deck=[X('2','C',''),X('5','H',''),X('3','S',''),X('8','S',''),X('7','C',''),X('9','D','')];   // pop order from the end
+  const s=setup([J('JK1'),X('3','C','')],[X('3','S','')],[],[],deck);s.crazy=true;
+  assert.equal(act(s,0,{t:'play',id:'JK1',suit:'H'}),null);
+  const mine=s.p[0].field.map(c=>c.id),theirs=s.p[1].field.map(c=>c.id);
+  assert.deepEqual(mine.filter(i=>i!=='JK1').sort(),['7C','8S','9D'].sort(),'highest three');
+  assert.deepEqual(theirs.sort(),['3S','5H'].sort(),'lowest two');
+  assert.ok(!s.p[0].field.some(c=>c.id==='JK1'),'the Joker burns up');assert.ok(s.discard.concat(s.deck).some(c=>c.id==='JK1'&&c.s==='*'),'back in the discard pile or reshuffled, wild again');
+  assert.equal(total(s,0),7+8+9);assert.equal(total(s,1),3+5);
+  assert.equal(s.turn,1,'turn passes once ahead');
+  const v=viewFor(s,1);assert.equal(v.joker.hi.length,3);assert.equal(v.joker.lo.length,2);
+  assert.notEqual(s.lastFx,'X','Joker is not copied by Mirror');
+});
+t('Joker: fewer than five cards, shuffle in discards, other joker goes to hand',()=>{
+  const s=setup([J('JK1'),X('3','C','')],[X('3','S','')],[],[],[X('9','D',''),X('4','C','')]);s.crazy=true;
+  act(s,0,{t:'play',id:'JK1',suit:'C'});
+  assert.ok(s.p[0].field.some(c=>c.id==='9D')&&s.p[0].field.length===2&&s.p[1].field.length===0,'only two cards: both to the player');
+  const s2=setup([J('JK1'),X('3','C','')],[X('3','S','')],[],[],[X('9','D',''),X('2','C',''),X('5','H',''),X('3','S',''),X('8','S',''),X('7','C',''),X('6','D',''),J('JK2')]);s2.crazy=true;
+  act(s2,0,{t:'play',id:'JK1',suit:'S'});
+  assert.ok(s2.p[0].hand.some(c=>c.id==='JK2'),'second joker goes to the hand');
+  assert.equal(s2.p[0].field.length+s2.p[1].field.length,5);
+  const s3=setup([J('JK1'),X('3','C','')],[X('3','S','')],[],[],[]);s3.crazy=true;s3.discard=[Object.assign(J('JK2'),{s:'D'}),X('9','D',''),X('2','C',''),X('5','H',''),X('3','S',''),X('8','S',''),X('7','C','')];
+  act(s3,0,{t:'play',id:'JK1',suit:'S'});
+  assert.ok(s3.reshuffles>=1);assert.ok(s3.p[0].hand.concat(s3.deck).find(c=>c.id==='JK2').s==='*','joker suit reset after reshuffle');
+});
+t('Joker: 400 random crazy games conserve 54 cards (players choose a suit)',()=>{
+  for(let g=0;g<400;g++){
+    const s=newGame(null,{crazy:true});let steps=0;
+    while(s.phase!=='over'){
+      if(++steps>6000)throw new Error('did not terminate');
+      const who=actor(s);let a;
+      if(s.phase==='mulligan')a={t:'mulligan',ids:Math.random()<.5?s.p[who].hand.map(c=>c.id):[]};
+      else if(s.drawQ.length||(s.pending&&s.pending.t==='discover'&&!s.pending.opts.length&&s.deck.length))a={t:'draw'};
+      else if(s.phase==='choose')a={t:'choose',who:Math.random()<.5?0:1};
+      else if(s.pending){const o=s.pending.t==='steal'?s.p[who].hand:s.pending.opts;const x=o[Math.floor(Math.random()*o.length)];a={t:'pick',id:typeof x==='string'?x:x.id};}
+      else{const h=s.p[who].hand;if(s.round<3&&!s.p[who].conceded&&(h.length===0||Math.random()<.04))a={t:'concede'};else{const c=h[Math.floor(Math.random()*h.length)];a={t:'play',id:c.id};if(c.r==='JK')a.suit='CSHD'[Math.floor(Math.random()*4)];}}
+      const err=act(s,who,a);
+      if(err)throw new Error('unexpected error '+err+' '+JSON.stringify(a));
+      const ids=zones(s);
+      if(ids.length!==54||new Set(ids).size!==54)throw new Error('conservation broken: '+ids.length);
+    }
+  }
+});
+
+t('Joker: cards are played one at a time and their effects trigger',()=>{
+  const mk=paced=>{const deck=[X('2','C',''),X('5','H',''),X('3','S',''),X('8','S',''),X('7','C',''),X('6','D',''),X('4','D',''),X('9','D','A')];
+    const s=setup([J('JK1'),X('3','C','')],[X('3','S','')],[],[],deck);s.crazy=true;s.paced=paced;return s;};
+  // paced: nothing happens until the client steps
+  const s=mk(true);act(s,0,{t:'play',id:'JK1',suit:'H'});
+  assert.equal(s.jokerQ.length,5);assert.equal(s.p[0].field.length,0);assert.ok(act(s,0,{t:'concede'}),'busy while the Jokers play out');
+  assert.equal(act(s,0,{t:'jstep'}),null);assert.equal(s.p[0].field.length,1);assert.equal(s.jokerQ.length,4);
+  assert.equal(s.drawQ.length,1,'Draw from the first card (a 9 with Draw)');
+  assert.ok(act(s,0,{t:'jstep'}),'cannot step while a draw is owed');
+  const before=s.deck.length;act(s,0,{t:'draw'});assert.equal(s.deck.length,before-1);
+  while(s.jokerQ.length)assert.equal(act(s,0,{t:'jstep'}),null);
+  assert.equal(s.p[0].field.length+s.p[1].field.length,5);
+  // unpaced: the same thing runs straight through (after the draw is taken)
+  const u=mk(false);act(u,0,{t:'play',id:'JK1',suit:'H'});
+  assert.equal(u.jokerQ.length,4,'stops at the Draw');act(u,0,{t:'draw'});
+  assert.equal(u.jokerQ.length,0);assert.equal(u.p[0].field.length+u.p[1].field.length,5);
+  // a King among the cards wipes what was played before it
+  const k=setup([J('JK1'),X('3','C','')],[X('3','S','')],[],[],[X('2','D',''),X('3','D',''),X('4','D',''),X('2','C',''),X('3','C',''),X('9','S','K')]);k.crazy=true;
+  act(k,0,{t:'play',id:'JK1',suit:'D'});
+  assert.deepEqual(k.p[0].field.map(c=>c.id),['9S','4D','3D'],'King played first; the later cards land after it');
+});
+
+t('Steal: the thief burns a random card from their own hand (never the stolen one)',()=>{
+  for(let g=0;g<60;g++){
+    const s=setup([X('4','S','T'),C('2','H'),C('3','H'),C('5','H')],[C('2','C'),C('9','D')],[],[C('8','D')]);
+    act(s,0,{t:'play',id:'4S'});
+    assert.equal(act(s,1,{t:'pick',id:'9D'}),null);
+    assert.equal(s.p[0].hand.length,3,'+1 stolen, -1 burned');
+    assert.ok(s.p[0].hand.some(c=>c.id==='9D'),'the stolen card is kept');
+    assert.equal(s.discard.length,1);assert.ok(['2H','3H','5H'].includes(s.discard[0].id));
+    assert.equal(s.burn.who,0);assert.equal(s.burn.cards.length,1);
+  }
+  const s2=setup([X('4','S','T')],[C('2','C'),C('9','D')],[],[C('8','D')]);
+  act(s2,0,{t:'play',id:'4S'});act(s2,1,{t:'pick',id:'2C'});
+  assert.equal(s2.p[0].hand.length,1,'with nothing else in hand there is nothing to burn');
+});
+t('Joker: cards are played in turns, starting with the Joker owner (highest cards for the owner)',()=>{
+  const deck=[X('2','C',''),X('3','S',''),X('4','H',''),X('7','C',''),X('8','S',''),X('9','D','')];
+  const s=setup([J('JK1'),X('3','C','')],[X('3','S','')],[],[],deck);s.crazy=true;s.paced=true;
+  act(s,0,{t:'play',id:'JK1',suit:'H'});
+  assert.deepEqual(s.jokerQ.map(e=>e.who),[0,1,0,1,0],'alternating, owner first (3 for the owner, 2 for the opponent)');
+  assert.deepEqual(s.jokerQ.filter(e=>e.who===0).map(e=>e.c.id),['9D','8S','7C'],'the owner gets the highest three');
+  assert.deepEqual(s.jokerQ.filter(e=>e.who===1).map(e=>e.c.id).sort(),['3S','4H']);
+  act(s,0,{t:'jstep'});assert.equal(s.p[0].field.length,1);assert.equal(s.p[1].field.length,0);
+  act(s,0,{t:'jstep'});assert.equal(s.p[1].field.length,1);
+  const o=setup([X('3','C','')],[J('JK2'),X('3','S','')],[],[],[X('2','C',''),X('3','S',''),X('4','H',''),X('7','C',''),X('8','S',''),X('9','D','')]);o.crazy=true;o.paced=true;o.turn=1;
+  act(o,1,{t:'play',id:'JK2',suit:'S'});assert.equal(o.jokerQ[0].who,1,'the opponent as Joker owner goes first');
+});
+
+t('Last stand also works when the opponent concedes',()=>{
+  const mk=()=>{const s=setup([C('2','C')],[C('3','S')],[X('5','H','L')],[C('9','H')],[C('9','H'),C('8','H'),C('7','H')]);s.crazy=true;s.turn=1;return s;};
+  const s=mk();assert.equal(act(s,1,{t:'concede'}),null);
+  assert.equal(s.drawQ.length,2);assert.equal(s.drawQ[0].who,0);assert.equal(s.drawQ[0].reason,'laststand');
+  assert.equal(s.p[0].wins,1);
+  const b=setup([C('2','C')],[C('3','S')],[X('5','H','L')],[X('6','D','L'),X('7','C','L')],[C('9','H'),C('8','H'),C('7','H'),C('6','H'),C('5','H'),C('4','H'),C('3','H'),C('2','H')]);b.crazy=true;b.turn=1;
+  act(b,1,{t:'concede'});
+  assert.equal(b.drawQ.filter(e=>e.who===1).length,4,'the conceder draws two for each of theirs');assert.equal(b.drawQ.filter(e=>e.who===0).length,2,'the winner draws for theirs too');
+  const g=setup([C('2','C')],[C('3','S')],[X('5','H','L')],[C('9','H')],[C('9','H'),C('8','H')]);g.crazy=true;g.turn=1;g.p[0].wins=1;
+  act(g,1,{t:'concede'});assert.equal(g.phase,'over');assert.equal(g.drawQ.length,0,'no draws once the game is over');
+});
+t('Crazy mode: J/Q/K are worth 10, normal mode 1',()=>{
+  const cd=mkDeck(true,Math.random),nd=mkDeck(false);
+  for(const c of cd){if('JQK'.includes(c.r)&&c.r!=='JK')assert.equal(cardVal(c),10);else if(c.r==='A')assert.equal(cardVal(c),1);else if(c.r==='JK')assert.equal(cardVal(c),1);}
+  for(const c of nd)if('JQK'.includes(c.r))assert.equal(cardVal(c),1);
+  const s=newGame(null,{crazy:true});const all=[].concat(s.deck,s.p[0].hand,s.p[1].hand);
+  assert.ok(all.filter(c=>c.r==='K').every(c=>cardVal(c)===10),'survives cp/newGame');
+  const j=JSON.parse(JSON.stringify(s));assert.ok([].concat(j.deck,j.p[0].hand).filter(c=>c.r==='Q').every(c=>cardVal(c)===10));
+});
+t('Greed + Joker: no extra draws while the Joker cards play out; at most one per Greed when the turn passes',()=>{
+  for(const paced of [true,false]){
+    for(let g=0;g<30;g++){
+      const deck=[];for(const [r,f] of [['2',''],['5',''],['3',''],['8',''],['7',''],['6',''],['4',''],['9','']])deck.push(X(r,['C','H','S','D'][g%4],f));
+      const s=setup([J('JK1'),X('3','C','')],[X('3','S','')],[X('2','H','G'),X('2','S','G')],[X('2','D','G')],deck.concat([X('10','C',''),X('10','H',''),X('10','S',''),X('10','D','')]));
+      s.crazy=true;s.paced=paced;s.p[0].field[0].v=undefined;
+      let greedDraws=0,lastLen=0;
+      const seen=()=>{for(const e of s.drawQ)if(e.reason==='greedturn')greedDraws++;};
+      act(s,0,{t:'play',id:'JK1',suit:'H'});
+      let steps=0;
+      while(s.jokerQ.length&&steps++<20){
+        assert.equal(s.drawQ.filter(e=>e.reason==='greedturn').length,0,'no Greed draw while the Joker queue is playing');
+        if(s.drawQ.length){act(s,s.drawQ[0].who,{t:'draw'});continue;}
+        if(s.pending)break;
+        if(paced)assert.equal(act(s,0,{t:'jstep'}),null);else break;
+      }
+      assert.ok(s.log.filter(l=>/Greed: draws/.test(typeof l==='string'?l:(l.m||l.t||JSON.stringify(l)))).length<=1,'only one Greed trigger for the whole Joker play');
+      const q=s.drawQ.filter(e=>e.reason==='greedturn');
+      assert.ok(q.length<=2,'at most one draw per Greed on the new turn player field, got '+q.length);
+    }
+  }
+});
+
+// ---- hand limit: at most 10 cards in hand; a card drawn into a full hand is shown and burned ----
+const {cpuChoose:cpuPick}=mod.exports;
+const fill=n=>['2','3','4','5','6','7','8','9','10','J','Q','K'].flatMap(r=>[C(r,'S'),C(r,'C')]).filter(c=>!/^(A|3)C$/.test(c.id)).slice(0,n);
+t('hand limit: a card drawn into a full hand burns and is shown to its owner only',()=>{
+  const s=setup([C('A','C'),...fill(10)],[C('3','S')],[],[C('9','H')]);
+  s.stats={played:[0,0],cards:[0,0],lostN:[0,0],lostV:[0,0],rounds:[],mull:[[],[]],start:[[],[]],drawn:[[],[]],burned:[[],[]],unused:[[],[]]};
+  assert.equal(act(s,0,{t:'play',id:'AC'}),null);
+  assert.equal(s.p[0].hand.length,10);
+  drawFor(s,0);
+  assert.equal(s.p[0].hand.length,10,'still 10');
+  assert.equal(s.discard.map(c=>c.id).join(),'6D','the drawn card burned');
+  assert.equal(s.burn.full,true);assert.equal(s.burn.who,0);assert.equal(s.burn.cards[0].id,'6D');
+  assert.equal(viewFor(s,0).burn.cards[0].id,'6D','the owner sees it');
+  assert.equal(viewFor(s,1).burn.cards[0],null,'the opponent does not');
+  assert.equal(s.stats.burned[0].length,1);assert.equal(s.stats.drawn[0].length,0,'not counted as drawn');
+});
+t('hand limit: a draw with room is kept as before',()=>{
+  const s=setup([C('A','C'),...fill(9)],[C('3','S')],[],[C('9','H')]);
+  act(s,0,{t:'play',id:'AC'});drawFor(s,0);
+  assert.equal(s.p[0].hand.length,10);assert.equal(s.discard.length,0);
+});
+t('hand limit: a Greed booster into a hand of 9 keeps one and burns two, shown together',()=>{
+  const s=setup([C('A','C'),...fill(8)],[C('3','S')],[],[C('9','H')]);
+  s.drawQ=[{who:0,reason:'greed'}];
+  drawFor(s,0);
+  assert.equal(s.p[0].hand.length,10);
+  assert.equal(s.burn.cards.length,2,'both burns in one event');assert.equal(s.discard.length,2);
+});
+t('hand limit: Discover gift to a full hand burns',()=>{
+  const s=setup([C('3','C')],fill(10),[],[C('9','H')]);
+  act(s,0,{t:'play',id:'3C'});drawFor(s,0);
+  const keep=s.pending.opts[0].id;
+  assert.equal(act(s,0,{t:'pick',id:keep}),null);
+  assert.equal(s.p[0].hand.length,1);assert.equal(s.p[1].hand.length,10,'opponent stays at 10');
+  assert.equal(s.discard.length,2,'the last one and the gift burned');
+  assert.equal(s.burn.who,1);assert.equal(s.burn.full,true);
+});
+t('hand limit: random games never hold more than 10 cards after round 1 starts (except the opening card)',()=>{
+  for(let g=0;g<300;g++){
+    const s=newGame(null,{crazy:g%2===1});let steps=0;
+    while(s.phase!=='over'&&steps++<3000){
+      const before=[s.p[0].hand.length,s.p[1].hand.length],phase0=s.phase;
+      const w=actor(s),a0=cpuPick(s,w,g%3?'hard':'easy');const e=act(s,w,a0);if(e)throw new Error(e);
+      for(const i of [0,1])if(s.p[i].hand.length>10)assert.ok(s.p[i].hand.length<=before[i]||(phase0==='start'&&s.phase!=='start'),'hand grew past 10 ('+phase0+' '+JSON.stringify(a0)+'): '+before[i]+' -> '+s.p[i].hand.length);
+    }
+  }
+});
+
+t('Joker: when only the other Joker is left to draw, it burns too (no endless Joker swap)',()=>{
+  const s=setup([C('2','C')],[C('Q','S'),C('7','D'),{id:'JK1',r:'JK',s:'*',f:'X'}],[C('9','H')],[C('3','D')],[{id:'JK2',r:'JK',s:'*',f:'X'}]);
+  s.crazy=true;s.turn=1;
+  assert.equal(act(s,1,{t:'play',id:'JK1',suit:'C'}),null);
+  assert.ok(!s.p[1].hand.some(c=>c.r==='JK'),'the drawn Joker did not go to the hand');
+  assert.equal(s.p[1].hand.length,2);
+  // both Jokers are now in the discard pile (or reshuffled into the deck): nothing is lost
+  assert.equal(s.deck.concat(s.discard).filter(c=>c.r==='JK').length,2);
+});
+t('no conceding in round 3, and the computer never tries',()=>{
+  const s=setup([C('2','C'),C('3','C')],[C('9','S'),C('8','S')],[],[C('8','H')]);
+  s.round=3;s.p[0].wins=1;s.p[1].wins=1;
+  assert.ok(act(s,0,{t:'concede'}),'concede is refused in round 3');
+  assert.equal(s.phase,'play');
+  for(const lvl of ['easy','normal','hard','expert'])for(let k=0;k<30;k++)assert.notEqual(mod.exports.cpuChoose(s,0,lvl).t,'concede',lvl+' conceded in round 3');
+  s.round=2;s.p[1].wins=0;
+  assert.equal(act(s,0,{t:'concede'}),null,'round 2 concede still works');
+});
+console.log('\n'+n+' checks passed');
