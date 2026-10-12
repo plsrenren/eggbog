@@ -1,7 +1,7 @@
 const fs=require('fs');
 const html=fs.readFileSync('eggbog.html','utf8');
 const m=html.match(/\/\/ ==ENGINE==([\s\S]*?)\/\/ ==END ENGINE==/);
-const src=m[1]+'\nmodule.exports={newGame,act,viewFor,actor,total,cardVal,mkDeck,startRound,settle,cpuChoose};';
+const src=m[1]+'\nmodule.exports={newGame,act,viewFor,actor,total,cardVal,mkDeck,startRound,settle,cpuChoose,fillDeck};';
 const mod={exports:{}};new Function('module',src)(mod);
 const {newGame,act,viewFor,actor,total,cardVal,mkDeck}=mod.exports;
 const assert=require('assert');
@@ -170,8 +170,10 @@ t('mulligan then round 1 start: lowest card decides who goes first, and both car
   assert.equal(s.phase,'play');
   assert.equal(s.startCards[0]||s.startCards[1],null,'start cards resolved');
   assert.equal(s.p[0].field.length+s.p[1].field.length,0,'nothing is auto-played');
-  assert.equal(s.p[0].hand.length,11);assert.equal(s.p[1].hand.length,11,'both drawn cards went to hand');
-  assert.ok(s.turn===0||s.turn===1);assert.equal(s.startReveal.starter,s.turn);
+  const st=s.turn;assert.ok(st===0||st===1);assert.equal(s.startReveal.starter,st);
+  assert.equal(s.p[st].hand.length,12,'starter: drawn card + the Egg');assert.equal(s.p[1-st].hand.length,11,'both drawn cards went to hand');
+  const egg=s.p[st].hand.find(c=>c.r==='EG');assert.ok(egg,'starter gets the Egg');assert.equal(cardVal(egg),5,'Normal-mode Egg is worth 5');
+  assert.ok(!s.p[1-st].hand.some(c=>c.r==='EG'),'only the starter gets an Egg');
 });
 
 t('mulligan max 5',()=>{
@@ -186,7 +188,7 @@ function zones(s){
   if(s.pending&&s.pending.t==='discover')s.pending.opts.forEach(c=>ids.push(c.id));
   s.startCards.forEach(c=>{if(c)ids.push(c.id);});
   (s.jokerQ||[]).forEach(e=>ids.push(e.c.id));
-  return ids;
+  return ids.filter(id=>id!=='EGG');   // the Egg is an extra card outside the deck
 }
 t('2000 random games: terminate, conserve 52 unique cards',()=>{
   let over=0,byCards=0,byRounds=0;
@@ -254,7 +256,7 @@ t('Crazy mode: every rank has an effect, and the deck reshuffles discards when d
       const err=act(s,who,cpuChoose(s,who,['easy','normal','hard'][g%3]));
       if(err)throw new Error('crazy illegal: '+err+' '+s.phase);
       const all=s.deck.length+s.discard.length+s.p[0].hand.length+s.p[1].hand.length+s.p[0].field.length+s.p[1].field.length+s.drawQ.length*0+((s.pending&&s.pending.opts)?s.pending.opts.length:0)+(s.startCards[0]?1:0)+(s.startCards[1]?1:0);
-      if(all>total0)throw new Error('cards duplicated: '+all);
+      if(all>total0+1)throw new Error('cards duplicated: '+all);   // +1: the Egg
     }
     reshuf+=s.reshuffles;
   }
@@ -603,4 +605,15 @@ t('no conceding in round 3, and the computer never tries',()=>{
   s.round=2;s.p[1].wins=0;
   assert.equal(act(s,0,{t:'concede'}),null,'round 2 concede still works');
 });
+t('Crazy: the starter gets a 1-point Egg, and it is never shuffled back into the deck',()=>{
+  const {cpuChoose,fillDeck}=mod.exports;
+  const s=newGame(null,{crazy:true});
+  while(s.phase!=='play'){const w=actor(s);assert.equal(act(s,w,cpuChoose(s,w,'normal')),null);}
+  const st=s.startReveal.starter,egg=s.p[st].hand.find(c=>c.r==='EG');
+  assert.ok(egg);assert.equal(cardVal(egg),1);assert.equal(s.startReveal.egg.id,'EGG');
+  s.p[st].hand.splice(s.p[st].hand.indexOf(egg),1);s.discard.push(egg,{id:'9C',r:'9',s:'C',f:''});s.deck=[];
+  fillDeck(s);
+  assert.equal(s.deck.length,1);assert.ok(!s.deck.some(c=>c.r==='EG'),'the Egg left the game');
+});
+
 console.log('\n'+n+' checks passed');

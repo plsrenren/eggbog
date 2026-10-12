@@ -145,6 +145,9 @@ header h2{margin:0;font-size:1.3rem}
 .card.joker{--a:0deg;background:radial-gradient(circle at 50% 54%,#ffffffe6 0,#ffffff80 22%,#ffffff00 62%),conic-gradient(from var(--a) at 50% 54%,hsl(320 95% 84%),hsl(260 90% 85%),hsl(205 95% 82%),hsl(165 90% 82%),hsl(100 85% 82%),hsl(50 95% 82%),hsl(20 95% 84%),hsl(320 95% 84%));animation:holo 9s linear infinite;overflow:hidden;border-color:#7b4fd0aa;color:#3a2370}
 @property --a{syntax:'<angle>';inherits:false;initial-value:0deg}
 .card.joker.red{color:var(--red)}
+.card.egg{background:radial-gradient(ellipse at 50% 58%,#fffbe8 0,#fff1c4 55%,#f5dc93 100%)}
+.card.egg .cs{font-size:0!important}
+.card.egg .cs::before{content:"🥚";font-size:1.6rem}
 .card.joker::after{content:"";position:absolute;left:50%;top:54%;width:150%;aspect-ratio:1;margin:-75% 0 0 -75%;border-radius:50%;background:radial-gradient(circle,transparent 30%,#ffffff99 42%,transparent 56%);transform:scale(.2);opacity:0;animation:holoRing 3.4s ease-out infinite;pointer-events:none;mix-blend-mode:soft-light}
 @keyframes holo{to{--a:360deg}}
 @keyframes holoRing{0%{transform:scale(.2);opacity:0}15%{opacity:1}100%{transform:scale(1.1);opacity:0}}
@@ -642,7 +645,9 @@ const ABILITY_TEXT={
 function F(c){return c.f===undefined?(DEF_F[c.r]||''):c.f;}
 function cardVal(c){if(c.v!==undefined)return c.v;return (c.r==='A'||c.r==='JK'||c.r==='J'||c.r==='Q'||c.r==='K')?1:parseInt(c.r,10);}
 function rk(c){return c.r==='JK'?13:RANKS.indexOf(c.r);}
-function cardStr(c){return c.r==='JK'?'Joker'+(SYM[c.s]||''):c.r+SYM[c.s];}
+function cardStr(c){return c.r==='JK'?'Joker'+(SYM[c.s]||''):c.r==='EG'?'Egg'+SYM[c.s]:c.r+SYM[c.s];}
+// The Egg: whoever goes first in round 1 gets this plain card in hand to make up for moving first (worth 1 in Crazy, 5 in Normal).
+const EGG_VAL={crazy:1,normal:5};
 const DEF_F={A:'A','2':'2','3':'3','4':'4','5':'5',J:'J',Q:'Q',K:'K'};
 const FX_KEYS=['A','2','3','4','5','J','Q','K'];
 const CRAZY_HAND=7;
@@ -842,6 +847,9 @@ function resolveStart(s){
   // both drawn cards go to their owners' hands; the lower one only decides who moves first
   // (exempt from the hand limit: in normal mode this makes 11)
   if(c0)s.p[0].hand.push(c0);if(c1)s.p[1].hand.push(c1);
+  // the Egg: the starter gets a plain card worth a few points (also exempt from the hand limit); it never goes back into the deck
+  const egg={id:'EGG',r:'EG',s:SUITS[Math.floor(Math.random()*SUITS.length)],f:'',v:s.crazy?EGG_VAL.crazy:EGG_VAL.normal};
+  s.p[starter].hand.push(egg);s.startReveal.egg=cp(egg);log(s,starter,'gets the Egg ('+egg.v+' point'+(egg.v>1?'s':'')+')');
   s.phase='play';s.turn=starter;
   settle(s);
 }
@@ -881,6 +889,7 @@ function endRound(s,loser){
 // Crazy mode: when the deck is drawn out, every discarded card (removed, burned, mulliganed, played in earlier rounds) is shuffled back in
 function fillDeck(s){
   if(!s.crazy||s.phase==='over'||s.deck.length||!s.discard.length)return;
+  s.discard=s.discard.filter(c=>c.r!=='EG');   // the Egg is never shuffled back in
   s.discard.forEach(c=>{if(c.r==='JK')c.s='*';});
   s.deck=shuffle(s.discard.splice(0));s.reshuffles=(s.reshuffles||0)+1;s.lastShuffle=s.deck.length;
   log(s,null,'The deck ran out — '+s.deck.length+' discarded cards were shuffled back in');
@@ -1873,7 +1882,7 @@ function duelSync(v,OPP){
   const quick=reduced();
   setTimeout(()=>{
     const youFirst=starter===v.you;
-    $('duRes').textContent=youFirst?'You go first!':OPP+' goes first!';
+    $('duRes').textContent=(youFirst?'You go first':OPP+' goes first')+' and '+(youFirst?'get':'gets')+' the 🥚 Egg ('+(v.crazy?EGG_VAL.crazy:EGG_VAL.normal)+(v.crazy?' point)':' points)');
     d.querySelector('#duMe').classList.add(youFirst?'win':'lose');d.querySelector('#duOpp').classList.add(youFirst?'lose':'win');
     thud();
   },quick?0:1250);
@@ -2633,11 +2642,12 @@ function cardEl(c,cls){
   const red=(c.s==='H'||c.s==='D')?' red':'';
   const jk=c.r==='JK';
   const f=c.f===undefined?(ABILITY[c.r]?c.r:''):c.f;
-  const tip=ABILITY[f]?ABILITY_TEXT[f]:'';
+  const egg=c.r==='EG';
+  const tip=ABILITY[f]?ABILITY_TEXT[f]:egg?'The Egg: a plain card worth '+cardVal(c)+(cardVal(c)>1?' points':' point')+', given to whoever goes first in round 1.':'';
   const art=ART[f]||'';
-  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K'].includes(f)?' r'+f:''}${art?' art-on':''}${jk?' joker':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
-    `<div class="cr">${jk?'★':c.r}<span>${SYM[c.s]}</span></div><div class="cs">${SYM[c.s]}</div>${art}`+
-    (ABILITY[f]?`<div class="ab">${ABILITY[f]}</div>`:'')+`</div>`;
+  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K'].includes(f)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
+    `<div class="cr">${jk?'★':egg?cardVal(c):c.r}<span>${SYM[c.s]}</span></div><div class="cs">${SYM[c.s]}</div>${art}`+
+    (ABILITY[f]?`<div class="ab">${ABILITY[f]}</div>`:egg?`<div class="ab">Egg</div>`:'')+`</div>`;
 }
 function fieldHTML(cards,top,targets){
   return SUITS.map(s=>`<div class="col${top?' top':''}" data-suit="${s}">`+
@@ -3439,7 +3449,7 @@ function showRules(){
   <h4>Card values</h4><p>Ace = 1, 2–10 = face value, Jack/Queen/King = ${cz?'10':'1'}. Suits low to high: ♣ ♠ ♥ ♦.</p>
   ${cz?`<h4>Setup</h4><p>Each player opens a starter pack of 7 cards. You either keep it or open a different pack of 7 new cards from the deck (your first pack is discarded and counts as mulliganed in the stats). There is no other mulligan.</p>`
       :`<h4>Setup</h4><p>Each player is dealt 10 cards and may mulligan up to 5 of them.</p>`}
-  <h4>Starting a round</h4><p>Both players draw one card from the deck (click it or drag it out). Both cards go into their owners' hands, and the player whose card is lowest goes first (equal values: lower suit goes first). In later rounds, the loser of the previous round chooses who starts.</p>
+  <h4>Starting a round</h4><p>Both players draw one card from the deck (click it or drag it out). Both cards go into their owners' hands, and the player whose card is lowest goes first (equal values: lower suit goes first). To make up for moving first, that player also gets the 🥚 Egg: a plain card with no effect, worth ${cz?'1 point':'5 points'}, in a random suit. It is never shuffled back into the deck. In later rounds, the loser of the previous round chooses who starts.</p>
   <h4>Turns</h4><p>Play a card by dragging it from your hand onto its own suit column on your side of the field (the column lights up). Drag cards within your hand to arrange them however you like. Once your total is strictly greater than your opponent's, your turn ends. You cannot play while your total is already strictly greater. You may concede on any turn with the 🏳️ Concede button above your hand, only once per game (so you can never concede the whole match away), and never in round 3: the death match, which has to be played out.</p>
   <h4>The field</h4><p>Each player has a side, organized in suit columns (♣ ♠ ♥ ♦) that face the matching column on the opponent's side.</p>
   ${cz?`<h4>Card effects</h4><p>Every single card gets one of the effects below at random, so two Aces (or two 7s) can do different things. The effect is written on each card, and the 🌀 button shows the effects in this game. Effects trigger when the card is played.</p><ul>${fxList}</ul>`
