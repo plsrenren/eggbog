@@ -198,6 +198,7 @@ t('2000 random games: terminate, conserve 52 unique cards',()=>{
       if(s.phase==='mulligan'){const h=s.p[who].hand;const k=Math.floor(Math.random()*6);a={t:'mulligan',ids:h.slice(0,k).map(c=>c.id)};}
       else if(s.drawQ.length||(s.pending&&s.pending.t==='discover'&&!s.pending.opts.length&&s.deck.length))a={t:'draw'};
       else if(s.phase==='choose')a={t:'choose',who:Math.random()<.5?0:1};
+      else if(s.pending&&s.pending.jk)a={t:'jkpick'};
       else if(s.pending){const o=s.pending.opts;const x=o[Math.floor(Math.random()*o.length)];a={t:'pick',id:typeof x==='string'?x:x.id};}
       else{const h=s.p[who].hand;if(s.round<3&&!s.p[who].conceded&&(h.length===0||Math.random()<.04))a={t:'concede'};else a={t:'play',id:h[Math.floor(Math.random()*h.length)].id};}
       const err=act(s,who,a);
@@ -409,6 +410,7 @@ t('Joker: 400 random crazy games conserve 54 cards (players choose a suit)',()=>
       if(s.phase==='mulligan')a={t:'mulligan',ids:Math.random()<.5?s.p[who].hand.map(c=>c.id):[]};
       else if(s.drawQ.length||(s.pending&&s.pending.t==='discover'&&!s.pending.opts.length&&s.deck.length))a={t:'draw'};
       else if(s.phase==='choose')a={t:'choose',who:Math.random()<.5?0:1};
+      else if(s.pending&&s.pending.jk)a={t:'jkpick'};
       else if(s.pending){const o=s.pending.t==='steal'?s.p[who].hand:s.pending.opts;const x=o[Math.floor(Math.random()*o.length)];a={t:'pick',id:typeof x==='string'?x:x.id};}
       else{const h=s.p[who].hand;if(s.round<3&&!s.p[who].conceded&&(h.length===0||Math.random()<.04))a={t:'concede'};else{const c=h[Math.floor(Math.random()*h.length)];a={t:'play',id:c.id};if(c.r==='JK')a.suit='CSHD'[Math.floor(Math.random()*4)];}}
       const err=act(s,who,a);
@@ -441,6 +443,31 @@ t('Joker: cards are played one at a time and their effects trigger',()=>{
   assert.deepEqual(k.p[0].field.map(c=>c.id),['9S','4D','3D'],'King played first; the later cards land after it');
 });
 
+t('Joker: its cards\' Steal and Discover are chosen by the Joker, shown first, then made',()=>{
+  const deck=[X('5','C',''),X('6','C',''),X('10','C',''),X('2','C',''),X('3','S',''),X('4','H',''),X('7','C',''),X('8','S','3'),X('9','D','T')];
+  const s=setup([J('JK1'),X('3','C','')],[X('2','S',''),X('4','S','')],[],[],deck);s.crazy=true;s.paced=true;
+  act(s,0,{t:'play',id:'JK1',suit:'H'});
+  act(s,0,{t:'jstep'});   // 9D Steal for the owner: the opponent would give a card, but the Joker picks it
+  assert.equal(s.pending.t,'steal');assert.ok(s.pending.jk);
+  assert.ok(act(s,1,{t:'pick',id:'2S'}),'the player cannot make the Joker\'s choice');
+  assert.deepEqual(mod.exports.cpuChoose(s,1,'hard'),{t:'jkpick'},'the computer leaves it to the Joker');
+  assert.equal(act(s,0,{t:'jkpick'}),null);
+  const id=s.pending.jkId;assert.ok(['2S','4S'].includes(id),'the pick is shown before it is made');
+  assert.equal(viewFor(s,1).pending.jkId,id);assert.ok(viewFor(s,0).pending.jkSet);assert.equal(viewFor(s,0).pending.jkId,undefined);
+  assert.equal(act(s,1,{t:'jkpick'}),null);
+  assert.equal(s.pending,null);assert.ok(s.p[0].hand.some(c=>c.id===id),'the Joker\'s pick was given');
+  act(s,0,{t:'jstep'});   // 3S plain for the opponent
+  act(s,0,{t:'jstep'});   // 8S Discover for the owner
+  assert.equal(s.pending.t,'discover');assert.ok(s.pending.jk);
+  assert.ok(act(s,0,{t:'jkpick'}),'the three cards are turned up first');
+  act(s,0,{t:'draw'});assert.equal(s.pending.opts.length,3);
+  act(s,0,{t:'jkpick'});const k=s.pending.jkId;assert.ok(s.pending.opts.some(c=>c.id===k));
+  assert.ok(act(s,0,{t:'pick',id:k}),'the player cannot pick for the Joker');
+  assert.equal(act(s,0,{t:'jkpick'}),null);assert.equal(s.pending,null);assert.equal(s.discFx.kept.id,k);
+  // a Steal the player plays from their own hand is still chosen by the player
+  const h=setup([X('4','S','T')],[C('2','C'),C('9','D')],[],[C('8','D')]);
+  act(h,0,{t:'play',id:'4S'});assert.ok(!h.pending.jk);assert.equal(act(h,1,{t:'pick',id:'2C'}),null);
+});
 t('Steal: the thief burns a random card from their own hand (never the stolen one)',()=>{
   for(let g=0;g<60;g++){
     const s=setup([X('4','S','T'),C('2','H'),C('3','H'),C('5','H')],[C('2','C'),C('9','D')],[],[C('8','D')]);
