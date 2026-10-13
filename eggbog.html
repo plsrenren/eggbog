@@ -146,8 +146,6 @@ header h2{margin:0;font-size:1.3rem}
 @property --a{syntax:'<angle>';inherits:false;initial-value:0deg}
 .card.joker.red{color:var(--red)}
 .card.egg{background:radial-gradient(ellipse at 50% 58%,#fffbe8 0,#fff1c4 55%,#f5dc93 100%)}
-.card.egg .cs{font-size:0!important}
-.card.egg .cs::before{content:"🥚";font-size:1.6rem}
 .card.joker::after{content:"";position:absolute;left:50%;top:54%;width:150%;aspect-ratio:1;margin:-75% 0 0 -75%;border-radius:50%;background:radial-gradient(circle,transparent 30%,#ffffff99 42%,transparent 56%);transform:scale(.2);opacity:0;animation:holoRing 3.4s ease-out infinite;pointer-events:none;mix-blend-mode:soft-light}
 @keyframes holo{to{--a:360deg}}
 @keyframes holoRing{0%{transform:scale(.2);opacity:0}15%{opacity:1}100%{transform:scale(1.1);opacity:0}}
@@ -645,7 +643,8 @@ const ABILITY_TEXT={
 function F(c){return c.f===undefined?(DEF_F[c.r]||''):c.f;}
 function cardVal(c){if(c.v!==undefined)return c.v;return (c.r==='A'||c.r==='JK'||c.r==='J'||c.r==='Q'||c.r==='K')?1:parseInt(c.r,10);}
 function rk(c){return c.r==='JK'?13:RANKS.indexOf(c.r);}
-function cardStr(c){return c.r==='JK'?'Joker'+(SYM[c.s]||''):c.r==='EG'?'Egg'+SYM[c.s]:c.r+SYM[c.s];}
+function cardStr(c){return c.r==='JK'?'Joker'+(SYM[c.s]||''):c.r==='EG'?'Egg'+(SYM[c.s]||''):c.r+SYM[c.s];}
+function wild(c){return c.r==='JK'||c.r==='EG';}   // Jokers and the Egg have no suit until played: they go on any column
 // The Egg: whoever goes first in round 1 gets this plain card in hand to make up for moving first (worth 1 in Crazy, 5 in Normal).
 const EGG_VAL={crazy:1,normal:5};
 const DEF_F={A:'A','2':'2','3':'3','4':'4','5':'5',J:'J',Q:'Q',K:'K'};
@@ -848,8 +847,7 @@ function resolveStart(s){
   // (exempt from the hand limit: in normal mode this makes 11)
   if(c0)s.p[0].hand.push(c0);if(c1)s.p[1].hand.push(c1);
   // the Egg: the starter gets a plain card worth a few points (also exempt from the hand limit); it never goes back into the deck
-  const es=SUITS[Math.floor(Math.random()*SUITS.length)];
-  const egg={id:'EG'+es,r:'EG',s:es,f:'',v:s.crazy?EGG_VAL.crazy:EGG_VAL.normal};   // the id ends in the suit, like every card (the hand reads the suit from it)
+  const egg={id:'EGG',r:'EG',s:'*',f:'',v:s.crazy?EGG_VAL.crazy:EGG_VAL.normal};   // suit-less like a Joker: it takes the suit of the column it is played on
   s.p[starter].hand.push(egg);s.startReveal.egg=cp(egg);log(s,starter,'gets the Egg ('+egg.v+' point'+(egg.v>1?'s':'')+')');
   s.phase='play';s.turn=starter;
   settle(s);
@@ -948,11 +946,11 @@ function act0(s,i,a){
       if(s.phase!=='play'||s.turn!==i)return 'Not your turn';
       if(busy(s))return 'Finish the current draw or choice first';
       const sc=s.startCards[i];
-      if(sc){if(a.id!==sc.id)return 'Play your drawn card first';if(sc.r==='JK'){if(!SUITS.includes(a.suit))return 'Choose a suit for the Joker';sc.s=a.suit;}s.startCards[i]=null;putCard(s,i,sc);return null;}
+      if(sc){if(a.id!==sc.id)return 'Play your drawn card first';if(wild(sc)){if(!SUITS.includes(a.suit))return 'Choose a column for the '+(sc.r==='EG'?'Egg':'Joker');sc.s=a.suit;}s.startCards[i]=null;putCard(s,i,sc);return null;}
       const h=s.p[i].hand;const k=h.findIndex(c=>c.id===a.id);
       if(k<0)return 'That card is not in your hand';
-      if(h[k].r==='JK'&&!SUITS.includes(a.suit))return 'Choose a suit for the Joker';
-      const [c]=h.splice(k,1);if(c.r==='JK')c.s=a.suit;putCard(s,i,c);return null;}
+      if(wild(h[k])&&!SUITS.includes(a.suit))return 'Choose a column for the '+(h[k].r==='EG'?'Egg':'Joker');
+      const [c]=h.splice(k,1);if(wild(c))c.s=a.suit;putCard(s,i,c);return null;}
     case 'pick':{
       const pd=s.pending;if(!pd)return 'Nothing to choose';
       if(pd.jk&&!a.jk)return 'The Joker makes this choice';
@@ -1094,7 +1092,7 @@ function cpuWantsConcede(s,who,level){
 // The opponent's hand and the deck order are hidden, so each imagined game shuffles those together
 // and deals them out again; everything the computer can really see stays as it is.
 const EXPERT_CFG={ms:400,minN:12,maxN:40,roll:'hard',concede:true};
-function playAct(c,suit){return c.r==='JK'?{t:'play',id:c.id,suit:suit||SUITS[Math.floor(Math.random()*4)]}:{t:'play',id:c.id};}
+function playAct(c,suit){return wild(c)?{t:'play',id:c.id,suit:suit||SUITS[Math.floor(Math.random()*4)]}:{t:'play',id:c.id};}
 function cpuOptions(s,who){
   if(s.phase==='choose')return [{t:'choose',who:0},{t:'choose',who:1}];
   if(s.pending&&s.pending.t==='steal'){
@@ -1183,7 +1181,7 @@ function cpuChoose(s,who,level){
   let best=null,bs=-Infinity,bsu;const seen=new Set();
   for(const c of h){
     const key=c.r+':'+(c.s);if(seen.has(key))continue;seen.add(key);
-    for(const su of (c.r==='JK'?['C']:[undefined])){
+    for(const su of (c.r==='JK'?['C']:c.r==='EG'?[SUITS[Math.floor(Math.random()*4)]]:[undefined])){
       const sc=cpuScorePlay(s,who,c,su);if(sc===null)continue;
       if(sc>bs+1e-9||(Math.abs(sc-bs)<1e-9&&Math.random()<.5)){bs=sc;best=c;bsu=su;}
     }
@@ -1442,7 +1440,7 @@ function ghostShow(id,suit){
   ghostHide();
   if(!view)return;
   const c=view.me.hand.find(x=>x.id===id);if(!c)return;
-  const card=c.r==='JK'?Object.assign({},c,{s:suit}):c;
+  const card=wild(c)?Object.assign({},c,{s:suit}):c;
   const plan=ghostPlan(view,card,suit),cf=card.r==='JK'?'X':efx(card,view);
   const col=document.querySelector('#myField .col[data-suit="'+suit+'"]');if(!col)return;
   const add=(parent,cc)=>{const w=document.createElement('div');w.innerHTML=cardEl(cc,'gh-card');const e=w.firstChild;parent.appendChild(e);return e;};
@@ -1524,7 +1522,7 @@ function startDrag(ev,el,id,canPlay,onTap){
   const playable=()=>!!view&&view.phase==='play'&&view.turn===view.you&&!isBusy(view)&&(!view.startMe||view.startMe.id===id);
   // The card can be dragged anywhere, but it can only be placed in its own suit column on your
   // side of the field, and only when playing is allowed. That column lights up while dragging.
-  const isJk=id.slice(0,2)==='JK';                       // a Joker can be dropped on any of your four columns
+  const isJk=id.slice(0,2)==='JK'||id==='EGG';           // a Joker (or the Egg) can be dropped on any of your four columns
   let px=sx,py=sy,suit=isJk?null:id.slice(-1);
   const zone=()=>{
     if(!isJk)return document.querySelector('#myField .col[data-suit="'+suit+'"]');
@@ -1545,7 +1543,7 @@ function startDrag(ev,el,id,canPlay,onTap){
   const place=(x,y)=>{
     ghost.style.left=(x-dx)+'px';ghost.style.top=(y-dy)+'px';px=x;py=y;
     const ok=playable(),z=zone();
-    if(isJk)ghost.classList.toggle('boost',inRect(side,x,y)||inRect($('oppSide'),x,y));
+    if(isJk&&id!=='EGG')ghost.classList.toggle('boost',inRect(side,x,y)||inRect($('oppSide'),x,y));
     if(isJk){document.querySelectorAll('#myField .col').forEach(c=>{c.classList.toggle('dropzone',ok);c.classList.toggle('hover',ok&&c===z);});}
     setDoom((rank==='J'||rank==='Q'||rank==='K')&&ok&&inRect(side,x,y));
     const over=!!(ok&&z&&inRect(z,x,y));
@@ -1601,7 +1599,7 @@ function startDrag(ev,el,id,canPlay,onTap){
       else if(view.turn!==view.you)toast('It\'s not your turn');
       else if(view.jq>0)toast('Wait for the Joker\'s cards to finish playing');
       else if(isBusy(view))toast('Finish drawing / the current choice first');
-      else toast(isJk?'Drop the Joker on any column on your side':'Drop it on the '+SYM[suit]+' column on your side');
+      else toast(isJk?'Drop the '+(id==='EGG'?'Egg':'Joker')+' on any column on your side':'Drop it on the '+SYM[suit]+' column on your side');
     }
   };
   window.addEventListener('pointermove',onMove);window.addEventListener('pointerup',onUp);window.addEventListener('pointercancel',cleanup);
@@ -2600,6 +2598,7 @@ const TREFOIL=(()=>{ // radiation trefoil: three 60° wedges
     d+=`<path d="M${q0} L${p0} A15 15 0 0 0 ${p1} L${q1} A5.5 5.5 0 0 1 ${q0}Z" fill="#111"/>`;}
   return d+'<circle cx="20" cy="20" r="3.2" fill="#111"/>';
 })();
+const EGG_ART='<svg class="art" viewBox="0 0 40 40"><path d="M20 3C11.5 3 6 16 6 24a14 14 0 0 0 28 0C34 16 28.5 3 20 3z" fill="#fff7e3" stroke="#a8823a" stroke-width="2"/><path d="M12.5 15c1.4-4 3.8-6.6 6-7.4" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/><g fill="#e9b949"><circle cx="24" cy="22" r="2"/><circle cx="16" cy="28" r="1.5"/><circle cx="25.5" cy="30.5" r="1.3"/></g></svg>';   // the Egg's art, centred like the effect cards
 const ART={
   M:'<svg class="art" viewBox="0 0 40 40"><ellipse cx="20" cy="20" rx="13" ry="17" fill="#cfe8f5" stroke="#3f5f72" stroke-width="2"/><path d="M12 29 L27 10" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><path d="M17 32 L29 17" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".8"/></svg>',
   T:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#6b3fa0" stroke="#2c1646" stroke-width="2"/><rect x="9" y="11" width="13" height="18" rx="2" fill="#fff" stroke="#2c1646" stroke-width="1.5" transform="rotate(-12 15 20)"/><path d="M19 21 H33 M28 15 L34 21 L28 27" fill="none" stroke="#ffd84a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -2645,7 +2644,7 @@ function cardEl(c,cls){
   const f=c.f===undefined?(ABILITY[c.r]?c.r:''):c.f;
   const egg=c.r==='EG';
   const tip=ABILITY[f]?ABILITY_TEXT[f]:egg?'The Egg: a plain card worth '+cardVal(c)+(cardVal(c)>1?' points':' point')+', given to whoever goes first in round 1.':'';
-  const art=ART[f]||'';
+  const art=egg?EGG_ART:(ART[f]||'');
   return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K'].includes(f)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
     `<div class="cr">${jk?'★':egg?cardVal(c):c.r}<span>${SYM[c.s]}</span></div><div class="cs">${SYM[c.s]}</div>${art}`+
     (ABILITY[f]?`<div class="ab">${ABILITY[f]}</div>`:egg?`<div class="ab">Egg</div>`:'')+`</div>`;
@@ -3450,7 +3449,7 @@ function showRules(){
   <h4>Card values</h4><p>Ace = 1, 2–10 = face value, Jack/Queen/King = ${cz?'10':'1'}. Suits low to high: ♣ ♠ ♥ ♦.</p>
   ${cz?`<h4>Setup</h4><p>Each player opens a starter pack of 7 cards. You either keep it or open a different pack of 7 new cards from the deck (your first pack is discarded and counts as mulliganed in the stats). There is no other mulligan.</p>`
       :`<h4>Setup</h4><p>Each player is dealt 10 cards and may mulligan up to 5 of them.</p>`}
-  <h4>Starting a round</h4><p>Both players draw one card from the deck (click it or drag it out). Both cards go into their owners' hands, and the player whose card is lowest goes first (equal values: lower suit goes first). To make up for moving first, that player also gets the 🥚 Egg: a plain card with no effect, worth ${cz?'1 point':'5 points'}, in a random suit. It is never shuffled back into the deck. In later rounds, the loser of the previous round chooses who starts.</p>
+  <h4>Starting a round</h4><p>Both players draw one card from the deck (click it or drag it out). Both cards go into their owners' hands, and the player whose card is lowest goes first (equal values: lower suit goes first). To make up for moving first, that player also gets the 🥚 Egg: a plain card with no effect, worth ${cz?'1 point':'5 points'}. Like a Joker it has no suit, so it can be played on any of your columns. It is never shuffled back into the deck. In later rounds, the loser of the previous round chooses who starts.</p>
   <h4>Turns</h4><p>Play a card by dragging it from your hand onto its own suit column on your side of the field (the column lights up). Drag cards within your hand to arrange them however you like. Once your total is strictly greater than your opponent's, your turn ends. You cannot play while your total is already strictly greater. You may concede on any turn with the 🏳️ Concede button above your hand, only once per game (so you can never concede the whole match away), and never in round 3: the death match, which has to be played out.</p>
   <h4>The field</h4><p>Each player has a side, organized in suit columns (♣ ♠ ♥ ♦) that face the matching column on the opponent's side.</p>
   ${cz?`<h4>Card effects</h4><p>Every single card gets one of the effects below at random, so two Aces (or two 7s) can do different things. The effect is written on each card, and the 🌀 button shows the effects in this game. Effects trigger when the card is played.</p><ul>${fxList}</ul>`

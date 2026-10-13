@@ -188,7 +188,7 @@ function zones(s){
   if(s.pending&&s.pending.t==='discover')s.pending.opts.forEach(c=>ids.push(c.id));
   s.startCards.forEach(c=>{if(c)ids.push(c.id);});
   (s.jokerQ||[]).forEach(e=>ids.push(e.c.id));
-  return ids.filter(id=>!/^EG[CSHD]$/.test(id));   // the Egg is an extra card outside the deck
+  return ids.filter(id=>id!=='EGG');   // the Egg is an extra card outside the deck
 }
 t('2000 random games: terminate, conserve 52 unique cards',()=>{
   let over=0,byCards=0,byRounds=0;
@@ -202,7 +202,7 @@ t('2000 random games: terminate, conserve 52 unique cards',()=>{
       else if(s.phase==='choose')a={t:'choose',who:Math.random()<.5?0:1};
       else if(s.pending&&s.pending.jk)a={t:'jkpick'};
       else if(s.pending){const o=s.pending.opts;const x=o[Math.floor(Math.random()*o.length)];a={t:'pick',id:typeof x==='string'?x:x.id};}
-      else{const h=s.p[who].hand;if(s.round<3&&!s.p[who].conceded&&(h.length===0||Math.random()<.04))a={t:'concede'};else a={t:'play',id:h[Math.floor(Math.random()*h.length)].id};}
+      else{const h=s.p[who].hand;if(s.round<3&&!s.p[who].conceded&&(h.length===0||Math.random()<.04))a={t:'concede'};else{const c=h[Math.floor(Math.random()*h.length)];a={t:'play',id:c.id};if(c.r==='EG')a.suit='CSHD'[Math.floor(Math.random()*4)];}}
       const err=act(s,who,a);
       if(err)throw new Error('unexpected error '+err+' '+JSON.stringify(a)+' phase '+s.phase);
       const ids=zones(s);
@@ -414,7 +414,7 @@ t('Joker: 400 random crazy games conserve 54 cards (players choose a suit)',()=>
       else if(s.phase==='choose')a={t:'choose',who:Math.random()<.5?0:1};
       else if(s.pending&&s.pending.jk)a={t:'jkpick'};
       else if(s.pending){const o=s.pending.t==='steal'?s.p[who].hand:s.pending.opts;const x=o[Math.floor(Math.random()*o.length)];a={t:'pick',id:typeof x==='string'?x:x.id};}
-      else{const h=s.p[who].hand;if(s.round<3&&!s.p[who].conceded&&(h.length===0||Math.random()<.04))a={t:'concede'};else{const c=h[Math.floor(Math.random()*h.length)];a={t:'play',id:c.id};if(c.r==='JK')a.suit='CSHD'[Math.floor(Math.random()*4)];}}
+      else{const h=s.p[who].hand;if(s.round<3&&!s.p[who].conceded&&(h.length===0||Math.random()<.04))a={t:'concede'};else{const c=h[Math.floor(Math.random()*h.length)];a={t:'play',id:c.id};if(c.r==='JK'||c.r==='EG')a.suit='CSHD'[Math.floor(Math.random()*4)];}}
       const err=act(s,who,a);
       if(err)throw new Error('unexpected error '+err+' '+JSON.stringify(a));
       const ids=zones(s);
@@ -610,7 +610,7 @@ t('Crazy: the starter gets a 1-point Egg, and it is never shuffled back into the
   const s=newGame(null,{crazy:true});
   while(s.phase!=='play'){const w=actor(s);assert.equal(act(s,w,cpuChoose(s,w,'normal')),null);}
   const st=s.startReveal.starter,egg=s.p[st].hand.find(c=>c.r==='EG');
-  assert.ok(egg);assert.equal(cardVal(egg),1);assert.equal(s.startReveal.egg.id,'EG'+egg.s,'the id ends in its suit');
+  assert.ok(egg);assert.equal(cardVal(egg),1);assert.equal(s.startReveal.egg.id,'EGG');assert.equal(egg.s,'*','the Egg has no suit until played');
   s.p[st].hand.splice(s.p[st].hand.indexOf(egg),1);s.discard.push(egg,{id:'9C',r:'9',s:'C',f:''});s.deck=[];
   fillDeck(s);
   assert.equal(s.deck.length,1);assert.ok(!s.deck.some(c=>c.r==='EG'),'the Egg left the game');
