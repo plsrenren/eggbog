@@ -2838,24 +2838,25 @@ function removalAnim(kind,pl,clones,G){
       S&&noiseBurst(.34,'bandpass',450,2500,.5);S&&boomLow(0);
       const je=document.querySelector(pl.side+' .card[data-id="'+pl.c.id+'"]');
       if(je)je.animate([{transform:'none'},{transform:'translateY(14px) rotate(-8deg)',offset:.3},{transform:'translateY(-10px) rotate(6deg)',offset:.6},{transform:'none'}],{duration:480,easing:'ease-out'});
-      // a short axe swing above each affected card only
+      // a flat axe swing sweeps sideways through the middle of each affected card
       const arcOver=(r,delay)=>{
-        const W=r.width*1.7,H=W*.55,cx=r.left+r.width/2,top=r.top-H*.55;
-        const arc=fx(`left:${cx-W/2}px;top:${top}px;width:${W}px;height:${H}px;border-top:8px solid #fff;border-radius:50% 50% 0 0/100% 100% 0 0;filter:drop-shadow(0 0 6px #bfe8ff) drop-shadow(0 0 14px #6bb6ff);transform:rotate(-8deg);opacity:0`,58);
+        const W=r.width*1.9,H=W*.22,cx=r.left+r.width/2,top=r.top+r.height/2-5;
+        const arc=fx(`left:${cx-W/2}px;top:${top}px;width:${W}px;height:${H}px;border-top:8px solid #fff;border-radius:50% 50% 0 0/100% 100% 0 0;filter:drop-shadow(0 0 6px #bfe8ff) drop-shadow(0 0 14px #6bb6ff);transform:rotate(-4deg);opacity:0`,58);
         arc.animate([{clipPath:'inset(0 100% 0 0)',opacity:1},{clipPath:'inset(0 0 0 0)',opacity:1,offset:.55},{clipPath:'inset(0 0 0 100%)',opacity:0}],{duration:360,delay,easing:'cubic-bezier(.3,.1,.3,1)',fill:'both'});die(arc,delay+420);
       };
       clones.forEach((k,i)=>arcOver(k.el.getBoundingClientRect(),i*60));
-      // each removed card is chopped straight down the middle as the blade passes it
+      // each removed card is chopped across the middle as the blade passes it
       clones.forEach((k,i)=>{
         const r=k.el.getBoundingClientRect();
         const t=140;
         setTimeout(()=>{
           const A=mk(k.o,14),B2=mk(k.o,14);k.el.remove();
-          A.style.clipPath='inset(0 50% 0 0)';B2.style.clipPath='inset(0 0 0 50%)';
-          const cut=fx(`left:${r.left+r.width/2-1.5}px;top:${r.top-8}px;width:3px;height:${r.height+16}px;background:linear-gradient(#fff0,#fff,#fff0);box-shadow:0 0 12px #fff,0 0 20px #9ad8ff;border-radius:2px`,58);
-          cut.animate([{opacity:1,transform:'scaleY(.2)'},{opacity:1,transform:'scaleY(1)',offset:.3},{opacity:0,transform:'scaleY(1)'}],{duration:380,fill:'forwards'});die(cut,420);
-          const mv=(e,sx,rot)=>e.animate([{transform:'none',opacity:1},{transform:`translate(${sx*.35}px,4px) rotate(${rot*.3}deg)`,opacity:1,offset:.3},{transform:`translate(${sx}px,${46+Math.random()*20}px) rotate(${rot}deg)`,opacity:0,filter:'brightness(.6)'}],{duration:640,delay:80,easing:'ease-in',fill:'both'}).onfinish=()=>e.remove();
-          mv(A,-34,-16);mv(B2,34,16);
+          A.style.clipPath='inset(0 0 50% 0)';B2.style.clipPath='inset(50% 0 0 0)';
+          const cut=fx(`left:${r.left-8}px;top:${r.top+r.height/2-1.5}px;width:${r.width+16}px;height:3px;background:linear-gradient(90deg,#fff0,#fff,#fff0);box-shadow:0 0 12px #fff,0 0 20px #9ad8ff;border-radius:2px`,58);
+          cut.animate([{opacity:1,transform:'scaleX(.2)'},{opacity:1,transform:'scaleX(1)',offset:.3},{opacity:0,transform:'scaleX(1)'}],{duration:380,fill:'forwards'});die(cut,420);
+          // the top half slides off along the cut and falls; the bottom half sags and drops
+          const mv=(e,x1,y1,x2,y2,rot)=>e.animate([{transform:'none',opacity:1},{transform:`translate(${x1}px,${y1}px) rotate(${rot*.3}deg)`,opacity:1,offset:.3},{transform:`translate(${x2}px,${y2}px) rotate(${rot}deg)`,opacity:0,filter:'brightness(.6)'}],{duration:640,delay:80,easing:'ease-in',fill:'both'}).onfinish=()=>e.remove();
+          mv(A,16,-6,40,30+Math.random()*16,14);mv(B2,-4,4,-10,50+Math.random()*16,-6);
           S&&thud();
         },t+i*60);
       });
