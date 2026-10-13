@@ -8,17 +8,14 @@
 <style>
 :root{--felt:#14573f;--felt2:#0c3326;--card:#fdfcf7;--red:#c0392b;--ink:#1d1d1d;--gold:#f2c14e;--accent:#4cc9a0;--felt3:#06201a;--acc-rgb:76,201,160;--panel:#17382c;--dim:#04140ecc;--diffbg:#0b2e22f2}
 :root.theme-crazy{--felt:#1d4a8f;--felt2:#0a1f4a;--felt3:#050f2a;--accent:#5aa9ff;--acc-rgb:90,169,255;--panel:#142c5a;--dim:#050f2acc;--diffbg:#0c1f4af2}
-/* Death match (round 3): the table goes dark */
+/* Final duel (round 3): the table goes dark */
 :root.deathmatch{--felt:#0b3a29;--felt2:#061e15;--felt3:#020c08;--panel:#0d2219;--dim:#020a07d9;--diffbg:#05160ff2}
 :root.theme-crazy.deathmatch{--felt:#11305c;--felt2:#05122d;--felt3:#010614;--panel:#0b1a36;--dim:#010614d9;--diffbg:#06122af2}
 :root.deathmatch .side{--sov:#000000b8}
 #dm{position:fixed;inset:0;z-index:58;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;background:radial-gradient(circle at 50% 45%,#1a1a1ae0,#000000f0 75%);overflow:hidden}
-#dm .dm-in{display:flex;flex-direction:column;align-items:center;gap:2px;max-width:100%}
-#dm .dm-w{position:relative;width:240px;height:176px}
-#dm .dm-s,#dm .dm-a{position:absolute;top:10px;width:40px;height:160px;transform-origin:50% 91%;filter:drop-shadow(0 6px 10px #000c)}
-#dm .dm-s{left:60px}#dm .dm-a{right:60px}
+#dm .dm-in{position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;max-width:100%}
 #dm .dm-x{position:absolute;left:50%;top:50%;width:24px;height:24px;margin:-12px;border-radius:50%;background:radial-gradient(#fff,#ffd23f 40%,#ff6b0000 70%);opacity:0}
-#dm .dm-t{font-size:clamp(1.8rem,9.5vw,6rem);white-space:nowrap;font-weight:900;letter-spacing:.08em;color:#ff3b30;text-shadow:0 0 22px #ff0000aa,0 4px 24px #000}
+#dm .dm-t{position:relative;font-size:clamp(1.8rem,9.5vw,6rem);white-space:nowrap;font-weight:900;letter-spacing:.08em;color:#ff3b30;text-shadow:0 0 22px #ff0000aa,0 4px 24px #000}
 *{box-sizing:border-box}
 body{margin:0;min-height:100vh;display:flow-root;color:#eef5f1;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
   background:radial-gradient(ellipse at 50% 30%,var(--felt) 0%,var(--felt2) 80%) fixed}
@@ -1998,7 +1995,7 @@ function chooseSync(v,OPP){
     thud();
     fxUntil=Math.max(fxUntil,Date.now()+1700);
     const quick=reduced()||!d.animate;
-    dmGo(quick?400:1700);   // round 3: the death match intro follows the 'who goes first' result
+    dmGo(quick?400:1700);   // round 3: the final duel intro follows the 'who goes first' result
     setTimeout(()=>{if(quick)d.remove();else d.animate([{opacity:1},{opacity:0}],{duration:350,fill:'forwards'}).onfinish=()=>d.remove();},quick?400:1350);
     return;
   }
@@ -3048,19 +3045,17 @@ function victoryFx(v){
   setTimeout(()=>d.remove(),dur+100);
   fxUntil=Math.max(fxUntil,Date.now()+1500);
 }
-// ---- Round 3 is a death match: two swords clash, then the table goes dark ----
+// ---- Round 3 is the final duel: the title slams in, then the table goes dark ----
 let dmPending=null;
 function deathMatchFx(gid){
   if(!view||view.gameId!==gid){dmPending=null;return;}
   const old=$('dm');if(old)old.remove();
   const d=document.createElement('div');d.id='dm';
-  d.innerHTML='<div class="dm-in"><div class="dm-w"><svg class="dm-s" viewBox="0 0 40 160"><polygon points="20,0 27,12 27,108 13,108 13,12" fill="#e3e9f0" stroke="#7d8a99" stroke-width="2"/><line x1="20" y1="12" x2="20" y2="104" stroke="#a9b5c2" stroke-width="2"/><rect x="2" y="107" width="36" height="9" rx="3" fill="#d4a72c"/><rect x="15" y="116" width="10" height="29" rx="3" fill="#5e3519"/><circle cx="20" cy="150" r="7" fill="#d4a72c"/></svg><svg class="dm-a" viewBox="0 0 40 160"><polygon points="20,0 27,12 27,108 13,108 13,12" fill="#e3e9f0" stroke="#7d8a99" stroke-width="2"/><line x1="20" y1="12" x2="20" y2="104" stroke="#a9b5c2" stroke-width="2"/><rect x="2" y="107" width="36" height="9" rx="3" fill="#d4a72c"/><rect x="15" y="116" width="10" height="29" rx="3" fill="#5e3519"/><circle cx="20" cy="150" r="7" fill="#d4a72c"/></svg><div class="dm-x"></div></div><div class="dm-t">DEATH MATCH</div></div>';
+  d.innerHTML='<div class="dm-in"><div class="dm-x"></div><div class="dm-t">FINAL DUEL</div></div>';
   document.body.appendChild(d);
   const darken=()=>{dmPending=null;document.documentElement.classList.add('deathmatch');};
   if(reduced()||!d.animate){darken();setTimeout(()=>d.remove(),1800);return;}
-  const HIT=480,E='cubic-bezier(.5,0,.9,.5)';
-  d.querySelector('.dm-s').animate([{transform:'translateX(-120px) rotate(-100deg)',opacity:0},{transform:'translateX(-40px) rotate(-50deg)',opacity:1,offset:.5},{transform:'rotate(40deg)',offset:.8},{transform:'rotate(30deg)'}],{duration:HIT+260,easing:E,fill:'forwards'});
-  d.querySelector('.dm-a').animate([{transform:'translateX(120px) rotate(100deg)',opacity:0},{transform:'translateX(40px) rotate(50deg)',opacity:1,offset:.5},{transform:'rotate(-40deg)',offset:.8},{transform:'rotate(-30deg)'}],{duration:HIT+260,easing:E,fill:'forwards'});
+  const HIT=480;
   d.querySelector('.dm-x').animate([{transform:'scale(0)',opacity:0},{transform:'scale(1)',opacity:1,offset:.1},{transform:'scale(9)',opacity:0}],{duration:600,delay:HIT*.8+100,fill:'forwards'});
   d.querySelector('.dm-t').animate([{transform:'scale(2.6)',opacity:0},{transform:'scale(.94)',opacity:1,offset:.6},{transform:'scale(1)',opacity:1}],{duration:420,delay:HIT,easing:'ease-out',fill:'backwards'});
   setTimeout(()=>{thud();noiseBurst(.35,'highpass',4000,900,.45);darken();
@@ -3801,12 +3796,12 @@ function showRules(){
     :FX_KEYS.filter(k=>on.includes(k)).map(k=>'<li><b>'+RANK[k]+' — '+ABILITY[k]+':</b> '+ABILITY_TEXT[k].replace(/^[^:]*:\s*/,'')+'</li>').join('');
   const off=cz?'':FX_KEYS.filter(k=>!on.includes(k)).map(k=>RANK[k]).join(', ');
   $('modalRoot').innerHTML=`<div class="modal" id="rulesModal"><div class="box rules"><h3>Eggbog — ${cz?'🌀 Crazy mode rules':'Rules'}</h3>
-  <h4>Goal</h4><p>2 players, a standard 52-card deck${cz?' plus 2 Surges':''}. You win the game when your opponent runs out of cards and cannot beat your total. That can happen in any round. A round also ends when someone concedes: their opponent wins that round, and the game goes on to the next one. Each player can concede once per game, so there are at most 3 rounds, and round 3 (the death match) is always played until someone runs out.</p>
+  <h4>Goal</h4><p>2 players, a standard 52-card deck${cz?' plus 2 Surges':''}. You win the game when your opponent runs out of cards and cannot beat your total. That can happen in any round. A round also ends when someone concedes: their opponent wins that round, and the game goes on to the next one. Each player can concede once per game, so there are at most 3 rounds, and round 3 (the final duel) is always played until someone runs out.</p>
   <h4>Card values</h4><p>Ace = 1, 2–10 = face value, Jack/Queen/King = ${cz?'10':'1'}. Suits low to high: ♣ ♠ ♥ ♦.</p>
   ${cz?`<h4>Setup</h4><p>Each player opens a starter pack of 7 cards. You either keep it or open a different pack of 7 new cards from the deck (your first pack is discarded and counts as mulliganed in the stats). There is no other mulligan.</p>`
       :`<h4>Setup</h4><p>Each player is dealt 10 cards and may mulligan up to 5 of them.</p>`}
   <h4>Starting a round</h4><p>Each player is dealt one card from the deck, face down, and both flip at once. Both cards go into their owners' hands, and the player whose card is lowest goes first (equal values: lower suit goes first). To make up for moving first, that player also gets the 🥚 Egg: a plain card with no effect, worth ${cz?'1 point':'5 points'}. Like a Surge it has no suit, so it can be played on any of your columns. It is never shuffled back into the deck. In later rounds, the loser of the previous round chooses who starts.</p>
-  <h4>Turns</h4><p>Play a card by dragging it from your hand onto its own suit column on your side of the field (the column lights up). Drag cards within your hand to arrange them however you like. Once your total is strictly greater than your opponent's, your turn ends. You cannot play while your total is already strictly greater. You may concede on any turn with the 🏳️ Concede button above your hand, only once per game (so you can never concede the whole match away), and never in round 3: the death match, which has to be played out.</p>
+  <h4>Turns</h4><p>Play a card by dragging it from your hand onto its own suit column on your side of the field (the column lights up). Drag cards within your hand to arrange them however you like. Once your total is strictly greater than your opponent's, your turn ends. You cannot play while your total is already strictly greater. You may concede on any turn with the 🏳️ Concede button above your hand, only once per game (so you can never concede the whole match away), and never in round 3: the final duel, which has to be played out.</p>
   <h4>The field</h4><p>Each player has a side, organized in suit columns (♣ ♠ ♥ ♦) that face the matching column on the opponent's side.</p>
   ${cz?`<h4>Card effects</h4><p>Every single card gets one of the effects below at random, so two Aces (or two 7s) can do different things. The effect is written on each card, and the 🌀 button shows the effects in this game. Effects trigger when the card is played.</p><ul>${fxList}</ul>`
       :`<h4>Special cards (trigger when played)</h4><ul>${fxList}</ul>${off?`<p>Switched off in this game: ${off}. They play with no effect.</p>`:''}`}
