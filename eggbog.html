@@ -438,6 +438,11 @@ header h2{margin:0;font-size:1.3rem}
 .du-side{display:flex;flex-direction:column;align-items:center;gap:30px;transition:opacity .4s,transform .4s;width:150px}
 .du-side.lose{opacity:.45;transform:scale(.94)}
 .du-side.win .du-card{filter:drop-shadow(0 0 14px #f2c14e)}
+.du-side.win{transform:translateY(-10px)}
+.du-card.wobble .du-inner{animation:duWobble .5s ease-in-out infinite alternate}
+@keyframes duWobble{from{transform:rotate(-4deg)}to{transform:rotate(4deg)}}
+.du-egg{position:fixed;z-index:2;font-size:3.6rem;pointer-events:none;filter:drop-shadow(0 4px 6px rgba(0,0,0,.4))}
+@media (prefers-reduced-motion:reduce){.du-card.wobble .du-inner{animation:none}}
 .du-name{font-weight:700}
 .du-card{zoom:2;perspective:500px;width:62px;height:88px}
 .du-card.live{cursor:pointer;animation:duPulse 1s ease-in-out infinite alternate}
@@ -1296,6 +1301,7 @@ function scheduleCpu(){
   if(state.phase==='play'&&cpuHeldKey!==key){cpuHeldKey=key;extra=1200;}
   const oneDraw=state.drawQ.length>=1&&state.drawQ[0].who===1&&state.drawQ[0].reason!=='start'&&state.drawQ[0].reason!=='greed';
   let D=(oneDraw?350:700+Math.random()*900)+extra+Math.max(0,fxUntil-Date.now());
+  if(state.phase==='start')D=Math.max(300,fxUntil-Date.now());   // who goes first: draw as soon as the cards have slid in, so both flip together
   clearTimeout(cpuHoverTimer);cpuPre=null;
   // the computer 'thinks' with its hand visible: it lifts a card or two, then holds its choice over the column
   const pl=state.phase==='play'&&state.turn===1&&!state.pending&&!state.drawQ.length&&!(state.jokerQ&&state.jokerQ.length)&&!state.startCards[1];
@@ -1915,20 +1921,22 @@ function duelSync(v,OPP){
   if(v.phase==='start'){
     if(!d&&($('newc')||($('pack')&&v.crazy)))return;
     if(!d){
-      d=document.createElement('div');d.id='duel';fxUntil=Math.max(fxUntil,Date.now()+3100); // the computer waits for the reveal to finish
+      d=document.createElement('div');d.id='duel';fxUntil=Math.max(fxUntil,Date.now()+1200); // the computer lets the cards slide in and wobble first
       const side=(id,name)=>`<div class="du-side" id="${id}"><div class="du-name">${name}</div><div class="du-card"><div class="du-inner"><div class="du-face back-f"><div class="card back"></div></div><div class="du-face front"></div></div></div></div>`;
       d.innerHTML=`<div class="du-title">Who goes first?</div><div class="du-help" id="duHelp"></div><div class="du-row">${side('duMe','You')}<div class="du-vs">vs</div>${side('duOpp',OPP)}</div><div class="du-result" id="duRes"></div>`;
       document.body.appendChild(d);
+      d.dataset.t0=Date.now();
+      // both cards slide in face down, then wobble until they flip together
+      if(!reduced()&&d.animate){
+        d.querySelector('#duMe .du-card').animate([{transform:'translateX(-60px) rotate(-12deg)',opacity:0},{transform:'none',opacity:1}],{duration:450,easing:'cubic-bezier(.2,.9,.3,1.15)',fill:'backwards'});
+        d.querySelector('#duOpp .du-card').animate([{transform:'translateX(60px) rotate(12deg)',opacity:0},{transform:'none',opacity:1}],{duration:450,delay:80,easing:'cubic-bezier(.2,.9,.3,1.15)',fill:'backwards'});
+      }
+      d.querySelectorAll('.du-card').forEach(c=>c.classList.add('wobble'));
     }
-    const me=d.querySelector('#duMe .du-card'),help=$('duHelp');
     d.querySelector('#duOpp .du-name').textContent=OPP;
-    const can=v.draws.length>0;
-    me.classList.toggle('live',can);
-    me.onclick=can?()=>dispatch({t:'draw'}):null;
-    if(v.startMe&&!me.classList.contains('flipped')){
-      me.querySelector('.front').innerHTML=cardEl(v.startMe);me.classList.add('flipped');
-    }
-    help.textContent=can?'Tap your card to turn it over. The lowest card goes first.':(v.startMe?'Waiting for '+OPP+' to turn over their card…':'Waiting for '+OPP+'…');
+    $('duHelp').textContent='Lowest card goes first';
+    // no tapping: your card is drawn for you once it has slid in (it stays face down until both flip)
+    if(v.draws.length>0&&!d.dataset.drawn){d.dataset.drawn='1';setTimeout(()=>{if(view&&view.phase==='start'&&view.draws.length>0)dispatch({t:'draw'});},Math.max(0,700-(Date.now()-(+d.dataset.t0||0))));}
     return;
   }
   if(!d||d.dataset.fin)return;
@@ -1936,22 +1944,30 @@ function duelSync(v,OPP){
   d.dataset.fin='1';
   const [c0,c1]=v.reveal.cards,mine=v.you===0?c0:c1,theirs=v.you===0?c1:c0,starter=v.reveal.starter;
   const flip=(sel,c,delay)=>setTimeout(()=>{const el=d.querySelector(sel+' .du-card');if(!c||el.classList.contains('flipped'))return;el.classList.remove('live');el.querySelector('.front').innerHTML=cardEl(c);el.classList.add('flipped');},delay);
-  flip('#duMe',mine,0);flip('#duOpp',theirs,350);
-  $('duHelp').textContent='';
-  const quick=reduced();
+  // let the cards wobble for a beat before they flip together
+  const quick=reduced(),wait=quick?0:Math.max(0,900-(Date.now()-(+d.dataset.t0||0)));
+  setTimeout(()=>{d.querySelectorAll('.du-card').forEach(c=>c.classList.remove('wobble','live'));flip('#duMe',mine,0);flip('#duOpp',theirs,0);},wait);
   setTimeout(()=>{
-    const youFirst=starter===v.you;
-    $('duRes').textContent=(youFirst?'You go first':OPP+' goes first')+' and '+(youFirst?'get':'gets')+' the 🥚 Egg ('+(v.crazy?EGG_VAL.crazy:EGG_VAL.normal)+(v.crazy?' point)':' points)');
+    const youFirst=starter===v.you,win=d.querySelector(youFirst?'#duMe':'#duOpp');
     d.querySelector('#duMe').classList.add(youFirst?'win':'lose');d.querySelector('#duOpp').classList.add(youFirst?'lose':'win');
+    $('duHelp').textContent='';
+    $('duRes').textContent=(youFirst?'You':OPP)+' first 🥚';
     thud();
-  },quick?0:1250);
+    // the Egg pops out of the winning card and drops toward its owner's hand
+    if(!quick&&d.animate){
+      const r=win.querySelector('.du-card').getBoundingClientRect(),e=document.createElement('div');
+      e.className='du-egg';e.textContent='🥚';e.style.left=(r.left+r.width/2)+'px';e.style.top=(r.top+r.height/2)+'px';d.appendChild(e);
+      const fall=youFirst?window.innerHeight-r.top:-(r.bottom+40);
+      e.animate([{transform:'translate(-50%,-50%) scale(.2)',opacity:0},{transform:'translate(-50%,-170%) scale(1.3)',opacity:1,offset:.3},{transform:'translate(-50%,-155%) scale(1)',opacity:1,offset:.55},{transform:`translate(-50%,${fall}px) scale(.7)`,opacity:0}],{duration:1200,easing:'cubic-bezier(.3,.1,.5,1)',fill:'forwards'});
+    }
+  },wait+(quick?0:750));
   setTimeout(()=>{
     const done=()=>{
       d.remove();
     };
     if(quick||!d.animate){done();return;}
     d.animate([{opacity:1},{opacity:0}],{duration:350,fill:'forwards'}).onfinish=done;
-  },quick?0:2700);
+  },wait+(quick?0:2300));
 }
 // ---- Who starts the next round: the loser chooses, as its own event over the middle of the screen ----
 function chooseSync(v,OPP){
@@ -3741,7 +3757,7 @@ function showRules(){
   <h4>Card values</h4><p>Ace = 1, 2–10 = face value, Jack/Queen/King = ${cz?'10':'1'}. Suits low to high: ♣ ♠ ♥ ♦.</p>
   ${cz?`<h4>Setup</h4><p>Each player opens a starter pack of 7 cards. You either keep it or open a different pack of 7 new cards from the deck (your first pack is discarded and counts as mulliganed in the stats). There is no other mulligan.</p>`
       :`<h4>Setup</h4><p>Each player is dealt 10 cards and may mulligan up to 5 of them.</p>`}
-  <h4>Starting a round</h4><p>Both players draw one card from the deck (click it or drag it out). Both cards go into their owners' hands, and the player whose card is lowest goes first (equal values: lower suit goes first). To make up for moving first, that player also gets the 🥚 Egg: a plain card with no effect, worth ${cz?'1 point':'5 points'}. Like a Joker it has no suit, so it can be played on any of your columns. It is never shuffled back into the deck. In later rounds, the loser of the previous round chooses who starts.</p>
+  <h4>Starting a round</h4><p>Each player is dealt one card from the deck, face down, and both flip at once. Both cards go into their owners' hands, and the player whose card is lowest goes first (equal values: lower suit goes first). To make up for moving first, that player also gets the 🥚 Egg: a plain card with no effect, worth ${cz?'1 point':'5 points'}. Like a Joker it has no suit, so it can be played on any of your columns. It is never shuffled back into the deck. In later rounds, the loser of the previous round chooses who starts.</p>
   <h4>Turns</h4><p>Play a card by dragging it from your hand onto its own suit column on your side of the field (the column lights up). Drag cards within your hand to arrange them however you like. Once your total is strictly greater than your opponent's, your turn ends. You cannot play while your total is already strictly greater. You may concede on any turn with the 🏳️ Concede button above your hand, only once per game (so you can never concede the whole match away), and never in round 3: the death match, which has to be played out.</p>
   <h4>The field</h4><p>Each player has a side, organized in suit columns (♣ ♠ ♥ ♦) that face the matching column on the opponent's side.</p>
   ${cz?`<h4>Card effects</h4><p>Every single card gets one of the effects below at random, so two Aces (or two 7s) can do different things. The effect is written on each card, and the 🌀 button shows the effects in this game. Effects trigger when the card is played.</p><ul>${fxList}</ul>`
