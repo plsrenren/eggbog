@@ -1,7 +1,7 @@
 const fs=require('fs');
 const html=fs.readFileSync('eggbog.html','utf8');
 const m=html.match(/\/\/ ==ENGINE==([\s\S]*?)\/\/ ==END ENGINE==/);
-const src=m[1]+'\nmodule.exports={newGame,act,viewFor,actor,total,cardVal,mkDeck,startRound,settle,cpuChoose,fillDeck};';
+const src=m[1]+'\nmodule.exports={newGame,act,viewFor,actor,total,cardVal,mkDeck,startRound,settle,cpuChoose,fillDeck,F};';
 const mod={exports:{}};new Function('module',src)(mod);
 const {newGame,act,viewFor,actor,total,cardVal,mkDeck}=mod.exports;
 const assert=require('assert');
@@ -597,6 +597,27 @@ t('Joker: when only the other Joker is left to draw, it goes back in the deck (n
   assert.equal(s.p[1].hand.length,2);
   // both Jokers are now in the discard pile (or reshuffled into the deck): nothing is lost
   assert.equal(s.deck.concat(s.discard).filter(c=>c.r==='JK').length,2);
+});
+t('Morph: the top card of its suit on the opponent\'s side becomes a 1-point Egg, and turns back when it leaves',()=>{
+  const s=setup([X('3','H','O'),X('2','C','')],[X('5','S','')],[],[X('4','H',''),X('9','H','G'),X('8','S','')]);s.crazy=true;
+  assert.equal(act(s,0,{t:'play',id:'3H'}),null);
+  const t9=s.p[1].field.find(c=>c.id==='9H');
+  assert.equal(t9.r,'EG');assert.equal(cardVal(t9),1);assert.equal(mod.exports.F(t9),'','the Morphed card loses its effect (Greed)');
+  assert.equal(s.p[1].field.find(c=>c.id==='4H').r,'4','only the top card of the suit');assert.equal(s.p[1].field.find(c=>c.id==='8S').r,'8');
+  assert.equal(s.morph.id,'9H');
+  // removed by a Bolt: it goes to the discard pile as the 9 of hearts again
+  s.turn=0;s.p[0].hand.push(X('Q','H','Q'));assert.equal(act(s,0,{t:'play',id:'QH'}),null);
+  const d=s.discard.find(c=>c.id==='9H');assert.ok(d,'removed');assert.equal(d.r,'9');assert.equal(d.f,'G');assert.ok(!d.mo);assert.equal(cardVal(d),9);
+});
+t('Morph: a Sturdy card or an Egg on top is not affected; a Morphed card turns back at the end of a round',()=>{
+  const s=setup([X('3','H','O'),X('2','C','')],[X('5','S','')],[],[X('9','H','4')]);s.crazy=true;
+  act(s,0,{t:'play',id:'3H'});assert.equal(s.p[1].field[0].r,'9','Sturdy blocks Morph');
+  const s2=setup([X('3','D','O'),X('2','D','O'),X('2','C','')],[X('5','S','')],[],[X('10','D','')]);s2.crazy=true;
+  act(s2,0,{t:'play',id:'3D'});assert.equal(s2.p[1].field[0].r,'EG');
+  s2.turn=0;act(s2,0,{t:'play',id:'2D'});assert.equal(s2.morph.n,1,'an Egg on top is not Morphed again');
+  s2.p[1].hand=[];s2.p[1].wins=0;s2.turn=1;act(s2,1,{t:'concede'});
+  const all=s2.deck.concat(s2.discard,s2.p[0].hand,s2.p[1].hand,s2.p[0].field,s2.p[1].field);
+  const ten=all.find(c=>c.id==='10D');assert.ok(ten);assert.equal(ten.r,'10','back to a 10 after the round');
 });
 t('no conceding in round 3, and the computer never tries',()=>{
   const s=setup([C('2','C'),C('3','C')],[C('9','S'),C('8','S')],[],[C('8','H')]);

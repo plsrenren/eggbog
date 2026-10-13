@@ -213,6 +213,8 @@ header h2{margin:0;font-size:1.3rem}
 .dropline{position:fixed;width:4px;border-radius:2px;background:var(--gold);z-index:25;pointer-events:none}
 #hand .card.mul,#stlHand .card.mul{transform:translateY(-10px);outline:3px solid #ff6b6b}
 .card.ghost{position:fixed;z-index:60;pointer-events:none;margin:0;transform:rotate(5deg) scale(1.08);box-shadow:0 8px 20px #0009}
+.card.mo-hold{visibility:hidden}
+.morph-puff{position:fixed;border-radius:50%;pointer-events:none;z-index:41;background:radial-gradient(circle,#e6d4ffee,#b48cffaa 45%,#7a52d600 72%)}
 .mimic-mask{position:fixed;width:58px;height:58px;pointer-events:none;z-index:62;filter:drop-shadow(0 3px 6px #0008) drop-shadow(0 0 8px #c58bff88)}
 .mimic-mask .mm{transform-box:fill-box;transform-origin:50% 0;animation:mimicLaugh .17s ease-in-out infinite alternate}
 @keyframes mimicLaugh{from{transform:scaleY(1)}to{transform:scaleY(.45)}}
@@ -646,7 +648,7 @@ const SUITS=['C','S','H','D'];
 const SUIT_RANK={C:0,S:1,H:2,D:3,'*':4};
 const SYM={C:'♣',S:'♠',H:'♥',D:'♦','*':''};
 const DISCOVER_N=3; // cards the opponent draws for a Scry; they keep one for you, the rest are discarded
-const ABILITY={A:'Draw','2':'Deathrattle','3':'Scry','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Wipe',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',X:'Joker'};
+const ABILITY={A:'Draw','2':'Deathrattle','3':'Scry','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Wipe',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',O:'Morph',X:'Joker'};
 const ABILITY_TEXT={
   A:'Draw: draw one card from the deck into your hand.',
   '2':'Deathrattle: if this card is removed from the field, its owner draws one card.',
@@ -660,6 +662,7 @@ const ABILITY_TEXT={
   T:'Steal (Crazy mode): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned.',
   L:'Rune (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards.',
   G:'Greed (Crazy mode): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
+  O:'Morph (Crazy mode): the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It turns back when it leaves the table. A Sturdy card or an Egg on top is not affected.',
   X:'Joker (Crazy mode): can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Joker also makes any choice those cards need (which card Scry keeps, which card Steal takes), at random.'
 };
 function F(c){return c.f===undefined?(DEF_F[c.r]||''):c.f;}
@@ -672,7 +675,7 @@ const EGG_VAL={crazy:1,normal:5};
 const DEF_F={A:'A','2':'2','3':'3','4':'4','5':'5',J:'J',Q:'Q',K:'K'};
 const FX_KEYS=['A','2','3','4','5','J','Q','K'];
 const CRAZY_HAND=7;
-const CRAZY_KEYS=FX_KEYS.concat(['M','T','L','G']);   // the extra effects only exist in Crazy mode
+const CRAZY_KEYS=FX_KEYS.concat(['M','T','L','G','O']);   // the extra effects only exist in Crazy mode
 const CRAZY_DEFAULT=CRAZY_KEYS.filter(k=>k!=='A');       // Crazy mode starts without Draw (it can still be switched on in the effects menu)
 // crazy mode: every single card gets its own random effect (each card picks independently, so counts vary from game to game)
 function mkDeck(crazy,rng,enabled){
@@ -734,12 +737,15 @@ function gameOver(s,winner,reason){
 function removeCard(s,owner,c){
   const f=s.p[owner].field;const k=f.findIndex(x=>x.id===c.id);if(k<0)return;
   const fx=F(c);
-  f.splice(k,1);unmirror(c);s.discard.push(c);log(s,owner,'lost '+cardStr(c));
+  f.splice(k,1);unmorph(c);unmirror(c);s.discard.push(c);log(s,owner,'lost '+cardStr(c));
   if(s.stats){s.stats.lostN[owner]++;s.stats.lostV[owner]+=cardVal(c);}
   if(fx==='2')queueDraw(s,owner,'deathrattle');
 }
 // A Mimic turns into the effect it copies for as long as it stays on the table; once it leaves the field it is a Mimic again
 function unmirror(c){if(c.was==='M'){c.f='M';delete c.was;}}
+// A card turned into an Egg by Morph stays an Egg while it is on the table, and turns back into itself when it leaves
+function unmorph(c){if(c.mo){c.r=c.mo.r;c.f=c.mo.f;if(c.mo.v===undefined)delete c.v;else c.v=c.mo.v;delete c.mo;}}
+function morphTarget(field,suit){const col=field.filter(x=>x.s===suit),top=col[col.length-1];return top&&F(top)!=='4'&&top.r!=='EG'?top:null;}
 function resolve(s,i,c){
   const opp=1-i;let fx=F(c);
   if(fx==='M'){
@@ -780,6 +786,12 @@ function resolve(s,i,c){
     case 'T':{ // the opponent chooses which card of theirs to give
       if(!s.p[opp].hand.length)log(s,i,'Steal: the opponent has no cards');
       else s.pending={t:'steal',by:i,chooser:opp};
+      break;}
+    case 'O':{ // Morph: the top card of this suit on the opponent's side becomes a 1-point Egg (a Sturdy card or an Egg on top is left alone)
+      const tg=morphTarget(s.p[opp].field,c.s);
+      if(tg){const was=cardStr(tg);tg.mo={r:tg.r,f:tg.f,v:tg.v};tg.r='EG';tg.f='';tg.v=EGG_VAL.crazy;
+        s.morph={n:((s.morph&&s.morph.n)||0)+1,id:tg.id,by:i};log(s,i,'Morph: '+was+' turned into an Egg');}
+      else log(s,i,'Morph: nothing to turn into an Egg');
       break;}
     case 'G': // Greed does nothing when played: while it is on your field you draw a card each time the turn passes to you (see settle)
       break;
@@ -897,7 +909,7 @@ function endRound(s,loser){
   const w=1-loser;s.p[w].wins++;
   if(s.stats)s.stats.rounds.push({n:s.round,w,t:[total(s,0),total(s,1)],by:'concede'});
   log(s,loser,'conceded the round');s.flag={n:((s.flag&&s.flag.n)||0)+1,who:loser};s.lastFx=null;
-  for(const i of [0,1]){s.p[i].field.forEach(unmirror);s.discard.push(...s.p[i].field);s.p[i].field=[];}
+  for(const i of [0,1]){s.p[i].field.forEach(c=>{unmorph(c);unmirror(c);});s.discard.push(...s.p[i].field);s.p[i].field=[];}
   if(s.p[w].wins>=2){gameOver(s,w,'rounds');return;}
   s.round++;
   s.phase='choose';s.chooser=loser;s.turn=null;
@@ -1056,7 +1068,7 @@ function viewFor(s,i){
       if(i===pd.chooser)pending.opts=pd.opts; // only the chooser sees the cards
     }
   }
-  return {you:i,logN:s.logN||0,flag:s.flag||null,pack:s.pack?{n:s.pack.n,who:s.pack.who,cards:s.pack.who===i?s.pack.cards:s.pack.cards.map(()=>null)}:null,oppReasons:s.drawQ.filter(e=>e.who!==i).map(e=>e.reason),burn:s.burn?{n:s.burn.n,who:s.burn.who,full:!!s.burn.full,cards:s.burn.who===i?s.burn.cards:s.burn.cards.map(()=>null)}:null,fxOn:s.fx||null,crazy:!!s.crazy,fm:s.fm||null,mirror:s.mirror||null,lastFx:s.lastFx||null,stolen:s.stolen||null,discover:s.discFx?{n:s.discFx.n,by:s.discFx.by,kept:s.discFx.by===i?s.discFx.kept:null,gift:s.discFx.gift,burnt:s.discFx.by===i?s.discFx.burnt:s.discFx.burnt.map(()=>null)}:null,greed:s.greedFx||null,joker:s.joker||null,jq:(s.jokerQ||[]).length,reshuffles:s.reshuffles||0,shuffled:s.lastShuffle||0,phase:s.phase,round:s.round,turn:s.turn,chooser:s.chooser,deck:s.deck.length,discard:s.discard.length,
+  return {you:i,logN:s.logN||0,flag:s.flag||null,pack:s.pack?{n:s.pack.n,who:s.pack.who,cards:s.pack.who===i?s.pack.cards:s.pack.cards.map(()=>null)}:null,oppReasons:s.drawQ.filter(e=>e.who!==i).map(e=>e.reason),burn:s.burn?{n:s.burn.n,who:s.burn.who,full:!!s.burn.full,cards:s.burn.who===i?s.burn.cards:s.burn.cards.map(()=>null)}:null,fxOn:s.fx||null,crazy:!!s.crazy,fm:s.fm||null,mirror:s.mirror||null,morph:s.morph||null,lastFx:s.lastFx||null,stolen:s.stolen||null,discover:s.discFx?{n:s.discFx.n,by:s.discFx.by,kept:s.discFx.by===i?s.discFx.kept:null,gift:s.discFx.gift,burnt:s.discFx.by===i?s.discFx.burnt:s.discFx.burnt.map(()=>null)}:null,greed:s.greedFx||null,joker:s.joker||null,jq:(s.jokerQ||[]).length,reshuffles:s.reshuffles||0,shuffled:s.lastShuffle||0,phase:s.phase,round:s.round,turn:s.turn,chooser:s.chooser,deck:s.deck.length,discard:s.discard.length,
     me:{hand:me.hand,field:me.field,wins:me.wins,mull:me.mull,pack:me.pack,conceded:!!me.conceded,newCards:(s.stats&&s.stats.mullIn&&s.stats.mullIn[i])||[],oldCards:(s.stats&&s.stats.mull&&s.stats.mull[i])||[]},
     opp:{hand:op.hand.length,field:op.field,wins:op.wins,mull:op.mull,pack:op.pack},
     draws:s.drawQ.filter(e=>e.who===i).map(e=>e.reason),drawsOpp:s.drawQ.filter(e=>e.who!==i).length,
@@ -1066,7 +1078,7 @@ function viewFor(s,i){
 // A deliberately sloppy computer player: random mulligans, random cards, random choices,
 // and it sometimes gives up a round when far behind. It never plans ahead.
 // ---- Computer player: 'easy' plays at random, 'normal' plays sensibly, 'hard' plans its cards and rounds ----
-const CPU_HV={A:2.5,'2':1.2,'3':2.5,'4':2,'5':2.5,J:4,Q:5,K:6,M:2.5,T:3,L:.5,G:.5,X:4};   // extra reluctance to spend a special card
+const CPU_HV={A:2.5,'2':1.2,'3':2.5,'4':2,'5':2.5,J:4,Q:5,K:6,M:2.5,T:3,L:.5,G:.5,O:3,X:4};   // extra reluctance to spend a special card
 function cardKeep(c){return cardVal(c)+CPU_CFG.hvScale*(CPU_HV[F(c)]||0);}
 let CPU_ROLL=false;   // true while the expert imagines whole games: cheaper Joker estimates
 const CPU_CFG={marginW:.2,mullMax:7,start:'opp',stratK:1,hvScale:1,greedHunt:0,concedeMode:0,stratFrac:0};   // stratFrac 0 = automatic: Hard concedes a bit more readily in Crazy mode   // greedHunt: bonus for taking an opponent's Greed off the field
@@ -1236,8 +1248,9 @@ let fxCfg={normal:FX_KEYS.slice(),crazy:CRAZY_DEFAULT.slice()};
 try{const j=JSON.parse(localStorage.getItem(FXKEY)||'null');
   if(j&&Array.isArray(j.normal)&&Array.isArray(j.crazy)){fxCfg={normal:j.normal.filter(k=>FX_KEYS.includes(k)),crazy:j.crazy.filter(k=>CRAZY_KEYS.includes(k))};
     if(!j.v2){fxCfg.crazy=fxCfg.crazy.filter(k=>k!=='A');saveFx();}   // one-time: Draw leaves the Crazy defaults
+    if(!j.v3){if(!fxCfg.crazy.includes('O'))fxCfg.crazy.push('O');saveFx();}   // one-time: Morph joins the Crazy effects
     if(!fxCfg.crazy.length)fxCfg.crazy=CRAZY_DEFAULT.slice();}}catch(e){}
-function saveFx(){try{localStorage.setItem(FXKEY,JSON.stringify(Object.assign({v2:1},fxCfg)));}catch(e){}}
+function saveFx(){try{localStorage.setItem(FXKEY,JSON.stringify(Object.assign({v2:1,v3:1},fxCfg)));}catch(e){}}
 let crazyOn=false;
 try{crazyOn=localStorage.getItem('eggbog-crazy')==='1';}catch(e){}
 function gameOpts(){return {paced:true,crazy:crazyOn,fx:(crazyOn?fxCfg.crazy:fxCfg.normal).slice()};}
@@ -1445,6 +1458,7 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
   else if(cf==='K'){v.opp.field.filter(removable).forEach(x=>gone.push({c:x,mine:false}));v.me.field.filter(removable).forEach(x=>gone.push({c:x,mine:true}));}
   else if(cf==='A')lines.push('➕ You draw a card');
   else if(cf==='3')lines.push('🔮 Scry: keep 1 of 3 cards');
+  else if(cf==='O'){const tg=morphTarget(v.opp.field,c.s);lines.push(tg?'🥚 Morph: their '+cardStr(tg)+' becomes an Egg (1 point)':'🥚 Morph: nothing to turn into an Egg');}
   else if(cf==='T')lines.push('🫳 Steal: '+OPP+' gives you a card, you burn one');
   else if(cf==='G')lines.push('💰 Greed: you draw each time your turn starts');
   else if(cf==='4')lines.push('🛡️ Sturdy: can never be removed');
@@ -2690,6 +2704,7 @@ const ART={
   M:'<svg class="art" viewBox="0 0 40 40"><path d="M5 9 Q14 6 22 9 Q23 22 13.5 28 Q4 22 5 9Z" fill="#cfd8ff" stroke="#3a3f7a" stroke-width="1.8"/><path d="M18 13 Q26 10 35 13 Q36 26 26.5 32 Q17 26 18 13Z" fill="#b48cff" stroke="#3a2370" stroke-width="1.8"/><path d="M8.5 14 q2 -2 4 0 M15 14 q2 -2 4 0 M10 21 q3.5 3 7 0" stroke="#3a3f7a" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M21.5 18 q2 -2 4 0 M28 18 q2 -2 4 0 M23 25 q3.5 3 7 0" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>',
   T:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#6b3fa0" stroke="#2c1646" stroke-width="2"/><rect x="9" y="11" width="13" height="18" rx="2" fill="#fff" stroke="#2c1646" stroke-width="1.5" transform="rotate(-12 15 20)"/><path d="M19 21 H33 M28 15 L34 21 L28 27" fill="none" stroke="#ffd84a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   L:'<svg class="art" viewBox="0 0 40 40"><defs><filter id="rnGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.2"/></filter></defs><g stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M20 24L11.5 15.5L20 7L28.5 15.5Z M20 24L12 34M20 24L28 34" stroke="#5fd6ff" stroke-width="5" opacity=".45" filter="url(#rnGlow)"/><path d="M20 24L11.5 15.5L20 7L28.5 15.5Z M20 24L12 34M20 24L28 34" stroke="#123a5a" stroke-width="2.6"/></g></svg>',
+  O:'<svg class="art" viewBox="0 0 40 40"><path d="M5 36 L17 22" stroke="#4a2f17" stroke-width="3.4" stroke-linecap="round"/><path d="M15.5 23.8 L17 22" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><path d="M17 20 Q16 10 25 8" stroke="#b48cff" stroke-width="1.6" fill="none" stroke-dasharray="2 2.2" stroke-linecap="round"/><path d="M29 6.5C24.8 6.5 22 12.8 22 16.8a7 7 0 0 0 14 0C36 12.8 33.2 6.5 29 6.5z" fill="#fff7e3" stroke="#a8823a" stroke-width="1.8"/><path d="M25.5 12.5c.7-2 1.9-3.3 3-3.7" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M13 13l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="#c58bff"/><path d="M33 27l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7z" fill="#c58bff"/></svg>',
   G:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#f2c230" stroke="#8a6a00" stroke-width="2"/><circle cx="20" cy="20" r="13" fill="none" stroke="#c99a10" stroke-width="1.5"/><text x="20" y="27.5" text-anchor="middle" font-size="21" font-weight="800" font-family="Arial,sans-serif" fill="#6b4f00">$</text></svg>',
   A:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#2e9e5b" stroke="#145c32" stroke-width="2"/><text x="20" y="27" text-anchor="middle" font-family="system-ui,Arial,sans-serif" font-weight="900" font-size="20" fill="#fff">+1</text></svg>',
   '3':'<svg class="art" viewBox="0 0 40 40"><path d="M9 36 Q10 30 14 29 H26 Q30 30 31 36 Z" fill="#d9a441" stroke="#6b4a12" stroke-width="1.6" stroke-linejoin="round"/><circle cx="20" cy="17" r="13" fill="#7a52d6" stroke="#3a2370" stroke-width="1.8"/><circle cx="17.5" cy="14.5" r="9" fill="#a682f5"/><circle cx="16" cy="13" r="4.5" fill="#d9c6ff"/><path d="M12.5 13 a8.5 8.5 0 0 1 6 -5.5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" opacity=".85"/><path d="M23 18l1 2.3 2.3 1-2.3 1-1 2.3-1-2.3-2.3-1 2.3-1z" fill="#fff" opacity=".9"/><circle cx="16" cy="22" r="1" fill="#fff" opacity=".7"/></svg>',
@@ -2699,6 +2714,29 @@ const ART={
   X:'<svg class="art" viewBox="0 0 40 40"><defs><linearGradient id="jkg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6bd6"/><stop offset=".35" stop-color="#6bd6ff"/><stop offset=".7" stop-color="#8dff8d"/><stop offset="1" stop-color="#ffe86b"/></linearGradient></defs><path d="M20 2 L24.5 14 L37.5 14.5 L27.3 22.5 L30.8 35.5 L20 28 L9.2 35.5 L12.7 22.5 L2.5 14.5 L15.5 14 Z" fill="url(#jkg)" stroke="#4b2a7a" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 8 L22 15 M20 8 L18 15" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/></svg>',
   K:`<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18.5" fill="#ffe21f" stroke="#111" stroke-width="2"/>${TREFOIL}</svg>`
 };
+// Morph: the target card spins down into a puff of purple smoke and an Egg pops out in its place
+const morphHold=new Set();
+function morphFx(prev,v,oldCards){
+  if(!prev||!v.morph||prev.you!==v.you||v.morph.n<=((prev.morph&&prev.morph.n)||0)||reduced())return;
+  const id=v.morph.id,old=oldCards.get(id);
+  const el=document.querySelector('#myField .card[data-id="'+id+'"],#oppField .card[data-id="'+id+'"]');if(!el||!old)return;
+  morphHold.add(id);el.classList.add('mo-hold');
+  const g=document.createElement('div');g.innerHTML=old.html;const o=g.firstChild;o.classList.remove('targetable','doomed','dim');
+  o.style.cssText+=`;position:fixed;left:${old.r.left}px;top:${old.r.top}px;margin:0;z-index:40;pointer-events:none`;document.body.appendChild(o);
+  const D=480;   // let the Morph card land first
+  o.animate([{transform:'none',filter:'none'},{transform:'none',filter:'brightness(1.4) drop-shadow(0 0 8px #c58bff)',offset:.35},{transform:'rotate(200deg) scale(.15)',filter:'brightness(2) hue-rotate(60deg)',opacity:.3}],{duration:520,delay:D,easing:'ease-in',fill:'forwards'}).onfinish=()=>o.remove();
+  const cur=()=>document.querySelector('#myField .card[data-id="'+id+'"],#oppField .card[data-id="'+id+'"]');
+  setTimeout(()=>{
+    morphHold.delete(id);const el=cur();if(!el)return;el.classList.remove('mo-hold');
+    const r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+    for(let k=0;k<11;k++){const p=document.createElement('div');p.className='morph-puff';const a=k/11*Math.PI*2,d=26+Math.random()*22,sz=18+Math.random()*18;
+      p.style.cssText=`left:${cx-sz/2}px;top:${cy-sz/2}px;width:${sz}px;height:${sz}px`;document.body.appendChild(p);
+      p.animate([{transform:'scale(.3)',opacity:.95},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d}px) scale(1.4)`,opacity:0}],{duration:700+Math.random()*250,easing:'cubic-bezier(.2,.7,.3,1)'}).onfinish=()=>p.remove();}
+    el.animate([{transform:'scale(.2) translateY(10px)',opacity:0},{transform:'scale(1.22) translateY(-6px)',opacity:1,offset:.55},{transform:'scale(.94)',offset:.78},{transform:'none'}],{duration:520,easing:'ease-out'});
+    try{thud();}catch(e){}
+  },D+420);
+  setTimeout(()=>{if(morphHold.delete(id)){const e=cur();if(e)e.classList.remove('mo-hold');}},D+2000);   // safety net
+}
 // Mimic: two laughing masks pop out of the played card, rock with laughter, and fade
 const MASK=(fill,ink,flip)=>`<svg viewBox="0 0 40 40" width="100%" height="100%"${flip?' style="transform:scaleX(-1)"':''}><path d="M4 6 Q20 1 36 6 Q38 26 20 37 Q2 26 4 6Z" fill="${fill}" stroke="${ink}" stroke-width="2"/><path d="M9 15 q4 -4.5 8 0 M23 15 q4 -4.5 8 0" stroke="${ink}" stroke-width="2.2" fill="none" stroke-linecap="round"/><path class="mm" d="M11 21 Q20 22 29 21 Q28 32 20 32 Q12 32 11 21Z" fill="#5a1630" stroke="${ink}" stroke-width="1.6"/><path d="M15 29.5 Q20 27 25 29.5" fill="#e0556a"/><circle cx="8.5" cy="20" r="2.2" fill="#ff8fb0" opacity=".55"/><circle cx="31.5" cy="20" r="2.2" fill="#ff8fb0" opacity=".55"/></svg>`;
 function mimicFx(id){
@@ -2757,9 +2795,9 @@ function cardEl(c,cls){
   const jk=c.r==='JK';
   const f=c.f===undefined?(ABILITY[c.r]?c.r:''):c.f;
   const egg=c.r==='EG';
-  const tip=ABILITY[f]?ABILITY_TEXT[f]:egg?'The Egg: a plain card worth '+cardVal(c)+(cardVal(c)>1?' points':' point')+', given to whoever goes first in round 1.':'';
+  const tip=ABILITY[f]?ABILITY_TEXT[f]:egg&&c.id!=='EGG'?'Morphed into an Egg: worth '+cardVal(c)+' point. It turns back into its card when it leaves the table.':egg?'The Egg: a plain card worth '+cardVal(c)+(cardVal(c)>1?' points':' point')+', given to whoever goes first in round 1.':'';
   const art=egg?EGG_ART:(ART[f]||'');
-  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K','J','Q','L'].includes(f)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
+  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K','J','Q','L'].includes(f)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''}${morphHold.has(c.id)?' mo-hold':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
     `<div class="cr">${jk?'★':egg?cardVal(c):c.r}<span>${SYM[c.s]}</span></div><div class="cs">${SYM[c.s]}</div>${art}`+
     (ABILITY[f]?`<div class="ab">${ABILITY[f]}</div>`:egg?`<div class="ab">Egg</div>`:'')+`</div>`;
 }
@@ -2769,7 +2807,7 @@ function fieldHTML(cards,top,targets){
 }
 const SORT_ARROWS='<svg viewBox="0 0 22 22" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18V4M3 8l4-4 4 4"/><path d="M15 4v14M11 14l4 4 4-4"/></svg>';
 function sortBySuit(h){return h.slice().sort((a,b)=>SUIT_RANK[a.s]-SUIT_RANK[b.s]||cardVal(a)-cardVal(b)||rk(a)-rk(b));}
-const EFX_ORDER=['A','3','G','T','M','X','2','4','L','5','J','Q','K'];   // draw / card-gain effects first, removal last, plain cards at the end
+const EFX_ORDER=['A','3','G','T','M','X','2','4','L','5','O','J','Q','K'];   // draw / card-gain effects first, removal last, plain cards at the end
 function sortByEffect(h){
   const e=c=>{const f=view?efx(c,view):c.f;const i=EFX_ORDER.indexOf(f);return i<0?99:i;};
   return h.slice().sort((a,b)=>e(a)-e(b)||cardVal(a)-cardVal(b)||SUIT_RANK[a.s]-SUIT_RANK[b.s]);
@@ -2799,6 +2837,7 @@ function projectTotals(v,c){
   }else if(cf==='J'){const mate={C:'S',S:'C',H:'D',D:'H'};o=op.slice();for(const su of [c.s,mate[c.s]]){const t=o.filter(x=>x.s===su);if(t.length){const last=t[t.length-1];if(removable(last))o=o.filter(x=>x.id!==last.id);}}}
   else if(cf==='Q')o=op.filter(x=>!(x.s===c.s&&removable(x)));
   else if(cf==='K'){m=me.filter(x=>!removable(x)).concat([c]);o=op.filter(x=>!removable(x));}
+  else if(cf==='O'){const tg=morphTarget(op,c.s);if(tg)o=op.map(x=>x.id===tg.id?Object.assign({},x,{v:EGG_VAL.crazy}):x);}
   return {me:T(m),opp:T(o)};
 }
 function fmtDiff(d){return d>0?'+'+d:d<0?'\u2212'+Math.abs(d):'\u00b10';}
@@ -3149,6 +3188,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   const targets=mustTarget?new Set(pend.opts):null;
   $('oppField').innerHTML=fieldHTML(v.opp.field,true,targets);
   $('myField').innerHTML=fieldHTML(v.me.field,false,null);
+  morphFx(prev,v,oldCards);
   $('oppField').querySelectorAll('.targetable').forEach(el=>el.onclick=()=>dispatch({t:'pick',id:el.dataset.id}));
 
   // hand
