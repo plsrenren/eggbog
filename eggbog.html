@@ -788,22 +788,18 @@ function resolve(s,i,c){
 }
 // Joker: draw 5; the 3 highest are played for the joker's owner and the 2 lowest for the opponent, taking turns (the owner first), one at a time, each with its own effect.
 function jokerEffect(s,i,jk){
-  const opp=1-i,got=[],extra=[],extraJk=[];
+  const opp=1-i,got=[],aside=[];
   // the Joker is used up: it burns away before its cards are played
   const jf=s.p[i].field,ji=jf.findIndex(x=>x.id===jk.id);if(ji>=0)jf.splice(ji,1);
   const jcopy=cp(jk);jk.s='*';log(s,i,'Joker burns up');
   while(got.length<5){
     if(!s.deck.length)fillDeck(s);
     const c=draw(s);if(!c)break;
-    if(c.r==='JK'){if(giveCard(s,i,c)){extra.push(cp(c));extraJk.push(c);}continue;}   // another joker goes to the player's hand (or burns if it is full)
+    if(c.r==='JK'){c.s='*';aside.push(c);continue;}   // the other Joker doesn't count: it is set aside and a replacement is drawn
     got.push(c);
   }
-  // Only Jokers were left to draw: the drawn Joker burns too. Otherwise the two Jokers could trade
-  // places forever (play one, draw the other, the first is shuffled back in) and the game never ends.
-  if(!got.length&&extraJk.length){
-    for(const x of extraJk){const h=s.p[i].hand,k=h.indexOf(x);if(k>=0)h.splice(k,1);x.s='*';s.discard.push(x);if(s.stats)s.stats.burned[i].push(cp(x));}
-    extra.length=0;log(s,i,'Joker: only another Joker was left to draw, so it burns too');
-  }
+  // the set-aside Joker is shuffled back into the deck (after the draws, so it can't be drawn again straight away)
+  for(const x of aside){s.deck.splice(Math.floor(Math.random()*(s.deck.length+1)),0,x);log(s,i,'Joker: drew the other Joker, which is shuffled back into the deck');}
   s.discard.push(jk);   // into the discard pile only after the draws, so it cannot be drawn straight back
   got.sort((a,b)=>cardVal(b)-cardVal(a)||SUIT_RANK[b.s]-SUIT_RANK[a.s]);
   const hi=got.slice(0,3),lo=got.slice(3,5);
@@ -811,7 +807,7 @@ function jokerEffect(s,i,jk){
   s.jokerQ=[];for(let q=0;q<3;q++){if(hi[q])s.jokerQ.push({who:i,c:hi[q]});if(lo[q])s.jokerQ.push({who:opp,c:lo[q]});}   // taking turns, starting with the Joker's owner
   if(s.stats)got.forEach(c=>s.stats.drawn[i].push(Object.assign(cp(c),{how:'joker'})));
   log(s,i,'Joker: drew '+got.map(cardStr).join(' ')+' — the highest three are played for them, the lowest two for the opponent');
-  s.joker={n:((s.joker&&s.joker.n)||0)+1,who:i,card:jcopy,hi:hi.map(cp),lo:lo.map(cp),extra};
+  s.joker={n:((s.joker&&s.joker.n)||0)+1,who:i,card:jcopy,hi:hi.map(cp),lo:lo.map(cp),extra:[]};
 }
 // plays the next waiting Joker card (the client paces these so each effect can be seen; without pacing they run straight through)
 function jokerStep(s){
@@ -3577,7 +3573,7 @@ function showRules(){
   const on=(view&&view.fxOn)||fxCfg[cz?'crazy':'normal'];
   const fxList=cz
     ?on.map(k=>'<li><b>'+ABILITY[k]+':</b> '+ABILITY_TEXT[k].replace(/^[^:]*:\s*/,'')+'</li>').join('')
-      +'<li><b>Joker:</b> '+ABILITY_TEXT.X.replace(/^[^:]*:\s*/,'')+' If the only card it could draw is the other Joker, that Joker burns too.</li>'
+      +'<li><b>Joker:</b> '+ABILITY_TEXT.X.replace(/^[^:]*:\s*/,'')+' If it draws the other Joker, that Joker is shuffled back into the deck and doesn\'t count toward the 5.</li>'
     :FX_KEYS.filter(k=>on.includes(k)).map(k=>'<li><b>'+RANK[k]+' — '+ABILITY[k]+':</b> '+ABILITY_TEXT[k].replace(/^[^:]*:\s*/,'')+'</li>').join('');
   const off=cz?'':FX_KEYS.filter(k=>!on.includes(k)).map(k=>RANK[k]).join(', ');
   $('modalRoot').innerHTML=`<div class="modal" id="rulesModal"><div class="box rules"><h3>Eggbog — ${cz?'🌀 Crazy mode rules':'Rules'}</h3>

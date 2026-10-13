@@ -391,14 +391,16 @@ t('Joker: draws 5, 3 highest to the player, 2 lowest to the opponent',()=>{
   const v=viewFor(s,1);assert.equal(v.joker.hi.length,3);assert.equal(v.joker.lo.length,2);
   assert.notEqual(s.lastFx,'X','Joker is not copied by Mirror');
 });
-t('Joker: fewer than five cards, shuffle in discards, other joker goes to hand',()=>{
+t('Joker: fewer than five cards, shuffle in discards, other joker is shuffled back into the deck',()=>{
   const s=setup([J('JK1'),X('3','C','')],[X('3','S','')],[],[],[X('9','D',''),X('4','C','')]);s.crazy=true;
   act(s,0,{t:'play',id:'JK1',suit:'C'});
   assert.ok(s.p[0].field.some(c=>c.id==='9D')&&s.p[0].field.length===2&&s.p[1].field.length===0,'only two cards: both to the player');
   const s2=setup([J('JK1'),X('3','C','')],[X('3','S','')],[],[],[X('9','D',''),X('2','C',''),X('5','H',''),X('3','S',''),X('8','S',''),X('7','C',''),X('6','D',''),J('JK2')]);s2.crazy=true;
   act(s2,0,{t:'play',id:'JK1',suit:'S'});
-  assert.ok(s2.p[0].hand.some(c=>c.id==='JK2'),'second joker goes to the hand');
-  assert.equal(s2.p[0].field.length+s2.p[1].field.length,5);
+  assert.ok(!s2.p[0].hand.some(c=>c.id==='JK2'),'second joker does not go to the hand');
+  assert.ok(s2.deck.some(c=>c.id==='JK2'&&c.s==='*'),'second joker is shuffled back into the deck');
+  assert.equal(s2.p[0].field.length+s2.p[1].field.length,5,'the other joker does not count toward the five');
+  assert.ok(!s2.p[0].field.concat(s2.p[1].field).some(c=>c.r==='JK'));
   const s3=setup([J('JK1'),X('3','C','')],[X('3','S','')],[],[],[]);s3.crazy=true;s3.discard=[Object.assign(J('JK2'),{s:'D'}),X('9','D',''),X('2','C',''),X('5','H',''),X('3','S',''),X('8','S',''),X('7','C','')];
   act(s3,0,{t:'play',id:'JK1',suit:'S'});
   assert.ok(s3.reshuffles>=1);assert.ok(s3.p[0].hand.concat(s3.deck).find(c=>c.id==='JK2').s==='*','joker suit reset after reshuffle');
@@ -587,7 +589,7 @@ t('hand limit: random games never hold more than 10 cards after round 1 starts (
   }
 });
 
-t('Joker: when only the other Joker is left to draw, it burns too (no endless Joker swap)',()=>{
+t('Joker: when only the other Joker is left to draw, it goes back in the deck (no endless Joker swap)',()=>{
   const s=setup([C('2','C')],[C('Q','S'),C('7','D'),{id:'JK1',r:'JK',s:'*',f:'X'}],[C('9','H')],[C('3','D')],[{id:'JK2',r:'JK',s:'*',f:'X'}]);
   s.crazy=true;s.turn=1;
   assert.equal(act(s,1,{t:'play',id:'JK1',suit:'C'}),null);
