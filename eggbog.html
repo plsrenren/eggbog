@@ -560,8 +560,8 @@ button,summary,.clk{touch-action:manipulation}
 #bhole{position:absolute;z-index:0;pointer-events:none;border-radius:50%}   /* inside the hand's panel, under its cards */
 #bhole>i,#bhole b i{position:absolute;inset:0;border-radius:50%}
 #bhole b{position:absolute;left:0;top:50%;width:100%;aspect-ratio:1;translate:0 -50%;transform:scaleY(var(--sy,1))}   /* a circle squashed into the oval, so the swirl can spin inside it */
-#bhole>i{background:radial-gradient(closest-side,#0000 60%,#1a083099 69%,#000000d9 79%,#2a0d4a77 89%,#0000 100%)}
-#bhole b i{background:conic-gradient(from 0deg,#0000,#9b5cff66,#0000 18%,#ff7ad955 30%,#0000 42%,#7ac8ff55 58%,#0000 70%,#9b5cff66 84%,#0000);
+#bhole>i{background:radial-gradient(closest-side,#0000 60%,#1a083055 69%,#00000080 79%,#2a0d4a40 89%,#0000 100%)}
+#bhole b i{background:conic-gradient(from 0deg,#0000,#9b5cff38,#0000 18%,#ff7ad92e 30%,#0000 42%,#7ac8ff2e 58%,#0000 70%,#9b5cff38 84%,#0000);
   -webkit-mask:radial-gradient(closest-side,#0000 62%,#000 72%,#000 84%,#0000 98%);mask:radial-gradient(closest-side,#0000 62%,#000 72%,#000 84%,#0000 98%);animation:bhspin 2.2s linear infinite;filter:blur(1.5px)}
 @keyframes bhspin{to{transform:rotate(360deg)}}
 @keyframes warpwob{0%,100%{box-shadow:0 1px 3px #0006}50%{box-shadow:0 0 12px 2px #9b5cffaa}}
@@ -2280,30 +2280,11 @@ function jkThinkFor(pend,get){   // pend: the pending choice; get: the cards it 
   jkThink(get,els=>pend.jkId?els.find(e=>e.dataset.id===pend.jkId):els[Math.min(pend.jkAt||0,els.length-1)]);
 }
 // Steal: the cards of your own hand are the choice, with a label floating above them
-// Steal: a swirling black hole opens around the hand that has to give a card, with a looping warp sound, until the card is taken
-let warpSnd=null;
-function warpLoop(on){
-  if(!on||!soundOn){if(warpSnd){const w=warpSnd;warpSnd=null;try{const t=audioCtx.currentTime;w.g.gain.cancelScheduledValues(t);w.g.gain.setValueAtTime(w.g.gain.value,t);w.g.gain.exponentialRampToValueAtTime(.0001,t+.35);w.nodes.forEach(n=>n.stop(t+.4));}catch(e){}}return;}
-  if(warpSnd)return;
-  try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();
-    const t=audioCtx.currentTime,g=audioCtx.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.045,t+.5);g.connect(audioCtx.destination);
-    // a low hum that bends up and down, plus a breathy whoosh that sweeps, both wobbling on slow LFOs
-    const o=audioCtx.createOscillator(),o2=audioCtx.createOscillator(),lfo=audioCtx.createOscillator(),lg=audioCtx.createGain();
-    o.type='sawtooth';o.frequency.value=70;o2.type='sine';o2.frequency.value=141;lfo.frequency.value=.9;lg.gain.value=22;
-    lfo.connect(lg);lg.connect(o.frequency);lg.connect(o2.frequency);
-    const lp=audioCtx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=420;lp.Q.value=6;
-    const lfo2=audioCtx.createOscillator(),lg2=audioCtx.createGain();lfo2.frequency.value=.45;lg2.gain.value=260;lfo2.connect(lg2);lg2.connect(lp.frequency);
-    o.connect(lp);o2.connect(lp);lp.connect(g);
-    const n=audioCtx.sampleRate*2,buf=audioCtx.createBuffer(1,n,audioCtx.sampleRate),d=buf.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
-    const ns=audioCtx.createBufferSource();ns.buffer=buf;ns.loop=true;const bp=audioCtx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=700;bp.Q.value=3;
-    const ng=audioCtx.createGain();ng.gain.value=.35;lg2.connect(bp.frequency);ns.connect(bp);bp.connect(ng);ng.connect(g);
-    const nodes=[o,o2,lfo,lfo2,ns];nodes.forEach(x=>x.start(t));warpSnd={g,nodes};
-  }catch(e){}
-}
+// Steal: a swirling black hole opens around the hand that has to give a card, until the card is taken
 function blackHole(sel){
   let b=$('bhole');
   if(!sel){if(b&&!b.dataset.out){b.dataset.out='1';b.animate([{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(.4) rotate(120deg)'}],{duration:450,easing:'ease-in',fill:'forwards'}).onfinish=()=>b.remove();}
-    document.body.classList.remove('bh-me','bh-opp');warpLoop(false);return;}
+    document.body.classList.remove('bh-me','bh-opp');return;}
   const h=document.querySelector(sel);if(!h)return;
   // size it to the cards themselves (the hand row can be much wider than the cards in it)
   const cs=[...h.querySelectorAll('.card,.oc')].map(e=>e.getBoundingClientRect()).filter(x=>x.width);
@@ -2320,7 +2301,6 @@ function blackHole(sel){
   b.style.cssText=`left:${r.left-hr.left+r.width/2-w/2}px;top:${r.top-hr.top+r.height/2-ht/2}px;width:${w}px;height:${ht}px`;
   b.style.setProperty('--sy',ht/w);
   document.body.classList.toggle('bh-me',sel==='#hand');document.body.classList.toggle('bh-opp',sel!=='#hand');   // a body class, since the hand is rebuilt on every render
-  warpLoop(true);
 }
 function stealSync(v,OPP){
   {const sp=v.pending&&v.pending.t==='steal'?v.pending:null;blackHole(sp?(sp.chooser===v.you?'#hand':'#oppHand'):null);}
@@ -2601,14 +2581,14 @@ function flyBackToOpp(delay,fromEl){ // the opponent drew (or was given a card):
 let pendingDrop=null,audioCtx=null,soundOn=true;
 try{soundOn=localStorage.getItem('eggbog-sound')!=='off';}catch(e){}
 function syncSound(){const b=$('btnSound');b.textContent=soundOn?'🔊':'🔇';b.title=soundOn?'Sound on':'Sound off';}
-// c: the card that landed (optional): the thud is pitched in three steps by rank: A-4 low, 5-7 as is, 8-K high
+// c: the card that landed (optional): the thud is pitched in three steps by rank: A-4 high, 5-7 as is, 8-K low
 function thud(c){
   if(!soundOn)return;
   try{
     audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
     if(audioCtx.state==='suspended')audioCtx.resume();
     const t=audioCtx.currentTime,i=c?RANKS.indexOf(c.r):-1;   // RANKS runs A,2,...,10,J,Q,K
-    const k=i<0?1:i<=3?.8:i<=6?1:1.25;
+    const k=i<0?1:i<=3?1.25:i<=6?1:.8;
     const o=audioCtx.createOscillator(),g=audioCtx.createGain();
     o.type='sine';o.frequency.setValueAtTime(150*k,t);o.frequency.exponentialRampToValueAtTime(45*k,t+.13);
     g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.45,t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+.2);
