@@ -176,10 +176,14 @@ header h2{margin:0;font-size:1.3rem}
 .card.red:not(.joker):not(.egg):not(.back):not(.oc):not(.r4){border-color:#e3a2a2}
 .card:not(.red):not(.joker):not(.egg):not(.back):not(.oc):not(.r4){border-color:#9fb3da}
 #hand .card.art-on .cs,#stlHand .card.art-on .cs,#hovTray .card.art-on .cs{font-size:1.5rem;bottom:22px}
-.card.r2::before{content:'';position:absolute;inset:0;border-radius:6px;pointer-events:none;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 88' preserveAspectRatio='none'><g fill='none' stroke='%23564f45' stroke-linecap='round' stroke-linejoin='round'><path d='M31 20l-3 9 5 6-4 8 6 7-3 10' stroke-width='1.1'/><path d='M33 35l9-3 5-8' stroke-width='.8'/><path d='M29 43l-9 4-6 10' stroke-width='.8'/><path d='M36 50l8 5 2 9' stroke-width='.7'/><path d='M28 29l-7-4-2-7' stroke-width='.6'/><path d='M0 66l7-3 4 4M62 12l-8 4-2 6' stroke-width='.7'/></g></svg>") center/100% 100% no-repeat;opacity:.75}
+.card.r2::before{content:'';position:absolute;inset:0;border-radius:6px;pointer-events:none;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 88' preserveAspectRatio='none'><g fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round'><path d='M31 20l-3 9 5 6-4 8 6 7-3 10' stroke-width='1.1'/><path d='M33 35l9-3 5-8' stroke-width='.8'/><path d='M29 43l-9 4-6 10' stroke-width='.8'/><path d='M36 50l8 5 2 9' stroke-width='.7'/><path d='M28 29l-7-4-2-7' stroke-width='.6'/><path d='M0 66l7-3 4 4M62 12l-8 4-2 6' stroke-width='.7'/></g></svg>") center/100% 100% no-repeat;opacity:.95;filter:drop-shadow(0 0 1.5px #9fd0ff) drop-shadow(0 0 3px #bfe0ff)}
+/* Soul (2): a faded, see-through spirit card; the soul shines through its cracks */
+.card.r2.red:not(.hushed){background:linear-gradient(170deg,#fff0f4ea,#ffdfe8de)!important}
+.card.r2:not(.red):not(.hushed){background:linear-gradient(170deg,#f0f5ffea,#dbe6ffde)!important}
+.card.r2:not(.hushed){border-color:#ffffffcc!important;box-shadow:0 0 10px #cfe0ffaa,inset 0 0 12px #fff}
+.card.r2:not(.hushed) .cr,.card.r2:not(.hushed) .ab{opacity:.8}
 .card .ab{white-space:nowrap}
-.card.r2 .ab{font-size:.47rem}
-#hand .card.r2 .ab,#stlHand .card.r2 .ab,#hovTray .card.r2 .ab{font-size:.58rem}
+.card.rL:not(.hushed){box-shadow:0 0 6px #5fd6ff,0 0 14px #5fd6ffaa,0 1px 3px #0006}
 .card.r4,.card.sturdy.r4{background:var(--card);border:2px solid #8e98a2;box-shadow:inset 0 0 0 1px #ffffffcc,inset 0 0 4px #5b646c66,0 1px 3px #0006}
 .card.r4::before{content:'';position:absolute;inset:0;border-radius:6px;background:radial-gradient(circle at 6px 6px,#fff 0 1px,#6c757d 1.6px,#0000 2.4px),radial-gradient(circle at calc(100% - 6px) 6px,#fff 0 1px,#6c757d 1.6px,#0000 2.4px),radial-gradient(circle at 6px calc(100% - 6px),#fff 0 1px,#6c757d 1.6px,#0000 2.4px),radial-gradient(circle at calc(100% - 6px) calc(100% - 6px),#fff 0 1px,#6c757d 1.6px,#0000 2.4px);pointer-events:none}
 
@@ -661,22 +665,22 @@ const SUITS=['C','S','H','D'];
 const SUIT_RANK={C:0,S:1,H:2,D:3,'*':4};
 const SYM={C:'♣',S:'♠',H:'♥',D:'♦','*':''};
 const DISCOVER_N=3; // cards the opponent draws for a Scry; they keep one for you, the rest are discarded
-const ABILITY={A:'Draw','2':'Deathrattle','3':'Scry','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Blaze',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',O:'Morph',U:'Hush',X:'Surge'};
+const ABILITY={A:'Draw','2':'Soul','3':'Scry','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Blaze',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',O:'Morph',U:'Hush',X:'Surge'};
 const ABILITY_TEXT={
   A:'Draw: draw one card from the deck into your hand.',
-  '2':'Deathrattle: if this card is removed from the field, its owner draws one card.',
+  '2':'Soul: if this card is removed from the field, its owner draws one card.',
   '3':'Scry: you look at three cards from the deck and keep one. A random one of the other two goes to the opponent\'s hand, and the last one burns.',
   '4':'Sturdy: this card cannot be removed from the field by any means.',
   '5':'Swap: this card moves to your opponent\'s side. If they have a card of the same suit, the most recently played one swaps sides with it.',
   J:'Frost: freeze and shatter the top (most recently played) card of its suit and of the other suit of the same colour (♥/♦ or ♣/♠) on your opponent\'s side. A Sturdy card on top blocks it for that suit.',
   Q:'Bolt: lightning destroys all cards of the same suit on your opponent\'s side.',
   K:'Blaze: burn away all removable cards from both sides, excluding the King itself.',
-  M:'Mimic (Crazy mode): when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Deathrattle, Sturdy and Rune included). If nothing was played before it, it does nothing.',
+  M:'Mimic (Crazy mode): when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Soul, Sturdy and Rune included). If nothing was played before it, it does nothing.',
   T:'Steal (Crazy mode): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned.',
   L:'Rune (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards.',
   G:'Greed (Crazy mode): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
   O:'Morph (Crazy mode): the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It hits Sturdy cards too (they lose Sturdy). It turns back when it leaves the table. An Egg on top is not affected.',
-  U:'Hush (Crazy mode): every card on your opponent\'s side is silenced for as long as it stays on the table: it keeps its value but loses its effect (a Sturdy card can be removed, Deathrattle, Greed and Rune do nothing). Cards they play after it are not silenced. A silenced card that gets Morphed loses its silence.',
+  U:'Hush (Crazy mode): every card on your opponent\'s side is silenced for as long as it stays on the table: it keeps its value but loses its effect (a Sturdy card can be removed, Soul, Greed and Rune do nothing). Cards they play after it are not silenced. A silenced card that gets Morphed loses its silence.',
   X:'Surge (Crazy mode): can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Surge also makes any choice those cards need (which card Scry keeps, which card Steal takes), at random.'
 };
 function F(c){if(c.hu)return '';return c.f===undefined?(DEF_F[c.r]||''):c.f;}   // a card silenced by Hush has no effect
@@ -981,7 +985,7 @@ function act0(s,i,a){
         const c=draw(s);
         if(!c){afterDraw(s);return null;}
         if(e.reason==='start'){if(s.stats)s.stats.drawn[i].push(Object.assign(cp(c),{how:e.reason}));s.startCards[i]=c;log(s,i,'drew '+cardStr(c));}
-        else if(giveCard(s,i,c)){if(s.stats)s.stats.drawn[i].push(Object.assign(cp(c),{how:e.reason}));log(s,i,'drew a card'+(e.reason==='deathrattle'?' (Deathrattle)':e.reason==='draw'?' (Draw)':''));}
+        else if(giveCard(s,i,c)){if(s.stats)s.stats.drawn[i].push(Object.assign(cp(c),{how:e.reason}));log(s,i,'drew a card'+(e.reason==='deathrattle'?' (Soul)':e.reason==='draw'?' (Draw)':''));}
         afterDraw(s);return null;
       }
       const pd=s.pending;
@@ -1470,7 +1474,7 @@ let ghostTimer=null;
 function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do, from what is on the table
   const OPP=mode==='cpu'?'Computer':'Opponent',lines=[];
   const removable=x=>x.f!=='4'||x.hu;
-  const gone=[],dr=[0,0];      // cards that would leave the table; Deathrattle draws for [me, opponent]
+  const gone=[],dr=[0,0];      // cards that would leave the table; Soul draws for [me, opponent]
   let swap=null;
   if(c.r==='JK'){lines.push('🌀 Burns up: 5 random cards, the 3 highest for you, the 2 lowest for '+OPP);return {gone,swap,lines,joker:true};}
   const cf=efx(c,v);
@@ -1488,13 +1492,13 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
   else if(cf==='G')lines.push('💰 Greed: you draw each time your turn starts');
   else if(cf==='4')lines.push('🛡️ Sturdy: can never be removed');
   else if(cf==='L')lines.push('🏳️ Rune: draw 2 when a round is conceded');
-  else if(cf==='2')lines.push('💀 Deathrattle: draw a card when it is removed');
+  else if(cf==='2')lines.push('👻 Soul: draw a card when it is removed');
   if(gone.length){
     const n=[0,0];gone.forEach(g=>{n[g.mine?0:1]++;if(efx(g.c,v)==='2')dr[g.mine?0:1]++;});
     if(n[1])lines.push('💥 Removes '+n[1]+' of '+OPP+'\'s card'+(n[1]>1?'s':''));
     if(n[0])lines.push('💥 Removes '+n[0]+' of your card'+(n[0]>1?'s':''));
-    if(dr[0])lines.push('💀 You draw '+dr[0]+' (Deathrattle)');
-    if(dr[1])lines.push('💀 '+OPP+' draws '+dr[1]+' (Deathrattle)');
+    if(dr[0])lines.push('👻 You draw '+dr[0]+' (Soul)');
+    if(dr[1])lines.push('👻 '+OPP+' draws '+dr[1]+' (Soul)');
   }else if(cf==='J'||cf==='Q'||cf==='K')lines.push('💨 Nothing to remove');
   const t=projectTotals(v,c),d=t.me-t.opp;
   lines.push(d>0?'✅ You lead by '+d+': your turn ends':d===0?'⚖️ Tied: you play again':'⚠️ Still behind by '+(-d)+': you play again');
@@ -1544,7 +1548,7 @@ function ghostShow(id,suit){
       if(cf==='J'||cf==='Q'||cf==='K'){
         const clones=goneEls.map(e=>{const o={html:e.outerHTML.replace(/\bgh-gone\b|\bdoomed\b/g,''),r:R(e)};const g=document.createElement('div');g.innerHTML=o.html;const el=g.firstChild;el.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:14;pointer-events:none`;G.appendChild(el);return {o,el};});
         removalAnim(cf,{side:'#myField',c:card},clones,G);
-        let k=0;plan.gone.forEach(g=>{if(efx(g.c,view)==='2')T(()=>glide(deck(),g.mine?hand():oppHand(),0),700+(k++)*160);});   // Deathrattle draws
+        let k=0;plan.gone.forEach(g=>{if(efx(g.c,view)==='2')T(()=>glide(deck(),g.mine?hand():oppHand(),0),700+(k++)*160);});   // Soul draws
       }else if(cf==='A'||cf==='G')glide(deck(),hand(),0);
       else if(cf==='3'){const h=hand(),up={left:h.left+h.width/2-30,top:h.top-110,width:60,height:84};
         [-70,0,70].forEach((dx,i)=>glide(deck(),{left:up.left+dx,top:up.top,width:up.width,height:up.height},i*90));
@@ -2391,7 +2395,7 @@ function stealSync(v,OPP){
     el.onpointerdown=ev=>simpleDrag(ev,el,()=>[$('oppHand'),$('oppSide')],give,give,'Drop it on '+OPP+'\'s hand (or just tap it)');
   });
 }
-// ---- Draw (Ace) and Deathrattle: a card at the middle of the screen that you drag into your hand ----
+// ---- Draw (Ace) and Soul: a card at the middle of the screen that you drag into your hand ----
 let autoDrawKey=null;
 function autoDraw(v){
   const key=v.gameId+':'+v.round+':'+v.logN+':'+v.deck;
@@ -2413,7 +2417,7 @@ function drawSync(v,OPP,prev){
     if(d)d.remove();
     showBooster();return;
   }
-  // a single card to draw (Draw, Deathrattle, Greed, Rune): no draw box, the card simply flies into the hand
+  // a single card to draw (Draw, Soul, Greed, Rune): no draw box, the card simply flies into the hand
   const plain=r=>r!=='start'&&r!=='greed';
   if(v.phase!=='start'&&!v.pending&&((v.draws.length>=1&&v.draws.every(plain))||(!v.draws.length&&v.drawsOpp>=1&&(v.oppReasons||[]).every(plain)))){
     if(d&&!d.dataset.out)d.remove();
@@ -2454,7 +2458,7 @@ function drawSync(v,OPP,prev){
   }
   if(mine)d.dataset.mine='1';else delete d.dataset.mine;
   const dc=d.querySelector('.du-card'),back=d.querySelector('.card.back'),zone=$('dwZone');
-  const kind=mine?(reasons[0]==='deathrattle'?'Deathrattle':(reasons[0]==='greed'||reasons[0]==='greedturn')?'Greed':reasons[0]==='laststand'?'Rune':'Draw'):'Draw';
+  const kind=mine?(reasons[0]==='deathrattle'?'Soul':(reasons[0]==='greed'||reasons[0]==='greedturn')?'Greed':reasons[0]==='laststand'?'Rune':'Draw'):'Draw';
   $('dwTitle').textContent=mine?kind:(reasons&&reasons.length?OPP+' draws':OPP+' draws');
   zone.hidden=!mine;
   if(mine){
@@ -3360,7 +3364,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
     st=v.me.mull?'Waiting for your opponent to finish their mulligan…':'Select up to 5 cards to mulligan (or keep your hand).';
   }else if(v.draws.length){
     const r=v.draws[0];
-    st=(r==='start'?'Round 1: draw your card — ':r==='deathrattle'?'Deathrattle: ':r==='round'?'New round: ':(r==='greed'||r==='greedturn')?'Greed: ':r==='laststand'?'Rune: ':'Draw: ')+'click the deck or drag the top card '+'into your hand.';
+    st=(r==='start'?'Round 1: draw your card — ':r==='deathrattle'?'Soul: ':r==='round'?'New round: ':(r==='greed'||r==='greedturn')?'Greed: ':r==='laststand'?'Rune: ':'Draw: ')+'click the deck or drag the top card '+'into your hand.';
   }else if(v.drawsOpp&&!pend){
     st=v.phase==='start'&&v.startMe?'You drew '+cardStr(v.startMe)+'. Waiting for your opponent to draw…':'Waiting for '+OPP.toLowerCase()+' to draw from the deck…';
   }else if(v.phase==='choose'){
