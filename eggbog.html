@@ -1645,7 +1645,7 @@ function startDrag(ev,el,id,canPlay,onTap){
   };
   window.addEventListener('pointermove',onMove);window.addEventListener('pointerup',onUp);window.addEventListener('pointercancel',cleanup);
 }
-window.addEventListener('resize',()=>{if(view)layoutHand();});
+window.addEventListener('resize',()=>{if(view){layoutHand();fitCols();}});
 function isBusy(v){return !!v.pending||v.draws.length>0||v.drawsOpp>0||v.jq>0;}
 const reduced=()=>window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -2802,6 +2802,20 @@ function cardEl(c,cls){
     `<div class="cr">${jk?'★':egg?cardVal(c):c.r}<span>${SYM[c.s]}</span></div><div class="cs">${SYM[c.s]}</div>${art}`+
     (ABILITY[f]?`<div class="ab">${ABILITY[f]}</div>`:egg?`<div class="ab">Egg</div>`:'')+`</div>`;
 }
+// A tall stack of cards squeezes tighter instead of making the table taller
+function fitCols(){
+  document.querySelectorAll('#myField .col,#oppField .col').forEach(col=>{
+    const cards=[...col.children].filter(e=>e.classList.contains('card'));
+    cards.forEach(e=>e.style.marginTop='');
+    if(cards.length<2)return;
+    const h=cards[0].offsetHeight,cs=getComputedStyle(col),minH=parseFloat(cs.minHeight)||0;
+    const avail=minH>0?minH:col.parentElement.clientHeight;
+    const natural=h+parseFloat(getComputedStyle(cards[1]).marginTop);   // the usual gap between stacked cards
+    if(!avail||h+natural*(cards.length-1)<=avail)return;
+    const step=Math.max(6,(avail-h)/(cards.length-1));
+    cards.slice(1).forEach(e=>e.style.marginTop=(step-h)+'px');
+  });
+}
 function fieldHTML(cards,top,targets){
   return SUITS.map(s=>`<div class="col${top?' top':''}" data-suit="${s}">`+
     cards.filter(c=>c.s===s).map(c=>cardEl(c,targets&&targets.has(c.id)?'targetable':'')).join('')+`</div>`).join('');
@@ -3189,6 +3203,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   const targets=mustTarget?new Set(pend.opts):null;
   $('oppField').innerHTML=fieldHTML(v.opp.field,true,targets);
   $('myField').innerHTML=fieldHTML(v.me.field,false,null);
+  fitCols();
   morphFx(prev,v,oldCards);
   $('oppField').querySelectorAll('.targetable').forEach(el=>el.onclick=()=>dispatch({t:'pick',id:el.dataset.id}));
 
