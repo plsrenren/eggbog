@@ -296,6 +296,12 @@ t('Steal: the opponent chooses which card to give',()=>{
   const s2=setup([X('4','S','T')],[],[],[C('8','D')]);
   act(s2,0,{t:'play',id:'4S'});assert.equal(s2.pending,null,'no cards to steal');
 });
+t('Steal: a last card is safe',()=>{
+  const s=setup([X('4','S','T'),C('2','C')],[C('9','H')],[],[C('8','D')]);
+  act(s,0,{t:'play',id:'4S'});
+  assert.equal(s.pending,null,'nothing to choose');assert.equal(s.p[1].hand.length,1,'the last card stays');assert.equal(s.p[0].hand.length,1,'nothing burned');
+  assert.equal(s.stealSafe.who,1);
+});
 t('Rune: each one on the field draws two cards on concede',()=>{
   const s=setup([C('2','C')],[C('3','S')],[X('5','H','L'),X('6','D','L')],[C('9','H')],[C('9','H'),C('8','H'),C('7','H'),C('6','H'),C('5','H')]);
   s.crazy=true;

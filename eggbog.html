@@ -584,6 +584,10 @@ button,summary,.clk{touch-action:manipulation}
   .field,.col{min-height:84px}
 }
 
+/* Steal can't take a last card: your Steal cards dim and get a padlock while the opponent holds just one */
+.card.st-lock>*:not(.lockb){filter:saturate(.3);opacity:.55}
+.card .lockb{position:absolute;right:3px;bottom:16px;width:14px;height:16px;filter:drop-shadow(0 1px 1.5px #0006)}
+#hand .card .lockb{width:19px;height:22px;bottom:21px;right:4px}
 /* Steal's black hole: a dark swirling ring around the hand that has to give a card (the cards stay visible in its eye) */
 #bhole{position:absolute;z-index:0;pointer-events:none;border-radius:50%}   /* inside the hand's panel, under its cards */
 #bhole>i,#bhole b i{position:absolute;inset:0;border-radius:50%}
@@ -676,7 +680,7 @@ const ABILITY_TEXT={
   Q:'Bolt: lightning destroys all cards of the same suit on your opponent\'s side.',
   K:'Blaze: burn away all removable cards from both sides, excluding the King itself.',
   M:'Mimic (Crazy mode): when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Soul, Sturdy and Rune included). If nothing was played before it, it does nothing.',
-  T:'Steal (Crazy mode): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned.',
+  T:'Steal (Crazy mode): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned. Their last card can\'t be stolen.',
   L:'Rune (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards.',
   G:'Greed (Crazy mode): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
   O:'Morph (Crazy mode): the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It hits Sturdy cards too (they lose Sturdy). It turns back when it leaves the table. An Egg on top is not affected.',
@@ -803,6 +807,7 @@ function resolve(s,i,c){
       break;}
     case 'T':{ // the opponent chooses which card of theirs to give
       if(!s.p[opp].hand.length)log(s,i,'Steal: the opponent has no cards');
+      else if(s.p[opp].hand.length===1){s.stealSafe={n:((s.stealSafe&&s.stealSafe.n)||0)+1,who:opp};log(s,i,'Steal: the opponent\'s last card is safe');}   // a last card can't be stolen
       else s.pending={t:'steal',by:i,chooser:opp};
       break;}
     case 'O':{ // Morph: the top card of this suit on the opponent's side becomes a 1-point Egg, Sturdy or not (an Egg on top is left alone)
@@ -1093,7 +1098,7 @@ function viewFor(s,i){
       if(i===pd.chooser)pending.opts=pd.opts; // only the chooser sees the cards
     }
   }
-  return {you:i,logN:s.logN||0,flag:s.flag||null,pack:s.pack?{n:s.pack.n,who:s.pack.who,cards:s.pack.who===i?s.pack.cards:s.pack.cards.map(()=>null)}:null,oppReasons:s.drawQ.filter(e=>e.who!==i).map(e=>e.reason),burn:s.burn?{n:s.burn.n,who:s.burn.who,full:!!s.burn.full,cards:s.burn.who===i?s.burn.cards:s.burn.cards.map(()=>null)}:null,fxOn:s.fx||null,crazy:!!s.crazy,fm:s.fm||null,mirror:s.mirror||null,morph:s.morph||null,hush:s.hush||null,lastFx:s.lastFx||null,stolen:s.stolen||null,discover:s.discFx?{n:s.discFx.n,by:s.discFx.by,kept:s.discFx.by===i?s.discFx.kept:null,gift:s.discFx.gift,burnt:s.discFx.by===i?s.discFx.burnt:s.discFx.burnt.map(()=>null)}:null,greed:s.greedFx||null,joker:s.joker||null,jq:(s.jokerQ||[]).length,reshuffles:s.reshuffles||0,shuffled:s.lastShuffle||0,phase:s.phase,round:s.round,turn:s.turn,chooser:s.chooser,deck:s.deck.length,discard:s.discard.length,
+  return {you:i,logN:s.logN||0,flag:s.flag||null,pack:s.pack?{n:s.pack.n,who:s.pack.who,cards:s.pack.who===i?s.pack.cards:s.pack.cards.map(()=>null)}:null,oppReasons:s.drawQ.filter(e=>e.who!==i).map(e=>e.reason),burn:s.burn?{n:s.burn.n,who:s.burn.who,full:!!s.burn.full,cards:s.burn.who===i?s.burn.cards:s.burn.cards.map(()=>null)}:null,fxOn:s.fx||null,crazy:!!s.crazy,fm:s.fm||null,mirror:s.mirror||null,morph:s.morph||null,hush:s.hush||null,lastFx:s.lastFx||null,stolen:s.stolen||null,discover:s.discFx?{n:s.discFx.n,by:s.discFx.by,kept:s.discFx.by===i?s.discFx.kept:null,gift:s.discFx.gift,burnt:s.discFx.by===i?s.discFx.burnt:s.discFx.burnt.map(()=>null)}:null,greed:s.greedFx||null,stealSafe:s.stealSafe||null,joker:s.joker||null,jq:(s.jokerQ||[]).length,reshuffles:s.reshuffles||0,shuffled:s.lastShuffle||0,phase:s.phase,round:s.round,turn:s.turn,chooser:s.chooser,deck:s.deck.length,discard:s.discard.length,
     me:{hand:me.hand,field:me.field,wins:me.wins,mull:me.mull,pack:me.pack,conceded:!!me.conceded,newCards:(s.stats&&s.stats.mullIn&&s.stats.mullIn[i])||[],oldCards:(s.stats&&s.stats.mull&&s.stats.mull[i])||[]},
     opp:{hand:op.hand.length,field:op.field,wins:op.wins,mull:op.mull,pack:op.pack},
     draws:s.drawQ.filter(e=>e.who===i).map(e=>e.reason),drawsOpp:s.drawQ.filter(e=>e.who!==i).length,
@@ -1488,7 +1493,7 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
   else if(cf==='3')lines.push('🔮 Scry: keep 1 of 3 cards');
   else if(cf==='U'){const n=v.opp.field.length;lines.push(n?'🤫 Hush: silences '+n+' of '+OPP+'\'s card'+(n>1?'s':'')+' for good':'🤫 Hush: nothing to silence');}
   else if(cf==='O'){const tg=morphTarget(v.opp.field,c.s);lines.push(tg?'🥚 Morph: their '+cardStr(tg)+' becomes an Egg (1 point)':'🥚 Morph: nothing to turn into an Egg');}
-  else if(cf==='T')lines.push('🫳 Steal: '+OPP+' gives you a card, you burn one');
+  else if(cf==='T')lines.push(v.opp.hand===1?'🔒 Steal: '+OPP+'\'s last card is safe, nothing happens':'🫳 Steal: '+OPP+' gives you a card, you burn one');
   else if(cf==='G')lines.push('💰 Greed: you draw each time your turn starts');
   else if(cf==='4')lines.push('🛡️ Sturdy: can never be removed');
   else if(cf==='L')lines.push('🏳️ Rune: draw 2 when a round is conceded');
@@ -1553,7 +1558,7 @@ function ghostShow(id,suit){
       else if(cf==='3'){const h=hand(),up={left:h.left+h.width/2-30,top:h.top-110,width:60,height:84};
         [-70,0,70].forEach((dx,i)=>glide(deck(),{left:up.left+dx,top:up.top,width:up.width,height:up.height},i*90));
         T(()=>glide({left:up.left,top:up.top,width:60,height:84},h,0),760);}
-      else if(cf==='T'){glide(oppHand(),hand(),0);}
+      else if(cf==='T'){if(view&&view.opp.hand>1)glide(oppHand(),hand(),0);}
       else if(cf==='X'){const ms=R($('mySide')),os=R($('oppSide'));[0,1,2,3,4].forEach(i=>glide(deck(),i%2?os:ms,i*130));}
     },at);
   };
@@ -2348,6 +2353,22 @@ function jkThinkFor(pend,get){   // pend: the pending choice; get: the cards it 
   jkThink(get,els=>pend.jkId?els.find(e=>e.dataset.id===pend.jkId):els[Math.min(pend.jkAt||0,els.length-1)]);
 }
 // Steal: the cards of your own hand are the choice, with a label floating above them
+// Steal on a last card: the hole opens and pulls, the card shakes loose a little but holds, then the hole fizzles
+function stealSafeFx(mine){
+  fxUntil=Math.max(fxUntil,Date.now()+2000);
+  const OPP=mode==='cpu'?'Computer':'Opponent';toast('🔒 '+(mine?'Your last card is safe':OPP+'\'s last card is safe')+' from Steal');
+  if(reduced()||!document.body.animate)return;
+  const sel=mine?'#hand':'#oppHand';
+  setTimeout(()=>{blackHole(sel);
+    const el=document.querySelector(mine?'#hand .card':'#oppHand .oc');
+    if(el)el.animate([{transform:'none'},{transform:'translateY(-10px) rotate(-5deg)',offset:.2},{transform:'translateY(-16px) rotate(5deg)',offset:.4},{transform:'translateY(-12px) rotate(-6deg)',offset:.55},{transform:'translateY(-18px) rotate(4deg)',offset:.7},{transform:'translateY(4px) rotate(0)',offset:.86},{transform:'none'}],{duration:1100,easing:'ease-in-out'});
+    setTimeout(()=>{const b=$('bhole'),r=(b||document.querySelector(sel)).getBoundingClientRect();blackHole(null);
+      for(let i=0;i<9;i++){const p=document.createElement('i'),z=26+Math.random()*30,a=Math.random()*Math.PI*2,d=r.width*.25+Math.random()*r.width*.2;
+        p.style.cssText=`position:fixed;left:${r.left+r.width/2-z/2}px;top:${r.top+r.height/2-z/2}px;width:${z}px;height:${z}px;border-radius:50%;pointer-events:none;z-index:45;background:radial-gradient(circle,#b48cffcc,#7a4fd055 60%,#7a4fd000);filter:blur(2px)`;
+        document.body.appendChild(p);p.animate([{transform:'scale(.3)',opacity:0},{transform:`translate(${Math.cos(a)*d*.5}px,${Math.sin(a)*d*.3}px) scale(1)`,opacity:.9,offset:.3},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d*.5-20}px) scale(1.6)`,opacity:0}],{duration:900,easing:'ease-out',fill:'forwards'}).onfinish=()=>p.remove();}
+    },1150);
+  },450);
+}
 // Steal: a swirling black hole opens around the hand that has to give a card, until the card is taken
 function blackHole(sel){
   let b=$('bhole');
@@ -3393,6 +3414,8 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   wasMulling=mulling;
   burnSync(prev,v);
   $('hand').innerHTML=orderedHand(v.me.hand).map(c=>cardEl(c,(mulling&&mullSel.has(c.id))?'mul':'')).join('');
+  if(v.crazy&&v.opp.hand===1)$('hand').querySelectorAll('.card').forEach(el=>{const c=v.me.hand.find(x=>x.id===el.dataset.id);if(!c||efx(c,v)!=='T')return;   // Steal can't take a last card: dim it and lock it
+    el.classList.add('st-lock');el.insertAdjacentHTML('beforeend','<svg class="lockb" viewBox="0 0 24 28"><path d="M6.5 13V8.5a5.5 5.5 0 0 1 11 0V13" fill="none" stroke="#2c1646" stroke-width="5" stroke-linecap="round"/><path d="M6.5 13V8.5a5.5 5.5 0 0 1 11 0V13" fill="none" stroke="#e8dcff" stroke-width="2.4" stroke-linecap="round"/><rect x="2.5" y="12" width="19" height="14" rx="3" fill="#8a5cd0" stroke="#2c1646" stroke-width="1.8"/><path d="M5 14.5h6" stroke="#c9b0ff" stroke-width="1.4" stroke-linecap="round"/><circle cx="12" cy="18.2" r="2.1" fill="#2c1646"/><path d="M12 19v3.6" stroke="#2c1646" stroke-width="2" stroke-linecap="round"/></svg>');el.title+=' Right now '+OPP+' has only one card left, so it is safe: this Steal would do nothing.';});
   $('hand').querySelectorAll('.card').forEach(el=>{
     const id=el.dataset.id;
     el.onpointerdown=ev=>startDrag(ev,el,id,myTurn,mulling?()=>toggleMull(id):null);
@@ -3583,6 +3606,8 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
       }
     }
   }
+  // Steal fails on a last card: the black hole tugs at it, it holds on, and the hole sputters out in purple smoke
+  if(prev&&v.stealSafe&&v.stealSafe.n>((prev.stealSafe&&prev.stealSafe.n)||0))stealSafeFx(v.stealSafe.who===v.you);
   // Greed activates: the Greed card(s) on the field shake, spill coins (cha-ching)
   if(prev&&!reduced()&&v.greed&&v.greed.n>((prev.greed&&prev.greed.n)||0)){
     const root=v.greed.who===v.you?'#myField':'#oppField';const pts=[];
