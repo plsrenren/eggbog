@@ -555,6 +555,18 @@ button,summary,.clk{touch-action:manipulation}
   #oppRow #deckBox{transform:scale(.78);transform-origin:top right}
   .field,.col{min-height:84px}
 }
+
+/* Steal's black hole: a dark swirling ring around the hand that has to give a card (the cards stay visible in its eye) */
+#bhole{position:fixed;z-index:4;pointer-events:none;border-radius:50%}
+#bhole>i,#bhole b i{position:absolute;inset:0;border-radius:50%}
+#bhole b{position:absolute;left:0;top:50%;width:100%;aspect-ratio:1;translate:0 -50%;transform:scaleY(var(--sy,1))}   /* a circle squashed into the oval, so the swirl can spin inside it */
+#bhole>i{background:radial-gradient(closest-side,#0000 60%,#1a083099 69%,#000000d9 79%,#2a0d4a77 89%,#0000 100%)}
+#bhole b i{background:conic-gradient(from 0deg,#0000,#9b5cff66,#0000 18%,#ff7ad955 30%,#0000 42%,#7ac8ff55 58%,#0000 70%,#9b5cff66 84%,#0000);
+  -webkit-mask:radial-gradient(closest-side,#0000 62%,#000 72%,#000 84%,#0000 98%);mask:radial-gradient(closest-side,#0000 62%,#000 72%,#000 84%,#0000 98%);animation:bhspin 2.2s linear infinite;filter:blur(1.5px)}
+@keyframes bhspin{to{transform:rotate(360deg)}}
+@keyframes warpwob{0%,100%{filter:none}50%{filter:drop-shadow(0 0 6px #9b5cffaa) hue-rotate(-12deg)}}
+.card.warping,.oc.warping{animation:warpwob 1.4s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){#bhole b i,.card.warping,.oc.warping{animation:none}}
 </style>
 </head>
 <body>
@@ -2268,7 +2280,46 @@ function jkThinkFor(pend,get){   // pend: the pending choice; get: the cards it 
   jkThink(get,els=>pend.jkId?els.find(e=>e.dataset.id===pend.jkId):els[Math.min(pend.jkAt||0,els.length-1)]);
 }
 // Steal: the cards of your own hand are the choice, with a label floating above them
+// Steal: a swirling black hole opens around the hand that has to give a card, with a looping warp sound, until the card is taken
+let warpSnd=null;
+function warpLoop(on){
+  if(!on||!soundOn){if(warpSnd){const w=warpSnd;warpSnd=null;try{const t=audioCtx.currentTime;w.g.gain.cancelScheduledValues(t);w.g.gain.setValueAtTime(w.g.gain.value,t);w.g.gain.exponentialRampToValueAtTime(.0001,t+.35);w.nodes.forEach(n=>n.stop(t+.4));}catch(e){}}return;}
+  if(warpSnd)return;
+  try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();
+    const t=audioCtx.currentTime,g=audioCtx.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.09,t+.5);g.connect(audioCtx.destination);
+    // a low hum that bends up and down, plus a breathy whoosh that sweeps, both wobbling on slow LFOs
+    const o=audioCtx.createOscillator(),o2=audioCtx.createOscillator(),lfo=audioCtx.createOscillator(),lg=audioCtx.createGain();
+    o.type='sawtooth';o.frequency.value=70;o2.type='sine';o2.frequency.value=141;lfo.frequency.value=.9;lg.gain.value=22;
+    lfo.connect(lg);lg.connect(o.frequency);lg.connect(o2.frequency);
+    const lp=audioCtx.createBiquadFilter();lp.type='lowpass';lp.frequency.value=420;lp.Q.value=6;
+    const lfo2=audioCtx.createOscillator(),lg2=audioCtx.createGain();lfo2.frequency.value=.45;lg2.gain.value=260;lfo2.connect(lg2);lg2.connect(lp.frequency);
+    o.connect(lp);o2.connect(lp);lp.connect(g);
+    const n=audioCtx.sampleRate*2,buf=audioCtx.createBuffer(1,n,audioCtx.sampleRate),d=buf.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
+    const ns=audioCtx.createBufferSource();ns.buffer=buf;ns.loop=true;const bp=audioCtx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=700;bp.Q.value=3;
+    const ng=audioCtx.createGain();ng.gain.value=.35;lg2.connect(bp.frequency);ns.connect(bp);bp.connect(ng);ng.connect(g);
+    const nodes=[o,o2,lfo,lfo2,ns];nodes.forEach(x=>x.start(t));warpSnd={g,nodes};
+  }catch(e){}
+}
+function blackHole(sel){
+  let b=$('bhole');
+  if(!sel){if(b&&!b.dataset.out){b.dataset.out='1';b.animate([{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(.4) rotate(120deg)'}],{duration:450,easing:'ease-in',fill:'forwards'}).onfinish=()=>b.remove();}
+    document.querySelectorAll('.warping').forEach(e=>e.classList.remove('warping'));warpLoop(false);return;}
+  const h=document.querySelector(sel);if(!h)return;
+  // size it to the cards themselves (the hand row can be much wider than the cards in it)
+  const cs=[...h.querySelectorAll('.card,.oc')].map(e=>e.getBoundingClientRect()).filter(x=>x.width);
+  const r=cs.length?{left:Math.min(...cs.map(x=>x.left)),top:Math.min(...cs.map(x=>x.top)),right:Math.max(...cs.map(x=>x.right)),bottom:Math.max(...cs.map(x=>x.bottom))}:h.getBoundingClientRect();
+  r.width=r.right-r.left;r.height=r.bottom-r.top;
+  const w=Math.max(r.width,120)*1.45+120,ht=Math.max(r.height,70)*1.5+70;   // the cards sit inside the clear eye
+  if(b&&b.dataset.out){b.remove();b=null;}
+  if(!b){b=document.createElement('div');b.id='bhole';b.innerHTML='<i></i><b><i></i></b>';document.body.appendChild(b);
+    if(b.animate&&!reduced())b.animate([{opacity:0,transform:'scale(.3)'},{opacity:1,transform:'scale(1)'}],{duration:500,easing:'cubic-bezier(.2,.9,.3,1.1)'});}
+  b.style.cssText=`left:${r.left+r.width/2-w/2}px;top:${r.top+r.height/2-ht/2}px;width:${w}px;height:${ht}px`;
+  b.style.setProperty('--sy',ht/w);
+  h.querySelectorAll('.card,.oc').forEach(e=>e.classList.add('warping'));
+  warpLoop(true);
+}
 function stealSync(v,OPP){
+  {const sp=v.pending&&v.pending.t==='steal'?v.pending:null;blackHole(sp?(sp.chooser===v.you?'#hand':'#oppHand'):null);}
   const o=$('stl');if(o)o.remove();
   {const jp=v.pending&&v.pending.t==='steal'&&v.pending.jk?v.pending:null;
    if(jp){   // a Joker card's Steal: the Joker picks the card to give, from whoever has to give it
@@ -2546,14 +2597,23 @@ function flyBackToOpp(delay,fromEl){ // the opponent drew (or was given a card):
 let pendingDrop=null,audioCtx=null,soundOn=true;
 try{soundOn=localStorage.getItem('eggbog-sound')!=='off';}catch(e){}
 function syncSound(){const b=$('btnSound');b.textContent=soundOn?'🔊':'🔇';b.title=soundOn?'Sound on':'Sound off';}
-function thud(){
+// val: the value of the card that landed (optional). Low cards land with a light, high thud, big ones deep and heavy,
+// and a soft note on a falling scale makes each value sound different
+function thud(val){
   if(!soundOn)return;
   try{
     audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
     if(audioCtx.state==='suspended')audioCtx.resume();
-    const t=audioCtx.currentTime;
+    const t=audioCtx.currentTime,v=Math.max(1,Math.min(10,val||0));
+    const k=val?1.5-(v-1)/9*.85:1;   // 1.5x the pitch for a 1, down to .65x for a 10
     const o=audioCtx.createOscillator(),g=audioCtx.createGain();
-    o.type='sine';o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(45,t+.13);
+    o.type='sine';o.frequency.setValueAtTime(150*k,t);o.frequency.exponentialRampToValueAtTime(45*k,t+.13);
+    if(val){
+      const notes=[784,698.5,659.3,587.3,523.3,440,392,349.2,329.6,293.7],no=audioCtx.createOscillator(),ng2=audioCtx.createGain();
+      no.type='triangle';no.frequency.setValueAtTime(notes[v-1],t);no.frequency.exponentialRampToValueAtTime(notes[v-1]*.94,t+.18);
+      ng2.gain.setValueAtTime(.0001,t);ng2.gain.exponentialRampToValueAtTime(.09,t+.008);ng2.gain.exponentialRampToValueAtTime(.0001,t+.22);
+      no.connect(ng2);ng2.connect(audioCtx.destination);no.start(t);no.stop(t+.24);
+    }
     g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.45,t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+.2);
     o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+.22);
     // a short muffled slap for the card hitting the cloth
@@ -2588,7 +2648,7 @@ function dropAnim(el,fromX,fromY,delay){
   ],{duration:dur,delay:delay||0,fill:'backwards'});
   anim.onfinish=anim.oncancel=()=>{el.style.zIndex='';};
   setTimeout(()=>{
-    thud();
+    {const c=view&&view.me.field.concat(view.opp.field).find(x=>x.id===el.dataset.id);thud(c?cardVal(c):0);}
     const dent=document.createElement('div');dent.className='thud-dent';
     dent.style.left=(cx-70)+'px';dent.style.top=(cy-70)+'px';document.body.appendChild(dent);
     dent.animate([{opacity:.9,transform:'scale(.6)'},{opacity:0,transform:'scale(1.25)'}],{duration:620,easing:'ease-out'}).onfinish=()=>dent.remove();
@@ -2857,19 +2917,19 @@ function removalAnim(kind,pl,clones,G){
       const src=srcR(),opp=pl.side==='#myField'?'#oppField':'#myField';
       [pl.c.s,SISTER[pl.c.s]].map(s=>document.querySelector(opp+' .col[data-suit="'+s+'"]')).filter(Boolean).forEach((col,ci)=>{
         const r=col.getBoundingClientRect(),to=ctr(r),from=src?ctr(src):to;
-        for(let k=0;k<9;k++){
-          const sz=r.width*(.7+Math.random()*.5),ox=(Math.random()-.5)*r.width*.5,oy=(Math.random()-.5)*r.height*.6;
-          const m=fx(`left:${to.x-sz/2}px;top:${to.y-sz/2}px;width:${sz}px;height:${sz}px;border-radius:50%;background:radial-gradient(circle,#f4fbffd0 0,#c6e9ffaa 35%,#8fd0ff44 60%,#0000 72%);filter:blur(7px)`,56);
-          m.animate([{transform:`translate(${from.x-to.x}px,${from.y-to.y}px) scale(.25)`,opacity:0},{opacity:.85,offset:.12},{transform:`translate(${ox}px,${oy}px) scale(1)`,opacity:.9,offset:.4},{transform:`translate(${ox*1.2}px,${oy*1.2-10}px) scale(1.25)`,opacity:0}],{duration:1250,delay:k*45+ci*60,easing:'ease-out',fill:'both'});die(m,1350+k*45+ci*60);
+        for(let k=0;k<6;k++){
+          const sz=r.width*(.42+Math.random()*.25),ox=(Math.random()-.5)*r.width*.35,oy=(Math.random()-.5)*r.height*.45;
+          const m=fx(`left:${to.x-sz/2}px;top:${to.y-sz/2}px;width:${sz}px;height:${sz}px;border-radius:50%;background:radial-gradient(circle,#f4fbff90 0,#c6e9ff60 35%,#8fd0ff22 60%,#0000 72%);filter:blur(5px)`,56);
+          m.animate([{transform:`translate(${from.x-to.x}px,${from.y-to.y}px) scale(.25)`,opacity:0},{opacity:.6,offset:.12},{transform:`translate(${ox}px,${oy}px) scale(1)`,opacity:.65,offset:.4},{transform:`translate(${ox*1.2}px,${oy*1.2-8}px) scale(1.15)`,opacity:0}],{duration:1250,delay:k*45+ci*60,easing:'ease-out',fill:'both'});die(m,1350+k*45+ci*60);
         }
-        const tint=fx(`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:10px;background:linear-gradient(#dff4ff30,#9fd8ff20);box-shadow:inset 0 0 30px #cfefff90`,13);
+        const tint=fx(`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:10px;background:linear-gradient(#dff4ff18,#9fd8ff10);box-shadow:inset 0 0 18px #cfefff50`,13);
         tint.animate([{opacity:0},{opacity:0,offset:.15},{opacity:1,offset:.35},{opacity:1,offset:.75},{opacity:0}],{duration:1450,fill:'both'});die(tint,1500);
       });
       clones.forEach((k,i)=>{
         const r=k.el.getBoundingClientRect(),fz=380+i*90,br=880+i*110;
         // the card freezes: it pales to blue and a shell of ice with frost at the edges forms over it
-        k.el.animate([{filter:'none'},{filter:'saturate(.3) brightness(1.12)'}],{duration:320,delay:fz,fill:'forwards'});
-        const ice=fx(`left:${r.left-2}px;top:${r.top-2}px;width:${r.width+4}px;height:${r.height+4}px;border-radius:8px;background:linear-gradient(135deg,#ffffffb0 0,#cdeeff60 30%,#9fd6ff50 60%,#e8f8ffb0 100%);border:2px solid #eef9ff;box-shadow:0 0 14px #9fd8ff,inset 0 0 12px #fff`,15);
+        k.el.animate([{filter:'none'},{filter:'saturate(.6) brightness(1.06)'}],{duration:320,delay:fz,fill:'forwards'});
+        const ice=fx(`left:${r.left-2}px;top:${r.top-2}px;width:${r.width+4}px;height:${r.height+4}px;border-radius:8px;background:linear-gradient(135deg,#ffffff70 0,#cdeeff38 30%,#9fd6ff30 60%,#e8f8ff70 100%);border:1.5px solid #eef9ffcc;box-shadow:0 0 8px #9fd8ff99,inset 0 0 8px #fff9`,15);
         ice.innerHTML=`<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;opacity:0"><path d="M48 52L20 8M48 52L88 18M48 52L95 70M48 52L60 98M48 52L5 75M48 52L30 40M48 52L70 45" stroke="#fff" stroke-width="2.2" fill="none" vector-effect="non-scaling-stroke"/></svg>`;
         ice.animate([{opacity:0,transform:'scale(1.06)'},{opacity:1,transform:'none'}],{duration:320,delay:fz,fill:'both'});
         ice.firstChild.animate([{opacity:0},{opacity:1}],{duration:120,delay:br-160,fill:'both'});   // cracks spread just before it breaks
