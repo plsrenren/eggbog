@@ -196,9 +196,6 @@ header h2{margin:0;font-size:1.3rem}
 #ghLayer .card{pointer-events:none}
 .card.doomed{outline:3px solid #ff2d20;outline-offset:0;box-shadow:0 0 0 2px #ff2d2088,0 0 16px #ff2d20;z-index:30}
 .card.doomed::after{content:'';position:absolute;inset:0;border-radius:6px;background:#ff2d2055;pointer-events:none}
-.card.rK{background:linear-gradient(160deg,#f6fbef,#d9efc8);border:1px solid #3e8f2a;animation:nuke 1.6s ease-in-out infinite alternate}
-@keyframes nuke{from{box-shadow:0 0 5px #6dff3a99,0 0 12px #3cff2a55}to{box-shadow:0 0 10px #8dff52,0 0 26px #43ff2acc,0 0 2px #fff}}
-@media(prefers-reduced-motion:reduce){.card.rK{animation:none;box-shadow:0 0 12px #6dff3a}}
 #hand,#stlHand{display:flex;flex-wrap:nowrap;justify-content:center;padding-top:34px;min-height:176px;perspective:1000px;overflow:visible}
 #hand .card,#stlHand .card,#hovTray .card{width:80px;height:114px;padding:4px 5px}
 #hand .card .cr,#stlHand .card .cr,#hovTray .card .cr{font-size:1.15rem}#hand .card .cs,#hovTray .card .cs{font-size:2.3rem;bottom:20px;right:9px}#hand .card .ab,#hovTray .card .ab{font-size:.68rem;bottom:5px}
@@ -664,7 +661,7 @@ const SUITS=['C','S','H','D'];
 const SUIT_RANK={C:0,S:1,H:2,D:3,'*':4};
 const SYM={C:'♣',S:'♠',H:'♥',D:'♦','*':''};
 const DISCOVER_N=3; // cards the opponent draws for a Scry; they keep one for you, the rest are discarded
-const ABILITY={A:'Draw','2':'Deathrattle','3':'Scry','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Wipe',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',O:'Morph',U:'Hush',X:'Joker'};
+const ABILITY={A:'Draw','2':'Deathrattle','3':'Scry','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Blaze',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',O:'Morph',U:'Hush',X:'Joker'};
 const ABILITY_TEXT={
   A:'Draw: draw one card from the deck into your hand.',
   '2':'Deathrattle: if this card is removed from the field, its owner draws one card.',
@@ -673,7 +670,7 @@ const ABILITY_TEXT={
   '5':'Swap: this card moves to your opponent\'s side. If they have a card of the same suit, the most recently played one swaps sides with it.',
   J:'Frost: freeze and shatter the top (most recently played) card of its suit and of the other suit of the same colour (♥/♦ or ♣/♠) on your opponent\'s side. A Sturdy card on top blocks it for that suit.',
   Q:'Bolt: lightning destroys all cards of the same suit on your opponent\'s side.',
-  K:'Wipe: clear all removable cards from both sides, excluding the King itself.',
+  K:'Blaze: burn away all removable cards from both sides, excluding the King itself.',
   M:'Mimic (Crazy mode): when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Deathrattle, Sturdy and Rune included). If nothing was played before it, it does nothing.',
   T:'Steal (Crazy mode): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned.',
   L:'Rune (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards.',
@@ -2741,12 +2738,6 @@ function dropAnim(el,fromX,fromY,delay){
 }
 
 // ---- rendering ----
-const TREFOIL=(()=>{ // radiation trefoil: three 60° wedges
-  const pt=(a,r)=>[(20+r*Math.cos(a*Math.PI/180)).toFixed(2),(20-r*Math.sin(a*Math.PI/180)).toFixed(2)];
-  let d='';for(const m of [90,210,330]){const a0=m-30,a1=m+30,p0=pt(a0,15),p1=pt(a1,15),q1=pt(a1,5.5),q0=pt(a0,5.5);
-    d+=`<path d="M${q0} L${p0} A15 15 0 0 0 ${p1} L${q1} A5.5 5.5 0 0 1 ${q0}Z" fill="#111"/>`;}
-  return d+'<circle cx="20" cy="20" r="3.2" fill="#111"/>';
-})();
 const EGG_ART='<svg class="art" viewBox="0 0 40 40"><path d="M20 3C11.5 3 6 16 6 24a14 14 0 0 0 28 0C34 16 28.5 3 20 3z" fill="#fff7e3" stroke="#a8823a" stroke-width="2"/><path d="M12.5 15c1.4-4 3.8-6.6 6-7.4" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/><g fill="#e9b949"><circle cx="24" cy="22" r="2"/><circle cx="16" cy="28" r="1.5"/><circle cx="25.5" cy="30.5" r="1.3"/></g></svg>';   // the Egg's art, centred like the effect cards
 const ART={
   M:'<svg class="art" viewBox="0 0 40 40"><path d="M5 9 Q14 6 22 9 Q23 22 13.5 28 Q4 22 5 9Z" fill="#cfd8ff" stroke="#3a3f7a" stroke-width="1.8"/><path d="M18 13 Q26 10 35 13 Q36 26 26.5 32 Q17 26 18 13Z" fill="#b48cff" stroke="#3a2370" stroke-width="1.8"/><path d="M8.5 14 q2 -2 4 0 M15 14 q2 -2 4 0 M10 21 q3.5 3 7 0" stroke="#3a3f7a" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M21.5 18 q2 -2 4 0 M28 18 q2 -2 4 0 M23 25 q3.5 3 7 0" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>',
@@ -2761,7 +2752,7 @@ const ART={
   J:'<svg class="art" viewBox="0 0 40 40"><g stroke="#3a8fd8" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M20 4V36M17 7l3 3 3-3M17 33l3-3 3 3"/><path d="M20 4V36M17 7l3 3 3-3M17 33l3-3 3 3" transform="rotate(60 20 20)"/><path d="M20 4V36M17 7l3 3 3-3M17 33l3-3 3 3" transform="rotate(120 20 20)"/></g></svg>',
   Q:'<svg class="art" viewBox="0 0 40 40"><path d="M24.5 1.5L8 22.5h10l-4.5 16L32 15.5H21.5z" fill="#ffd93b" stroke="#6b4a00" stroke-width="1.3" stroke-linejoin="round"/><path d="M22.5 4.5L11.5 20.5h4" stroke="#fff6b8" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>',
   X:'<svg class="art" viewBox="0 0 40 40"><defs><linearGradient id="jkg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6bd6"/><stop offset=".35" stop-color="#6bd6ff"/><stop offset=".7" stop-color="#8dff8d"/><stop offset="1" stop-color="#ffe86b"/></linearGradient></defs><path d="M20 2 L24.5 14 L37.5 14.5 L27.3 22.5 L30.8 35.5 L20 28 L9.2 35.5 L12.7 22.5 L2.5 14.5 L15.5 14 Z" fill="url(#jkg)" stroke="#4b2a7a" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 8 L22 15 M20 8 L18 15" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/></svg>',
-  K:`<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18.5" fill="#ffe21f" stroke="#111" stroke-width="2"/>${TREFOIL}</svg>`
+  K:`<svg class="art" viewBox="0 0 40 40"><path d="M20 2.5c1.6 5.4 7.6 9.4 10.4 15.2 1.6-1.6 2.3-3.7 2.3-6 3.3 4 4.8 8.6 4.8 12.6C37.5 32.4 29.8 38 20 38S2.5 32.4 2.5 24.3c0-5 2.6-9.5 6-12.7.2 2.8 1.2 5 3 6.4C12.7 11.8 16.8 7.8 20 2.5z" fill="#d8341a" stroke="#6e1408" stroke-width="1.6" stroke-linejoin="round"/><path d="M20 12c1.2 4 5.6 6.8 7.4 11 1-1 1.5-2.4 1.6-3.8 1.8 2.4 2.6 5 2.6 7.3 0 5.6-5.2 9.5-11.6 9.5S8.4 32.1 8.4 26.5c0-3.3 1.6-6.2 3.8-8.3.2 1.8.9 3.2 2 4.1.5-4.3 3.4-7 5.8-10.3z" fill="#ff8a1a"/><path d="M20 21.5c.9 2.6 3.8 4.4 4.6 7 .5 2.6-1.6 5.7-4.6 5.7s-5.1-2.6-4.8-5.3c.3-2.4 2.8-4.3 4.8-7.4z" fill="#ffd84a"/></svg>`
 };
 // Hush: a white wave rolls out of the played card across the opponent's side; each card it reaches gets a white halo
 const hushHold=new Set();
@@ -3092,7 +3083,7 @@ function boomLow(delay){
     g.gain.setValueAtTime(.5,t);g.gain.exponentialRampToValueAtTime(.001,t+.7);o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+.75);
   }catch(e){}
 }
-// the Frost / Bolt / Wipe animation; G is the ghost layer for a ghost preview (silent, see-through), or null for the real thing
+// the Frost / Bolt / Blaze animation; G is the ghost layer for a ghost preview (silent, see-through), or null for the real thing
 function removalAnim(kind,pl,clones,G){
   const host=G||document.body,S=!G;
   const mk=(o,z)=>{const g=document.createElement('div');g.innerHTML=o.html;const e=g.firstChild;e.classList.remove('targetable','doomed');
@@ -3195,31 +3186,38 @@ function removalAnim(kind,pl,clones,G){
       });
     }
   }else{
-    // King: a nuke goes off over both sides of the field
+    // Blaze: a ring of fire rolls out of the played card over both sides; each removed card catches fire,
+    // blackens, curls up and crumbles into embers that drift away
     {
-      S&&boomLow(0);S&&noiseBurst(.9,'lowpass',2500,80,.8);
-      const flash=fx('inset:0;background:radial-gradient(circle,#fff,#ffd23f 40%,#ff4d1a88 80%);mix-blend-mode:screen',60);
-      flash.animate([{opacity:0},{opacity:.9,offset:.12},{opacity:0}],{duration:520,fill:'forwards'});die(flash,560);
-      const b=S&&$('board');if(b)b.animate([{transform:'none'},{transform:'translate(-12px,6px)'},{transform:'translate(10px,-7px)'},{transform:'translate(-8px,4px)'},{transform:'translate(5px,-3px)'},{transform:'none'}],{duration:620});
-      ['#oppField','#myField'].forEach((sel,si)=>{
-        const f=document.querySelector(sel);if(!f)return;const r=f.getBoundingClientRect(),c=ctr(r);
-        const ring=fx(`left:${c.x-60}px;top:${c.y-60}px;width:120px;height:120px;border-radius:50%;border:6px solid #ffe9a8;box-shadow:0 0 30px #ff8a1a`);
-        ring.animate([{transform:'scale(.1)',opacity:1},{transform:`scale(${r.width/90})`,opacity:0}],{duration:700,easing:'cubic-bezier(.1,.7,.3,1)',fill:'forwards'});die(ring,760);
-        for(let k=0;k<7;k++){
-          const sz=90+Math.random()*130,x=r.left+Math.random()*r.width,y=r.top+Math.random()*r.height;
-          const fb=fx(`left:${x-sz/2}px;top:${y-sz/2}px;width:${sz}px;height:${sz}px;border-radius:50%;background:radial-gradient(circle,#fff 0,#ffd23f 25%,#ff6a1a 50%,#7a1a0a 68%,#0000 75%);filter:blur(2px)`);
-          fb.animate([{transform:'scale(.1)',opacity:0},{transform:'scale(1)',opacity:1,offset:.3},{transform:'scale(1.5)',opacity:0}],{duration:800,delay:k*50+si*60,easing:'ease-out',fill:'both'});die(fb,1100);
-        }
-        for(let k=0;k<26;k++){
-          const a=Math.random()*Math.PI*2,d=80+Math.random()*(r.width/2.4);
-          const em=fx(`left:${c.x}px;top:${c.y}px;width:6px;height:6px;border-radius:50%;background:${k%3?'#ff8a1a':'#ffd23f'};box-shadow:0 0 8px #ff4d1a`);
-          em.animate([{transform:'translate(0,0)',opacity:1},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d*.6-30}px) scale(.3)`,opacity:0}],{duration:800+Math.random()*500,easing:'ease-out',fill:'forwards'});die(em,1400);
-        }
-      });
-      // everything removed is blown away from the centre of its side
+      const r0=srcR(),o=r0?ctr(r0):{x:innerWidth/2,y:innerHeight/2};
+      castGlow('#ff7a1a');
+      S&&noiseBurst(1.1,'lowpass',900,160,.5);S&&noiseBurst(.7,'bandpass',2600,700,.18,.15);
+      const zones=['#oppField','#myField'].map(sel=>document.querySelector(sel)).filter(Boolean).map(f=>f.getBoundingClientRect());
+      const far=Math.max(60,...zones.flatMap(z=>[[z.left,z.top],[z.right,z.top],[z.left,z.bottom],[z.right,z.bottom]].map(([x,y])=>Math.hypot(x-o.x,y-o.y))));
+      const T=900;   // how long the fire front takes to reach the farthest corner
+      const ring=fx(`left:${o.x-far}px;top:${o.y-far}px;width:${2*far}px;height:${2*far}px;border-radius:50%;background:radial-gradient(circle,#0000 0 58%,#ff7a1a33 66%,#ff8a1acc 71%,#ffd84aee 73.5%,#ff5a1acc 76%,#d8341a55 82%,#0000 90%);filter:blur(3px);mix-blend-mode:screen`,56);
+      ring.animate([{transform:'scale(.03)',opacity:0},{opacity:1,offset:.12},{opacity:.95,offset:.75},{transform:'scale(1)',opacity:0}],{duration:T*1.15,easing:'cubic-bezier(.25,.5,.45,1)',fill:'both'});die(ring,T*1.2);
+      // a warm haze behind the front
+      zones.forEach(z=>{const h=fx(`left:${z.left}px;top:${z.top}px;width:${z.width}px;height:${z.height}px;border-radius:12px;background:radial-gradient(ellipse at ${o.x-z.left}px ${o.y-z.top}px,#ff8a1a55,#d8341a22 60%,#0000 85%)`,13);
+        h.animate([{opacity:0},{opacity:1,offset:.35},{opacity:0}],{duration:T*1.8,fill:'both'});die(h,T*1.9);});
+      // sparks thrown forward with the front
+      for(let k=0;k<(S?34:16);k++){const a=Math.random()*Math.PI*2,dd=far*(.5+Math.random()*.5);
+        const sp=fx(`left:${o.x-3}px;top:${o.y-3}px;width:6px;height:6px;border-radius:50%;background:${k%3?'#ff9a3c':'#ffd84a'};box-shadow:0 0 8px #ff5a1a`,58);
+        sp.animate([{transform:'none',opacity:0},{opacity:1,offset:.1},{transform:`translate(${Math.cos(a)*dd}px,${Math.sin(a)*dd}px) scale(.3)`,opacity:0}],{duration:T*(.8+Math.random()*.5),delay:Math.random()*120,easing:'ease-out',fill:'both'});die(sp,T*1.5);}
       clones.forEach(k=>{
-        const a=Math.random()*Math.PI*2,d=160+Math.random()*120;
-        k.el.animate([{transform:'none',opacity:1,filter:'none'},{transform:'scale(1.15)',filter:'brightness(2)',opacity:1,offset:.12},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d-40}px) rotate(${(Math.random()-.5)*540}deg) scale(.4)`,opacity:0,filter:'brightness(.3)'}],{duration:760,easing:'cubic-bezier(.2,.7,.4,1)',fill:'forwards'}).onfinish=()=>k.el.remove();
+        if(k.under){setTimeout(()=>k.el.remove(),400);return;}   // hidden under the Blaze card itself
+        const r=k.el.getBoundingClientRect(),c=ctr(r),d=T*Math.min(1,Math.hypot(c.x-o.x,c.y-o.y)/far);
+        // flames lick up the card
+        for(let q=0;q<5;q++){const w=16+Math.random()*14,h=w*1.6,x=r.left+r.width*(.12+.76*Math.random())-w/2,y=r.bottom-h*.9-Math.random()*r.height*.35;
+          const fl=fx(`left:${x}px;top:${y}px;width:${w}px;height:${h}px;border-radius:50% 50% 45% 45%/62% 62% 38% 38%;background:radial-gradient(ellipse at 50% 72%,#fff3b0 0,#ffd84a 22%,#ff7a1a 52%,#d8341a99 72%,#0000 80%);filter:blur(1px);mix-blend-mode:screen;transform-origin:50% 100%`,57);
+          fl.animate([{transform:'scale(.2,.1)',opacity:0},{transform:'scale(1,1)',opacity:1,offset:.25},{transform:'scale(.9,1.25) translateY(-6px)',opacity:.9,offset:.6},{transform:'scale(.4,.8) translateY(-22px)',opacity:0}],{duration:820,delay:d+q*55,easing:'ease-out',fill:'both'});die(fl,d+1300);}
+        // the card scorches, curls and falls apart
+        k.el.animate([{transform:'none',filter:'none',opacity:1},{transform:'none',filter:'sepia(.6) brightness(1.15) saturate(1.6)',opacity:1,offset:.2},{transform:'translateY(-3px) rotate(-2deg) scaleY(.96)',filter:'sepia(1) brightness(.45) contrast(1.3)',opacity:1,offset:.55},{transform:'translateY(10px) rotate(4deg) scale(.82,.55)',filter:'brightness(.15)',opacity:0}],{duration:900,delay:d,easing:'ease-in',fill:'both'}).onfinish=()=>k.el.remove();
+        // embers drift up off it
+        for(let q=0;q<(S?14:6);q++){const sz=2+Math.random()*3.5,x=r.left+Math.random()*r.width,y=r.top+r.height*(.25+Math.random()*.7);
+          const em=fx(`left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;border-radius:50%;background:${Math.random()<.6?'#ff9a3c':'#3a2a22'};box-shadow:0 0 5px #ff5a1a`,58);
+          em.animate([{transform:'none',opacity:0},{opacity:1,offset:.15},{transform:`translate(${(Math.random()-.5)*50}px,${-40-Math.random()*60}px)`,opacity:0}],{duration:900+Math.random()*500,delay:d+380+Math.random()*300,easing:'ease-out',fill:'both'});die(em,d+1800);}
+        S&&setTimeout(()=>noiseBurst(.35,'bandpass',1800,500,.12),d);
       });
     }
   }
@@ -3236,10 +3234,13 @@ function faceFx(prev,v,oldCards){
   const T=480+(mirrorShow.has(pl.c.id)?520:0); // let the played card land first (and a Mimic finish flipping)
   // never run while a full-screen event (the opening "who goes first" reveal, the pack) still covers the board
   const later=fn=>{const go=()=>{if($('duel')||$('pack')||$('pf')){setTimeout(go,150);return;}setTimeout(fn,T);};setTimeout(go,0);};
-  fxUntil=Math.max(fxUntil,Date.now()+T+1300);
+  fxUntil=Math.max(fxUntil,Date.now()+T+(efx(pl.c,v)==='K'?2000:1300));   // Blaze burns longer
   const mk=(o,z)=>{const g=document.createElement('div');g.innerHTML=o.html;const e=g.firstChild;e.classList.remove('targetable','doomed');
     e.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:${z||14};pointer-events:none`;document.body.appendChild(e);return e;};
   const clones=removed.map(([id,o])=>({id,o,el:mk(o)}));
+  // cards in the played card's own column lie under it: don't draw them over it (Blaze burns them out of sight)
+  {const pc=[...v.me.field,...v.opp.field].find(c=>c.id===pl.c.id),mineSide=pl.side==='#myField';
+    clones.forEach(k=>{const c=(mineSide?prev.me.field:prev.opp.field).find(x=>x.id===k.id);if(c&&pc&&c.s===pc.s){k.el.style.visibility='hidden';k.under=true;}});}
   const fx=(css,z)=>{const e=document.createElement('i');e.style.cssText='position:fixed;pointer-events:none;z-index:'+(z||57)+';'+css;document.body.appendChild(e);return e;};
   const die=(e,ms)=>setTimeout(()=>e.remove(),ms);
   const ctr=r=>({x:r.left+r.width/2,y:r.top+r.height/2});
@@ -3741,7 +3742,7 @@ function askLeave(){
 // ---- crazy mode: which rank does what this game ----
 function showFx(){
   if(!view)return;
-  const clean=t=>t.replace(/^[^:]*:\s*/,'').replace('the King itself','the Wipe card itself');
+  const clean=t=>t.replace(/^[^:]*:\s*/,'').replace('the King itself','the Blaze card itself');
   let h;
   if(view.crazy){
     const keys=(view.fxOn&&view.fxOn.length?view.fxOn:CRAZY_DEFAULT);
