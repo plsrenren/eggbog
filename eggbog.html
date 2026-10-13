@@ -172,7 +172,12 @@ header h2{margin:0;font-size:1.3rem}
 /* ---- special card art ---- */
 .card .art{position:absolute;left:50%;top:50%;width:64%;height:auto;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 1px 1px #0005)}
 .card.art-on .cs{font-size:1rem;right:5px;bottom:15px;opacity:.85}
-.card.rJ .cs,.card.rQ .cs,.card.rL .cs{display:none}   /* the snowflake, bolt and rune are see-through, so the suit pip would show behind them; the corner still shows the suit */
+.card .cs{display:none}   /* one suit icon per card: the one next to the rank in the corner (it's also the part that shows on stacked cards) */
+/* the face is tinted by suit colour: pink for hearts and diamonds, blue for clubs and spades (Jokers, the Egg and card backs keep their own look) */
+.card.red:not(.joker):not(.egg):not(.back):not(.oc){background:linear-gradient(160deg,#fff1f1,#fbd9d9)}
+.card:not(.red):not(.joker):not(.egg):not(.back):not(.oc){background:linear-gradient(160deg,#eef4ff,#d5e2fa)}
+.card.red:not(.joker):not(.egg):not(.back):not(.oc):not(.r4){border-color:#e3a2a2}
+.card:not(.red):not(.joker):not(.egg):not(.back):not(.oc):not(.r4){border-color:#9fb3da}
 #hand .card.art-on .cs,#stlHand .card.art-on .cs,#hovTray .card.art-on .cs{font-size:1.5rem;bottom:22px}
 .card.r2::before{content:'';position:absolute;inset:0;border-radius:6px;pointer-events:none;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 88' preserveAspectRatio='none'><g fill='none' stroke='%23564f45' stroke-linecap='round' stroke-linejoin='round'><path d='M31 20l-3 9 5 6-4 8 6 7-3 10' stroke-width='1.1'/><path d='M33 35l9-3 5-8' stroke-width='.8'/><path d='M29 43l-9 4-6 10' stroke-width='.8'/><path d='M36 50l8 5 2 9' stroke-width='.7'/><path d='M28 29l-7-4-2-7' stroke-width='.6'/><path d='M0 66l7-3 4 4M62 12l-8 4-2 6' stroke-width='.7'/></g></svg>") center/100% 100% no-repeat;opacity:.75}
 .card .ab{white-space:nowrap}
