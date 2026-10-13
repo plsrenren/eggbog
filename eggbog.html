@@ -3282,7 +3282,36 @@ function faceFx(prev,v,oldCards){
   const targetsOf=side=>clones.filter(k=>true);
   const kind=efx(pl.c,v);
   later(()=>removalAnim(kind,pl,clones,null));
+  // a broken Soul card lets a wisp of light float to the deck; its draw waits for the wisp to arrive
+  const souls=clones.filter(k=>{const c=[...prev.me.field,...prev.opp.field].find(x=>x.id===k.id);return c&&efx(c,prev)==='2';});
+  if(souls.length&&!reduced()){const at=T+({J:650,Q:700,K:900}[kind]||700);
+    souls.forEach((k,i)=>setTimeout(()=>soulWisp(k.o.r),at+i*140));
+    soulDrawAt=Date.now()+at+(souls.length-1)*140+SOUL_FLY;fxUntil=Math.max(fxUntil,soulDrawAt);}
   return handled;
+}
+// ---- Soul: a glowing wisp drifts from the broken card to the deck ----
+let soulDrawAt=0;const SOUL_FLY=950;
+function soulWisp(r){
+  const dk=$('deck');if(!dk)return;const d=dk.getBoundingClientRect();
+  const x0=r.left+r.width/2,y0=r.top+r.height/2,x1=d.left+d.width/2,y1=d.top+d.height/2;
+  const cx=(x0+x1)/2+(x1>x0?-1:1)*Math.min(160,Math.abs(y1-y0)*.5),cy=Math.min(y0,y1)-90;   // a lazy curve up and over
+  const orb=document.createElement('i');
+  orb.style.cssText='position:fixed;left:0;top:0;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;pointer-events:none;z-index:58;background:radial-gradient(circle,#fff 0 22%,#cfe6ff 38%,#7fbfff66 60%,#7fbfff00 72%);filter:drop-shadow(0 0 8px #9fd0ff)';
+  document.body.appendChild(orb);
+  const t0=performance.now();let last=0;
+  const step=now=>{
+    const t=Math.min(1,(now-t0)/SOUL_FLY),e=t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2,u=1-e;
+    const x=u*u*x0+2*u*e*cx+e*e*x1+Math.sin(t*Math.PI*3)*6*(1-t),y=u*u*y0+2*u*e*cy+e*e*y1;
+    orb.style.transform=`translate(${x}px,${y}px) scale(${t<.15?t/.15:t>.85?1-(t-.85)/.15*.6:1})`;
+    if(now-last>28){last=now;const s=document.createElement('i');const z=4+Math.random()*5;
+      s.style.cssText=`position:fixed;left:${x-z/2}px;top:${y-z/2}px;width:${z}px;height:${z}px;border-radius:50%;pointer-events:none;z-index:57;background:radial-gradient(circle,#fff,#9fd0ff88 60%,#9fd0ff00)`;
+      document.body.appendChild(s);s.animate([{opacity:.9,transform:'none'},{opacity:0,transform:`translate(${Math.random()*10-5}px,${-8-Math.random()*10}px) scale(.3)`}],{duration:520,easing:'ease-out',fill:'forwards'}).onfinish=()=>s.remove();}
+    if(t<1)requestAnimationFrame(step);
+    else{orb.remove();dk.animate([{filter:'none'},{filter:'brightness(1.6) drop-shadow(0 0 10px #9fd0ff)',offset:.3},{filter:'none'}],{duration:500});}
+  };
+  // it slips out of the cracks first
+  orb.style.transform=`translate(${x0}px,${y0}px) scale(0)`;
+  requestAnimationFrame(step);
 }
 function applyTheme(on){document.documentElement.classList.toggle('theme-crazy',!!on);}
 function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.toggle('deathmatch',!!(v&&v.round>=3&&dmPending!==v.gameId));jokerFxSet(!!(v&&(v.jq>0||(v.pending&&v.pending.jk))&&v.phase!=='over'));
@@ -3468,14 +3497,16 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
     const old=new Set(prev.me.hand.map(c=>c.id));
     const held=$('drw')&&$('drw').dataset.mine;
     const rn=(prev.draws||[])[0]==='laststand';
-    $('hand').querySelectorAll('.card').forEach(el=>{if(old.has(el.dataset.id))return;const rp=rn&&runeFrom('me');flyFromDeck(el,(held?750:0)+(k++)*90,rp?{x:rp.x,y:rp.y}:held?{x:innerWidth/2,y:innerHeight/2}:undefined);});
+    const sw=Math.max(0,soulDrawAt-Date.now());   // a Soul's draw leaves the deck once its wisp gets there
+    const sm=(prev.draws||[])[0]==='deathrattle'?sw:0,so=(prev.oppReasons||[])[0]==='deathrattle'?sw:0;
+    $('hand').querySelectorAll('.card').forEach(el=>{if(old.has(el.dataset.id))return;const rp=rn&&runeFrom('me');const dl=(held?750:0)+(k++)*90,pt=rp?{x:rp.x,y:rp.y}:held?{x:innerWidth/2,y:innerHeight/2}:undefined;if(sm&&!reduced()){el.style.opacity='0';setTimeout(()=>{el.style.opacity='';flyFromDeck(el,dl,pt);},sm);}else flyFromDeck(el,dl,pt);});
     const oldT=new Set([...(prev.pending&&prev.pending.opts&&prev.pending.t==='discover'?prev.pending.opts.map(c=>c.id):[]),prev.startMe?prev.startMe.id:'']);
     trayEl.querySelectorAll('.card:not(.back)').forEach(el=>{if(!oldT.has(el.dataset.id))flyFromDeck(el);});
     const nb=trayEl.querySelectorAll('.card.back').length;
     const pb=prev.pending&&prev.pending.t==='discover'&&prev.pending.chooser!==prev.you?prev.pending.n:0;
     if(nb>pb)flyFromDeck(trayEl.querySelectorAll('.card.back')[nb-1]);
     const ro=(prev.oppReasons||[])[0]==='laststand';
-    for(let i=0;i<Math.min(3,v.opp.hand-prev.opp.hand);i++){const rp=ro&&runeFrom('opp');flyBackToOpp(i*140,rp?{getBoundingClientRect:()=>({left:rp.x-rp.w/2,top:rp.y-rp.h/2,width:rp.w,height:rp.h})}:undefined);}
+    for(let i=0;i<Math.min(3,v.opp.hand-prev.opp.hand);i++){const rp=ro&&runeFrom('opp');flyBackToOpp(so+i*140,rp?{getBoundingClientRect:()=>({left:rp.x-rp.w/2,top:rp.y-rp.h/2,width:rp.w,height:rp.h})}:undefined);}
   }
   if(prev&&!reduced()&&prev.you===v.you&&v.stolen&&v.stolen.n>((prev.stolen&&prev.stolen.n)||0)){
     if(v.stolen.by===v.you){ // a card flies in from the opponent's side
