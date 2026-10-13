@@ -172,6 +172,7 @@ header h2{margin:0;font-size:1.3rem}
 /* ---- special card art ---- */
 .card .art{position:absolute;left:50%;top:50%;width:64%;height:auto;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 1px 1px #0005)}
 .card.art-on .cs{font-size:1rem;right:5px;bottom:15px;opacity:.85}
+.card.rJ .cs,.card.rQ .cs{display:none}   /* the snowflake and bolt are see-through, so the suit pip would show behind them; the corner still shows the suit */
 #hand .card.art-on .cs,#stlHand .card.art-on .cs,#hovTray .card.art-on .cs{font-size:1.5rem;bottom:22px}
 .card.r2::before{content:'';position:absolute;inset:0;border-radius:6px;pointer-events:none;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 88' preserveAspectRatio='none'><g fill='none' stroke='%23564f45' stroke-linecap='round' stroke-linejoin='round'><path d='M31 20l-3 9 5 6-4 8 6 7-3 10' stroke-width='1.1'/><path d='M33 35l9-3 5-8' stroke-width='.8'/><path d='M29 43l-9 4-6 10' stroke-width='.8'/><path d='M36 50l8 5 2 9' stroke-width='.7'/><path d='M28 29l-7-4-2-7' stroke-width='.6'/><path d='M0 66l7-3 4 4M62 12l-8 4-2 6' stroke-width='.7'/></g></svg>") center/100% 100% no-repeat;opacity:.75}
 .card .ab{white-space:nowrap}
@@ -624,15 +625,15 @@ const SUITS=['C','S','H','D'];
 const SUIT_RANK={C:0,S:1,H:2,D:3,'*':4};
 const SYM={C:'♣',S:'♠',H:'♥',D:'♦','*':''};
 const DISCOVER_N=3; // cards the opponent draws for a Discover; they keep one for you, the rest are discarded
-const ABILITY={A:'Draw','2':'Deathrattle','3':'Discover','4':'Sturdy','5':'Swap',J:'Cleave',Q:'Purge',K:'Wipe',M:'Mirror',T:'Steal',L:'Last stand',G:'Greed',X:'Joker'};
+const ABILITY={A:'Draw','2':'Deathrattle','3':'Discover','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Wipe',M:'Mirror',T:'Steal',L:'Last stand',G:'Greed',X:'Joker'};
 const ABILITY_TEXT={
   A:'Draw: draw one card from the deck into your hand.',
   '2':'Deathrattle: if this card is removed from the field, its owner draws one card.',
   '3':'Discover: you look at three cards from the deck and keep one. A random one of the other two goes to the opponent\'s hand, and the last one burns.',
   '4':'Sturdy: this card cannot be removed from the field by any means.',
   '5':'Swap: this card moves to your opponent\'s side. If they have a card of the same suit, the most recently played one swaps sides with it.',
-  J:'Cleave: remove the top (most recently played) card of its suit and of the other suit of the same colour (♥/♦ or ♣/♠) from your opponent\'s side. A Sturdy card on top blocks it for that suit.',
-  Q:'Purge: remove all cards of the same suit from your opponent\'s side.',
+  J:'Frost: freeze and shatter the top (most recently played) card of its suit and of the other suit of the same colour (♥/♦ or ♣/♠) on your opponent\'s side. A Sturdy card on top blocks it for that suit.',
+  Q:'Bolt: lightning destroys all cards of the same suit on your opponent\'s side.',
   K:'Wipe: clear all removable cards from both sides, excluding the King itself.',
   M:'Mirror (Crazy mode): when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Deathrattle, Sturdy and Last stand included). If nothing was played before it, it does nothing.',
   T:'Steal (Crazy mode): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned.',
@@ -743,8 +744,8 @@ function resolve(s,i,c){
       of.push(c);
       break;}
     case 'J':{
-      // Cleave: the top (most recently played) card of this suit, and of the other suit of the same colour.
-      // A Sturdy card on top blocks the Cleave for that suit.
+      // Frost: the top (most recently played) card of this suit, and of the other suit of the same colour.
+      // A Sturdy card on top blocks the Frost for that suit.
       const mate={C:'S',S:'C',H:'D',D:'H'};
       for(const su of [c.s,mate[c.s]]){
         const col=s.p[opp].field.filter(x=>x.s===su);
@@ -2607,8 +2608,8 @@ const ART={
   A:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#2e9e5b" stroke="#145c32" stroke-width="2"/><text x="20" y="27" text-anchor="middle" font-family="system-ui,Arial,sans-serif" font-weight="900" font-size="20" fill="#fff">+1</text></svg>',
   '3':'<svg class="art" viewBox="0 0 40 40"><line x1="26" y1="26" x2="35" y2="35" stroke="#4a3320" stroke-width="5" stroke-linecap="round"/><line x1="25" y1="25" x2="28" y2="28" stroke="#b9a37a" stroke-width="4" stroke-linecap="round"/><circle cx="16" cy="16" r="11" fill="#bfe6ff" fill-opacity=".75" stroke="#3a4752" stroke-width="3.2"/><path d="M9.5 14a7 7 0 0 1 5-5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
   '5':'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#d9322b" stroke="#fff" stroke-width="2"/><circle cx="20" cy="20" r="14.5" fill="none" stroke="#fff" stroke-width="1" opacity=".6"/><g fill="#fff"><path d="M9 21 L9 25 Q9 29 14 29 L19 29 L19 33 L27 27 L19 21 L19 25 L14 25 L14 21Z" transform="rotate(180 20 20)"/><path d="M9 21 L9 25 Q9 29 14 29 L19 29 L19 33 L27 27 L19 21 L19 25 L14 25 L14 21Z"/></g></svg>',
-  J:'<svg class="art" viewBox="0 0 40 40"><defs><linearGradient id="axg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cfdbe8"/><stop offset=".45" stop-color="#7f95ad"/><stop offset="1" stop-color="#3d5068"/></linearGradient><linearGradient id="axh" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#3d5068"/><stop offset=".55" stop-color="#7f95ad"/><stop offset="1" stop-color="#cfdbe8"/></linearGradient></defs><g stroke="#0a0d12" stroke-width=".8" stroke-linejoin="round"><path d="M20 1.5l2 5.5h-4z" fill="#46586f"/><path d="M18.8 22h2.4v11h-2.4z" fill="#1c1c20"/><path d="M18.8 33l-1 2.2L20 39l2.2-3.8-1-2.2z" fill="#46586f"/><path d="M17.6 12.5L12.2 10V6.8C5.6 8.2 2.6 14 4.4 19.6 6 24 9 26.2 12.2 27v-3.2l5.4-2.4z" fill="url(#axg)"/><path d="M22.4 12.5L27.8 10V6.8C34.4 8.2 37.4 14 35.6 19.6 34 24 31 26.2 27.8 27v-3.2l-5.4-2.4z" fill="url(#axh)"/><path d="M17.4 10h5.2l.8 2.6v8.8l-.8 2.6h-5.2l-.8-2.6v-8.8z" fill="#4c617a"/></g><path d="M7 13.5c1.4-2.2 3.2-3.2 5-3.6M33 13.5c-1.4-2.2-3.2-3.2-5-3.6" fill="none" stroke="#e9f2fa" stroke-width=".9" stroke-linecap="round" opacity=".8"/><path d="M19 25h2M19 28h2M19 31h2" stroke="#6f8199" stroke-width=".7"/></svg>',
-  Q:'<svg class="art" viewBox="0 0 40 40"><g transform="translate(20 20) scale(1.22) translate(-20 -20) rotate(45 20 20)"><path d="M19 1.5l2.2 2.4V25h-4.4V3.9z" fill="#e8eef2" stroke="#59636b" stroke-width=".8" stroke-linejoin="round"/><path d="M21.2 4V25" stroke="#8d98a1" stroke-width=".8"/><path d="M17.4 8.5q1.6 2 0 5t0 5" stroke="#aeb9c1" stroke-width=".7" fill="none"/><ellipse cx="19" cy="26.2" rx="5.2" ry="1.9" fill="#caa24a" stroke="#6e5316" stroke-width=".8"/><rect x="16.9" y="27.4" width="4.2" height="11" rx="1.2" fill="#6b1f2a" stroke="#2b0b10" stroke-width=".7"/><path d="M17 29.5l4 2.2M17 33l4 2.2M21 29.5l-4 2.2M21 33l-4 2.2" stroke="#e0b8a0" stroke-width=".7"/></g></svg>',
+  J:'<svg class="art" viewBox="0 0 40 40"><g stroke-linecap="round" fill="none"><g stroke="#2f7fc4" stroke-width="2.6"><path d="M20 3V37M20 9l-4-4M20 9l4-4M20 31l-4 4M20 31l4 4M20 15.5l-3.2-3.2M20 15.5l3.2-3.2M20 24.5l-3.2 3.2M20 24.5l3.2 3.2"/><path d="M20 3V37M20 9l-4-4M20 9l4-4M20 31l-4 4M20 31l4 4M20 15.5l-3.2-3.2M20 15.5l3.2-3.2M20 24.5l-3.2 3.2M20 24.5l3.2 3.2" transform="rotate(60 20 20)"/><path d="M20 3V37M20 9l-4-4M20 9l4-4M20 31l-4 4M20 31l4 4M20 15.5l-3.2-3.2M20 15.5l3.2-3.2M20 24.5l-3.2 3.2M20 24.5l3.2 3.2" transform="rotate(120 20 20)"/></g><g stroke="#e6f6ff" stroke-width=".9"><path d="M20 3V37M20 9l-4-4M20 9l4-4M20 31l-4 4M20 31l4 4M20 15.5l-3.2-3.2M20 15.5l3.2-3.2M20 24.5l-3.2 3.2M20 24.5l3.2 3.2"/><path d="M20 3V37M20 9l-4-4M20 9l4-4M20 31l-4 4M20 31l4 4M20 15.5l-3.2-3.2M20 15.5l3.2-3.2M20 24.5l-3.2 3.2M20 24.5l3.2 3.2" transform="rotate(60 20 20)"/><path d="M20 3V37M20 9l-4-4M20 9l4-4M20 31l-4 4M20 31l4 4M20 15.5l-3.2-3.2M20 15.5l3.2-3.2M20 24.5l-3.2 3.2M20 24.5l3.2 3.2" transform="rotate(120 20 20)"/></g></g><circle cx="20" cy="20" r="3" fill="#bfe6ff" stroke="#2f7fc4" stroke-width="1.2"/></svg>',
+  Q:'<svg class="art" viewBox="0 0 40 40"><path d="M24.5 1.5L8 22.5h10l-4.5 16L32 15.5H21.5z" fill="#ffd93b" stroke="#6b4a00" stroke-width="1.3" stroke-linejoin="round"/><path d="M22.5 4.5L11.5 20.5h4" stroke="#fff6b8" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>',
   X:'<svg class="art" viewBox="0 0 40 40"><defs><linearGradient id="jkg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6bd6"/><stop offset=".35" stop-color="#6bd6ff"/><stop offset=".7" stop-color="#8dff8d"/><stop offset="1" stop-color="#ffe86b"/></linearGradient></defs><path d="M20 2 L24.5 14 L37.5 14.5 L27.3 22.5 L30.8 35.5 L20 28 L9.2 35.5 L12.7 22.5 L2.5 14.5 L15.5 14 Z" fill="url(#jkg)" stroke="#4b2a7a" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 8 L22 15 M20 8 L18 15" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/></svg>',
   K:`<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18.5" fill="#ffe21f" stroke="#111" stroke-width="2"/>${TREFOIL}</svg>`
 };
@@ -2645,7 +2646,7 @@ function cardEl(c,cls){
   const egg=c.r==='EG';
   const tip=ABILITY[f]?ABILITY_TEXT[f]:egg?'The Egg: a plain card worth '+cardVal(c)+(cardVal(c)>1?' points':' point')+', given to whoever goes first in round 1.':'';
   const art=egg?EGG_ART:(ART[f]||'');
-  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K'].includes(f)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
+  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K','J','Q'].includes(f)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
     `<div class="cr">${jk?'★':egg?cardVal(c):c.r}<span>${SYM[c.s]}</span></div><div class="cs">${SYM[c.s]}</div>${art}`+
     (ABILITY[f]?`<div class="ab">${ABILITY[f]}</div>`:egg?`<div class="ab">Egg</div>`:'')+`</div>`;
 }
@@ -2805,7 +2806,7 @@ function roundFx(prev,v){
   setTimeout(()=>d.remove(),dur+100);
   fxUntil=Math.max(fxUntil,Date.now()+1500);
 }
-// ---- Jack (shot), Queen (katana slice), King (explosion on both sides) ----
+// ---- Jack (frost), Queen (lightning bolt), King (explosion on both sides) ----
 function noiseBurst(dur,type,f0,f1,gain,delay){
   if(!soundOn)return;
   try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();
@@ -2824,7 +2825,7 @@ function boomLow(delay){
     g.gain.setValueAtTime(.5,t);g.gain.exponentialRampToValueAtTime(.001,t+.7);o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+.75);
   }catch(e){}
 }
-// the Cleave / Purge / Wipe animation; G is the ghost layer for a ghost preview (silent, see-through), or null for the real thing
+// the Frost / Bolt / Wipe animation; G is the ghost layer for a ghost preview (silent, see-through), or null for the real thing
 function removalAnim(kind,pl,clones,G){
   const host=G||document.body,S=!G;
   const mk=(o,z)=>{const g=document.createElement('div');g.innerHTML=o.html;const e=g.firstChild;e.classList.remove('targetable','doomed');
@@ -2833,53 +2834,87 @@ function removalAnim(kind,pl,clones,G){
   const die=(e,ms)=>setTimeout(()=>e.remove(),ms);
   const ctr=r=>({x:r.left+r.width/2,y:r.top+r.height/2});
   if(kind==='J'){
-    // Cleave: a wide axe swing sweeps across the opponent's side and chops each removed card in half
+    // Frost: an icy mist rolls over the opponent's side, freezes each removed card solid, and the ice shatters
     {
-      S&&noiseBurst(.34,'bandpass',450,2500,.5);S&&boomLow(0);
-      const je=document.querySelector(pl.side+' .card[data-id="'+pl.c.id+'"]');
-      if(je)je.animate([{transform:'none'},{transform:'translateY(14px) rotate(-8deg)',offset:.3},{transform:'translateY(-10px) rotate(6deg)',offset:.6},{transform:'none'}],{duration:480,easing:'ease-out'});
-      // a flat axe swing sweeps sideways through the middle of each affected card
-      const arcOver=(r,delay)=>{
-        const W=r.width*1.9,H=W*.22,cx=r.left+r.width/2,top=r.top+r.height/2-5;
-        const arc=fx(`left:${cx-W/2}px;top:${top}px;width:${W}px;height:${H}px;border-top:8px solid #fff;border-radius:50% 50% 0 0/100% 100% 0 0;filter:drop-shadow(0 0 6px #bfe8ff) drop-shadow(0 0 14px #6bb6ff);transform:rotate(-4deg);opacity:0`,58);
-        arc.animate([{clipPath:'inset(0 100% 0 0)',opacity:1},{clipPath:'inset(0 0 0 0)',opacity:1,offset:.55},{clipPath:'inset(0 0 0 100%)',opacity:0}],{duration:360,delay,easing:'cubic-bezier(.3,.1,.3,1)',fill:'both'});die(arc,delay+420);
-      };
-      clones.forEach((k,i)=>arcOver(k.el.getBoundingClientRect(),i*60));
-      // each removed card is chopped across the middle as the blade passes it
+      S&&noiseBurst(1,'highpass',2500,7000,.22);
+      const tf=document.querySelector(pl.side==='#myField'?'#oppField':'#myField');
+      if(tf){
+        const r=tf.getBoundingClientRect(),dy=(pl.side==='#myField'?1:-1)*r.height*.7;   // the mist rolls in from the caster's side
+        for(let k=0;k<10;k++){
+          const sz=r.height*(.8+Math.random()*.6),x=r.left+r.width*(k/9)-sz/2,y=r.top+r.height/2-sz/2+(Math.random()-.5)*r.height*.4;
+          const m=fx(`left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;border-radius:50%;background:radial-gradient(circle,#f4fbffd0 0,#c6e9ffaa 35%,#8fd0ff44 60%,#0000 72%);filter:blur(8px)`,56);
+          m.animate([{transform:`translate(${(Math.random()-.5)*40}px,${dy}px) scale(.5)`,opacity:0},{transform:'none',opacity:.9,offset:.4},{transform:`translate(${(Math.random()-.5)*60}px,${-dy*.15}px) scale(1.3)`,opacity:0}],{duration:1150,delay:k*35,easing:'ease-out',fill:'both'});die(m,1250+k*35);
+        }
+        const tint=fx(`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:12px;background:linear-gradient(#dff4ff30,#9fd8ff20);box-shadow:inset 0 0 40px #cfefff90`,13);
+        tint.animate([{opacity:0},{opacity:1,offset:.3},{opacity:1,offset:.75},{opacity:0}],{duration:1400,fill:'both'});die(tint,1450);
+      }
       clones.forEach((k,i)=>{
-        const r=k.el.getBoundingClientRect();
-        const t=140;
+        const r=k.el.getBoundingClientRect(),fz=300+i*90,br=820+i*110;
+        // the card freezes: it pales to blue and a shell of ice with frost at the edges forms over it
+        k.el.animate([{filter:'none'},{filter:'saturate(.3) brightness(1.12)'}],{duration:320,delay:fz,fill:'forwards'});
+        const ice=fx(`left:${r.left-2}px;top:${r.top-2}px;width:${r.width+4}px;height:${r.height+4}px;border-radius:8px;background:linear-gradient(135deg,#ffffffb0 0,#cdeeff60 30%,#9fd6ff50 60%,#e8f8ffb0 100%);border:2px solid #eef9ff;box-shadow:0 0 14px #9fd8ff,inset 0 0 12px #fff`,15);
+        ice.innerHTML=`<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="position:absolute;inset:0;width:100%;height:100%;opacity:0"><path d="M48 52L20 8M48 52L88 18M48 52L95 70M48 52L60 98M48 52L5 75M48 52L30 40M48 52L70 45" stroke="#fff" stroke-width="2.2" fill="none" vector-effect="non-scaling-stroke"/></svg>`;
+        ice.animate([{opacity:0,transform:'scale(1.06)'},{opacity:1,transform:'none'}],{duration:320,delay:fz,fill:'both'});
+        ice.firstChild.animate([{opacity:0},{opacity:1}],{duration:120,delay:br-160,fill:'both'});   // cracks spread just before it breaks
+        k.el.animate([{transform:'none'},{transform:'translateX(-1.5px)'},{transform:'translateX(1.5px)'},{transform:'none'}],{duration:90,delay:br-160,iterations:2});
+        // ...and shatters into shards that burst outward and fall
         setTimeout(()=>{
-          const A=mk(k.o,14),B2=mk(k.o,14);k.el.remove();
-          A.style.clipPath='inset(0 0 50% 0)';B2.style.clipPath='inset(50% 0 0 0)';
-          const cut=fx(`left:${r.left-8}px;top:${r.top+r.height/2-1.5}px;width:${r.width+16}px;height:3px;background:linear-gradient(90deg,#fff0,#fff,#fff0);box-shadow:0 0 12px #fff,0 0 20px #9ad8ff;border-radius:2px`,58);
-          cut.animate([{opacity:1,transform:'scaleX(.2)'},{opacity:1,transform:'scaleX(1)',offset:.3},{opacity:0,transform:'scaleX(1)'}],{duration:380,fill:'forwards'});die(cut,420);
-          // the top half slides off along the cut and falls; the bottom half sags and drops
-          const mv=(e,x1,y1,x2,y2,rot)=>e.animate([{transform:'none',opacity:1},{transform:`translate(${x1}px,${y1}px) rotate(${rot*.3}deg)`,opacity:1,offset:.3},{transform:`translate(${x2}px,${y2}px) rotate(${rot}deg)`,opacity:0,filter:'brightness(.6)'}],{duration:640,delay:80,easing:'ease-in',fill:'both'}).onfinish=()=>e.remove();
-          mv(A,16,-6,40,30+Math.random()*16,14);mv(B2,-4,4,-10,50+Math.random()*16,-6);
-          S&&thud();
-        },t+i*60);
+          ice.remove();k.el.remove();
+          S&&noiseBurst(.22,'highpass',3000,9000,.55);S&&noiseBurst(.12,'bandpass',5000,2000,.35,.03);
+          const cx=40+Math.random()*20,cy=40+Math.random()*20,j=()=>30+Math.random()*40;
+          const P=[[0,0],[j(),0],[100,0],[100,j()],[100,100],[j(),100],[0,100],[0,j()]];
+          P.forEach((p,n)=>{
+            const q=P[(n+1)%P.length],sh=mk(k.o,15);
+            sh.style.clipPath=`polygon(${cx}% ${cy}%,${p[0]}% ${p[1]}%,${q[0]}% ${q[1]}%)`;
+            sh.style.filter='saturate(.3) brightness(1.15)';sh.style.boxShadow='inset 0 0 0 200px #bfe6ff55';
+            const mx=((cx+p[0]+q[0])/3-cx)*r.width/100,my=((cy+p[1]+q[1])/3-cy)*r.height/100,s=1.4+Math.random()*.8,rot=(Math.random()-.5)*160;
+            sh.animate([{transform:'none',opacity:1},{transform:`translate(${mx*s*.5}px,${my*s*.5}px) rotate(${rot*.3}deg)`,opacity:1,offset:.25},{transform:`translate(${mx*s}px,${my*s+60+Math.random()*30}px) rotate(${rot}deg)`,opacity:0}],{duration:700,easing:'cubic-bezier(.2,.6,.5,1)',fill:'both'}).onfinish=()=>sh.remove();
+          });
+          for(let n=0;n<14;n++){   // glittering ice chips
+            const a=Math.random()*Math.PI*2,d=30+Math.random()*60,sz=2+Math.random()*4,c=ctr(r);
+            const chip=fx(`left:${c.x}px;top:${c.y}px;width:${sz}px;height:${sz}px;background:#f2fbff;box-shadow:0 0 6px #9fd8ff;transform:rotate(45deg)`,58);
+            chip.animate([{transform:'rotate(45deg)',opacity:1},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d+40}px) rotate(${200+Math.random()*300}deg)`,opacity:0}],{duration:600+Math.random()*300,easing:'ease-out',fill:'forwards'});die(chip,950);
+          }
+        },br);
       });
     }
   }else if(kind==='Q'){
-    // a katana slash across each removed card; the halves slide apart
+    // Bolt: lightning strikes each removed card from above; it flashes, chars black and crumbles to ash
     {
-      S&&noiseBurst(.28,'bandpass',600,5000,.4);
-      const slashAt=(r)=>{const w=r.width,h=r.height,th=Math.atan2(h,w)*180/Math.PI,L=Math.hypot(w,h)*1.5,c=ctr(r);
-        const st=fx(`left:${c.x-L/2}px;top:${c.y-2}px;width:${L}px;height:4px;transform:rotate(${-th}deg);background:linear-gradient(90deg,#fff0,#fff,#fff0);box-shadow:0 0 12px #fff,0 0 22px #9ad8ff;border-radius:3px;opacity:0`,58);
-        st.animate([{clipPath:'inset(0 100% 0 0)',opacity:1},{clipPath:'inset(0 0 0 0)',opacity:1,offset:.5},{clipPath:'inset(0 0 0 100%)',opacity:0}],{duration:320,easing:'ease-out',fill:'forwards'});die(st,380);};
-      if(!clones.length){const col=document.querySelector((pl.side==='#myField'?'#oppField':'#myField')+' .col[data-suit="'+pl.c.s+'"]');if(col){const r=col.getBoundingClientRect();slashAt({left:r.left+r.width/2-31,top:r.top+r.height/2-44,width:62,height:88});}}
+      S&&noiseBurst(.55,'bandpass',2200,300,.55);S&&boomLow(.06);
+      const strike=(r,delay)=>{
+        const c=ctr(r),top=Math.max(0,r.top-260),H=c.y-top,n=9;
+        const pts=[];let x=c.x+(Math.random()-.5)*50;
+        for(let s=0;s<=n;s++){pts.push([s===n?c.x:x,top+H*s/n]);x+=(Math.random()-.5)*40;x=x*.75+c.x*.25;}
+        const br=[];let bx=pts[4][0];for(let s=4;s<=7;s++){br.push([bx,top+H*s/n]);bx+=12+Math.random()*14;}
+        const L=Math.min(...pts.map(p=>p[0]),...br.map(p=>p[0]))-20,W=Math.max(...pts.map(p=>p[0]),...br.map(p=>p[0]))-L+20;
+        const pl2=a=>a.map(p=>(p[0]-L).toFixed(1)+','+(p[1]-top).toFixed(1)).join(' ');
+        const b=fx(`left:${L}px;top:${top}px;width:${W}px;height:${H+4}px;opacity:0`,58);
+        b.innerHTML=`<svg width="${W}" height="${H+4}" style="overflow:visible;filter:drop-shadow(0 0 6px #9ad8ff) drop-shadow(0 0 16px #5aa8ff)"><polyline points="${pl2(pts)}" fill="none" stroke="#bfe4ff" stroke-width="7" stroke-linejoin="round" opacity=".55"/><polyline points="${pl2(br)}" fill="none" stroke="#bfe4ff" stroke-width="3" stroke-linejoin="round" opacity=".6"/><polyline points="${pl2(pts)}" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/><polyline points="${pl2(br)}" fill="none" stroke="#fff" stroke-width="1.2"/></svg>`;
+        b.animate([{opacity:0},{opacity:1,offset:.08},{opacity:.25,offset:.25},{opacity:1,offset:.4},{opacity:.6,offset:.7},{opacity:0}],{duration:420,delay,fill:'both'});die(b,delay+460);
+        const hit=fx(`left:${c.x-60}px;top:${c.y-60}px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,#fff 0,#cfeaff 20%,#6bb6ff66 45%,#0000 70%)`,57);
+        hit.animate([{transform:'scale(.2)',opacity:0},{transform:'scale(1)',opacity:1,offset:.15},{transform:'scale(1.4)',opacity:0}],{duration:460,delay,fill:'both'});die(hit,delay+500);
+        for(let s=0;s<10;s++){   // sparks
+          const a=Math.random()*Math.PI*2,d=30+Math.random()*50;
+          const sp=fx(`left:${c.x}px;top:${c.y}px;width:3px;height:3px;border-radius:50%;background:#fff;box-shadow:0 0 6px #9ad8ff`,58);
+          sp.animate([{transform:'none',opacity:1},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d}px)`,opacity:0}],{duration:380+Math.random()*200,delay:delay+40,easing:'ease-out',fill:'both'});die(sp,delay+700);
+        }
+      };
+      if(S){const fl=fx('inset:0;background:#dff1ff;mix-blend-mode:screen',59);fl.animate([{opacity:0},{opacity:.35,offset:.1},{opacity:0,offset:.3},{opacity:.2,offset:.45},{opacity:0}],{duration:420,fill:'forwards'});die(fl,460);
+        const bd=$('board');if(bd)bd.animate([{transform:'none'},{transform:'translate(-5px,3px)'},{transform:'translate(4px,-3px)'},{transform:'none'}],{duration:260,delay:40});}
+      if(!clones.length){const col=document.querySelector((pl.side==='#myField'?'#oppField':'#myField')+' .col[data-suit="'+pl.c.s+'"]');if(col){const r=col.getBoundingClientRect();strike({left:r.left+r.width/2-31,top:r.top+r.height/2-44,width:62,height:88},0);}}
       clones.forEach((k,i)=>{
-        const r=k.el.getBoundingClientRect();
-        setTimeout(()=>{
-          slashAt(r);
-          const A=mk(k.o,14),B=mk(k.o,14);k.el.remove();
-          A.style.clipPath='polygon(0 0,100% 0,0 100%)';B.style.clipPath='polygon(100% 0,100% 100%,0 100%)';
-          const mv=(e,sx,sy,rot)=>e.animate([{transform:'none',opacity:1},{transform:`translate(${sx*.4}px,${sy*.4}px) rotate(${rot*.3}deg)`,opacity:1,offset:.35},{transform:`translate(${sx}px,${sy}px) rotate(${rot}deg)`,opacity:0,filter:'brightness(.6)'}],{duration:620,delay:120,easing:'ease-in',fill:'both'}).onfinish=()=>e.remove();
-          mv(A,-26,-16,-14);mv(B,26,18,14);
-        },i*140);
+        const r=k.el.getBoundingClientRect(),d=i*110;
+        strike(r,d);
+        // the card flashes white, chars black, then crumbles away into ash
+        k.el.animate([{filter:'none',transform:'none',opacity:1},{filter:'brightness(3)',transform:'translateX(-2px)',opacity:1,offset:.08},{filter:'brightness(.25) sepia(.6)',transform:'translateX(2px)',opacity:1,offset:.25},{filter:'brightness(.2) sepia(.6)',transform:'none',opacity:1,offset:.5},{filter:'brightness(.1) blur(2px)',transform:'translateY(8px) scale(.85)',opacity:0}],{duration:900,delay:d,easing:'ease-in',fill:'both'}).onfinish=()=>k.el.remove();
+        for(let s=0;s<14;s++){   // ash drifting up
+          const sz=2+Math.random()*4,x=r.left+Math.random()*r.width,y=r.top+r.height*(.3+Math.random()*.7);
+          const ash=fx(`left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;border-radius:50%;background:${Math.random()<.3?'#ff9a3c':'#3a3a3a'}`,58);
+          ash.animate([{transform:'none',opacity:0},{opacity:.9,offset:.2},{transform:`translate(${(Math.random()-.5)*40}px,${-30-Math.random()*50}px)`,opacity:0}],{duration:800+Math.random()*400,delay:d+400+Math.random()*250,easing:'ease-out',fill:'both'});die(ash,d+1500);
+        }
+        S&&setTimeout(()=>thud(),d+120);
       });
-      S&&thud();
     }
   }else{
     // King: a nuke goes off over both sides of the field
