@@ -220,7 +220,9 @@ header h2{margin:0;font-size:1.3rem}
 .card.hushed>*{transition:filter .4s,opacity .4s}
 .hush-wave{position:fixed;pointer-events:none;z-index:45;border-radius:50%;border:10px solid #fff;box-shadow:0 0 30px 12px #7fa8ffaa,inset 0 0 30px 12px #ffffff88;filter:blur(1.5px)}
 @media (prefers-reduced-motion:reduce){.card.hushed::after{animation:none}}
-.morph-cloud{position:fixed;border-radius:50%;pointer-events:none;z-index:42;background:radial-gradient(circle at 40% 35%,#ffffff,#f1e8ff 45%,#cdb6f5 80%,#b39be8);box-shadow:0 3px 8px #3a237055,inset -4px -5px 10px #9f86d888}
+.morph-cloud{position:fixed;pointer-events:none;z-index:42;transform-origin:50% 60%;filter:drop-shadow(0 4px 0 #3a237033)}
+.morph-poof{position:fixed;z-index:43;pointer-events:none;font:900 26px/1 system-ui,sans-serif;color:#ffd84a;-webkit-text-stroke:2.5px #3a2370;paint-order:stroke fill;letter-spacing:.02em;white-space:nowrap}
+.morph-star{position:fixed;z-index:43;pointer-events:none;font-size:18px;color:#ffd84a;-webkit-text-stroke:1px #3a2370}
 .morph-puff{position:fixed;border-radius:50%;pointer-events:none;z-index:41;background:radial-gradient(circle,#e6d4ffee,#b48cffaa 45%,#7a52d600 72%)}
 .mimic-mask{position:fixed;width:58px;height:58px;pointer-events:none;z-index:62;filter:drop-shadow(0 3px 6px #0008) drop-shadow(0 0 8px #c58bff88)}
 .mimic-mask .mm{transform-box:fill-box;transform-origin:50% 0;animation:mimicLaugh .17s ease-in-out infinite alternate}
@@ -2823,14 +2825,25 @@ function morphFx(prev,v,oldCards){
   o.style.cssText+=`;position:fixed;left:${old.r.left}px;top:${old.r.top}px;margin:0;z-index:40;pointer-events:none`;document.body.appendChild(o);
   const D=480;   // let the Morph card land first
   o.animate([{transform:'none',filter:'none'},{transform:'none',filter:'brightness(1.4) drop-shadow(0 0 8px #c58bff)',offset:.35},{transform:'rotate(200deg) scale(.15)',filter:'brightness(2) hue-rotate(60deg)',opacity:.3}],{duration:520,delay:D,easing:'ease-in',fill:'forwards'}).onfinish=()=>o.remove();
-  // a fluffy cloud billows over the card, hides the change, then drifts apart
-  {const r=old.r,cx=r.left+r.width/2,cy=r.top+r.height/2,W=r.width,H=r.height;
-    const spots=[[0,0,1.05],[-.42,-.3,.72],[.42,-.3,.74],[-.45,.28,.7],[.45,.3,.72],[0,-.5,.66],[0,.52,.68],[-.2,.05,.6],[.22,.08,.6],[-.62,0,.5],[.62,-.02,.5]];
-    spots.forEach(([fx,fy,k],i)=>{const sz=W*k,c=document.createElement('div');c.className='morph-cloud';
-      c.style.cssText=`left:${cx+fx*W*.75-sz/2}px;top:${cy+fy*H*.62-sz/2}px;width:${sz}px;height:${sz}px`;document.body.appendChild(c);
-      const a=Math.atan2(fy||.01,fx||.01),out=24+Math.random()*16,wob=(Math.random()-.5)*6;
-      c.animate([{transform:'scale(0)',opacity:0},{transform:'scale(1.12)',opacity:1,offset:.18},{transform:`scale(.96) translate(${wob}px,${-wob}px)`,offset:.32},{transform:`scale(1.04) translate(${-wob}px,${wob}px)`,offset:.48},{transform:'scale(1)',opacity:1,offset:.6},{transform:`translate(${Math.cos(a)*out}px,${Math.sin(a)*out-14}px) scale(1.35)`,opacity:0}],
-        {duration:1250,delay:D-60+i*22,easing:'ease-out',fill:'both'}).onfinish=()=>c.remove();});
+  // a cartoon cloud pops up over the card with a bounce, hides the change, then bursts into little puffs with a POOF
+  {const r=old.r,cx=r.left+r.width/2,cy=r.top+r.height/2,W=r.width*1.9,H=r.height*1.45;
+    const CL='<path d="M22 70c-13 0-19-10-16-19 2-7 9-11 16-10 0-14 11-24 24-22 6-12 21-16 32-9 9-8 25-6 31 6 12-2 22 8 21 20 10 3 15 14 10 23-4 8-12 11-20 10-3 9-13 14-22 11-7 8-20 9-28 2-9 6-22 5-28-3-7 2-15-2-20-9z" fill="#fff" stroke="#3a2370" stroke-width="4.5" stroke-linejoin="round"/><path d="M30 64c8 4 18 3 24-3M70 66c7 4 17 3 22-4M104 58c6 2 13 0 16-5" fill="none" stroke="#c9b2f2" stroke-width="4" stroke-linecap="round"/><path d="M38 34c3-6 9-9 15-8M86 22c4-3 10-3 14 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" opacity=".9"/>';
+    const c=document.createElement('div');c.className='morph-cloud';c.style.cssText=`left:${cx-W/2}px;top:${cy-H/2}px;width:${W}px;height:${H}px`;
+    c.innerHTML=`<svg viewBox="0 0 140 84" preserveAspectRatio="none" width="100%" height="100%" style="overflow:visible">${CL}</svg>`;document.body.appendChild(c);
+    c.animate([{transform:'scale(0,0)'},{transform:'scale(1.15,.85)',offset:.16},{transform:'scale(.9,1.12)',offset:.26},{transform:'scale(1.05,.95)',offset:.36},{transform:'scale(1)',offset:.46},{transform:'scale(1.03,.97)',offset:.58},{transform:'scale(1.12,1.12)',opacity:1,offset:.68},{transform:'scale(1.5,1.4)',opacity:0}],
+      {duration:1150,delay:D-80,easing:'ease-out',fill:'both'}).onfinish=()=>c.remove();
+    const pop=D-80+1150*.68;
+    // little outlined puffs fly out when it bursts
+    for(let i=0;i<6;i++){const a=-Math.PI/2+(i-2.5)*.62,sz=W*(.22+Math.random()*.08),p=document.createElement('div');p.className='morph-cloud';
+      p.style.cssText=`left:${cx-sz/2}px;top:${cy-sz*.3}px;width:${sz}px;height:${sz*.6}px`;p.innerHTML=`<svg viewBox="0 0 140 84" width="100%" height="100%" style="overflow:visible">${CL}</svg>`;document.body.appendChild(p);
+      const d=W*.55+Math.random()*W*.2;
+      p.animate([{transform:'scale(.2)',opacity:0},{transform:'scale(1)',opacity:1,offset:.25},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d*.8}px) scale(.6)`,opacity:0}],{duration:650,delay:pop-40,easing:'cubic-bezier(.2,.8,.3,1)',fill:'both'}).onfinish=()=>p.remove();}
+    // POOF! and a few stars
+    const t=document.createElement('div');t.className='morph-poof';t.textContent='POOF!';t.style.left=cx+'px';t.style.top=(r.top-6)+'px';document.body.appendChild(t);
+    t.animate([{transform:'translate(-50%,-50%) scale(.2) rotate(-12deg)',opacity:0},{transform:'translate(-50%,-90%) scale(1.25) rotate(-8deg)',opacity:1,offset:.25},{transform:'translate(-50%,-100%) scale(1) rotate(-6deg)',opacity:1,offset:.7},{transform:'translate(-50%,-130%) scale(.9) rotate(-6deg)',opacity:0}],{duration:900,delay:pop-60,easing:'ease-out',fill:'both'}).onfinish=()=>t.remove();
+    for(let i=0;i<5;i++){const st=document.createElement('div');st.className='morph-star';st.textContent='✦';st.style.left=cx+'px';st.style.top=cy+'px';document.body.appendChild(st);
+      const a=Math.random()*Math.PI*2,d=W*.4+Math.random()*W*.3;
+      st.animate([{transform:'translate(-50%,-50%) scale(.3) rotate(0deg)',opacity:0},{opacity:1,offset:.2},{transform:`translate(calc(-50% + ${Math.cos(a)*d}px),calc(-50% + ${Math.sin(a)*d}px)) scale(1) rotate(180deg)`,opacity:0}],{duration:700,delay:pop+i*30,easing:'ease-out',fill:'both'}).onfinish=()=>st.remove();}
   }
   const cur=()=>document.querySelector('#myField .card[data-id="'+id+'"],#oppField .card[data-id="'+id+'"]');
   setTimeout(()=>{
@@ -2841,7 +2854,7 @@ function morphFx(prev,v,oldCards){
       p.animate([{transform:'scale(.3)',opacity:.95},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d}px) scale(1.4)`,opacity:0}],{duration:700+Math.random()*250,easing:'cubic-bezier(.2,.7,.3,1)'}).onfinish=()=>p.remove();}
     el.animate([{transform:'scale(.2) translateY(10px)',opacity:0},{transform:'scale(1.22) translateY(-6px)',opacity:1,offset:.55},{transform:'scale(.94)',offset:.78},{transform:'none'}],{duration:520,easing:'ease-out'});
     try{thud();}catch(e){}
-  },D+420);
+  },D+700);   // the Egg appears as the cloud bursts
   setTimeout(()=>{if(morphHold.delete(id)){const e=cur();if(e)e.classList.remove('mo-hold');}},D+2000);   // safety net
 }
 // Mimic: two laughing masks pop out of the played card, rock with laughter, and fade
