@@ -557,16 +557,16 @@ button,summary,.clk{touch-action:manipulation}
 }
 
 /* Steal's black hole: a dark swirling ring around the hand that has to give a card (the cards stay visible in its eye) */
-#bhole{position:fixed;z-index:4;pointer-events:none;border-radius:50%}
+#bhole{position:absolute;z-index:0;pointer-events:none;border-radius:50%}   /* inside the hand's panel, under its cards */
 #bhole>i,#bhole b i{position:absolute;inset:0;border-radius:50%}
 #bhole b{position:absolute;left:0;top:50%;width:100%;aspect-ratio:1;translate:0 -50%;transform:scaleY(var(--sy,1))}   /* a circle squashed into the oval, so the swirl can spin inside it */
 #bhole>i{background:radial-gradient(closest-side,#0000 60%,#1a083099 69%,#000000d9 79%,#2a0d4a77 89%,#0000 100%)}
 #bhole b i{background:conic-gradient(from 0deg,#0000,#9b5cff66,#0000 18%,#ff7ad955 30%,#0000 42%,#7ac8ff55 58%,#0000 70%,#9b5cff66 84%,#0000);
   -webkit-mask:radial-gradient(closest-side,#0000 62%,#000 72%,#000 84%,#0000 98%);mask:radial-gradient(closest-side,#0000 62%,#000 72%,#000 84%,#0000 98%);animation:bhspin 2.2s linear infinite;filter:blur(1.5px)}
 @keyframes bhspin{to{transform:rotate(360deg)}}
-@keyframes warpwob{0%,100%{filter:none}50%{filter:drop-shadow(0 0 6px #9b5cffaa) hue-rotate(-12deg)}}
-.card.warping,.oc.warping{animation:warpwob 1.4s ease-in-out infinite}
-@media (prefers-reduced-motion:reduce){#bhole b i,.card.warping,.oc.warping{animation:none}}
+@keyframes warpwob{0%,100%{box-shadow:0 1px 3px #0006}50%{box-shadow:0 0 12px 2px #9b5cffaa}}
+body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-out infinite;z-index:5}   /* the cards sit in front of the black hole's ring */
+@media (prefers-reduced-motion:reduce){#bhole b i,body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:none}}
 </style>
 </head>
 <body>
@@ -2286,7 +2286,7 @@ function warpLoop(on){
   if(!on||!soundOn){if(warpSnd){const w=warpSnd;warpSnd=null;try{const t=audioCtx.currentTime;w.g.gain.cancelScheduledValues(t);w.g.gain.setValueAtTime(w.g.gain.value,t);w.g.gain.exponentialRampToValueAtTime(.0001,t+.35);w.nodes.forEach(n=>n.stop(t+.4));}catch(e){}}return;}
   if(warpSnd)return;
   try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();
-    const t=audioCtx.currentTime,g=audioCtx.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.09,t+.5);g.connect(audioCtx.destination);
+    const t=audioCtx.currentTime,g=audioCtx.createGain();g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.045,t+.5);g.connect(audioCtx.destination);
     // a low hum that bends up and down, plus a breathy whoosh that sweeps, both wobbling on slow LFOs
     const o=audioCtx.createOscillator(),o2=audioCtx.createOscillator(),lfo=audioCtx.createOscillator(),lg=audioCtx.createGain();
     o.type='sawtooth';o.frequency.value=70;o2.type='sine';o2.frequency.value=141;lfo.frequency.value=.9;lg.gain.value=22;
@@ -2303,19 +2303,23 @@ function warpLoop(on){
 function blackHole(sel){
   let b=$('bhole');
   if(!sel){if(b&&!b.dataset.out){b.dataset.out='1';b.animate([{opacity:1,transform:'scale(1)'},{opacity:0,transform:'scale(.4) rotate(120deg)'}],{duration:450,easing:'ease-in',fill:'forwards'}).onfinish=()=>b.remove();}
-    document.querySelectorAll('.warping').forEach(e=>e.classList.remove('warping'));warpLoop(false);return;}
+    document.body.classList.remove('bh-me','bh-opp');warpLoop(false);return;}
   const h=document.querySelector(sel);if(!h)return;
   // size it to the cards themselves (the hand row can be much wider than the cards in it)
   const cs=[...h.querySelectorAll('.card,.oc')].map(e=>e.getBoundingClientRect()).filter(x=>x.width);
   const r=cs.length?{left:Math.min(...cs.map(x=>x.left)),top:Math.min(...cs.map(x=>x.top)),right:Math.max(...cs.map(x=>x.right)),bottom:Math.max(...cs.map(x=>x.bottom))}:h.getBoundingClientRect();
   r.width=r.right-r.left;r.height=r.bottom-r.top;
-  const w=Math.max(r.width,120)*1.45+120,ht=Math.max(r.height,70)*1.5+70;   // the cards sit inside the clear eye
+  const w=Math.max(r.width,120)*1.45+120,ht=r.height*1.4+40;   // the cards sit inside the clear eye
   if(b&&b.dataset.out){b.remove();b=null;}
-  if(!b){b=document.createElement('div');b.id='bhole';b.innerHTML='<i></i><b><i></i></b>';document.body.appendChild(b);
+  // it lives inside the hand's own panel, under the cards, so it reads as part of the table
+  const host=sel==='#hand'?$('handwrap'):$('oppRow');if(!host)return;
+  if(b&&b.parentElement!==host){b.remove();b=null;}
+  if(!b){b=document.createElement('div');b.id='bhole';b.innerHTML='<i></i><b><i></i></b>';host.insertBefore(b,host.firstChild);
     if(b.animate&&!reduced())b.animate([{opacity:0,transform:'scale(.3)'},{opacity:1,transform:'scale(1)'}],{duration:500,easing:'cubic-bezier(.2,.9,.3,1.1)'});}
-  b.style.cssText=`left:${r.left+r.width/2-w/2}px;top:${r.top+r.height/2-ht/2}px;width:${w}px;height:${ht}px`;
+  const hr=host.getBoundingClientRect();
+  b.style.cssText=`left:${r.left-hr.left+r.width/2-w/2}px;top:${r.top-hr.top+r.height/2-ht/2}px;width:${w}px;height:${ht}px`;
   b.style.setProperty('--sy',ht/w);
-  h.querySelectorAll('.card,.oc').forEach(e=>e.classList.add('warping'));
+  document.body.classList.toggle('bh-me',sel==='#hand');document.body.classList.toggle('bh-opp',sel!=='#hand');   // a body class, since the hand is rebuilt on every render
   warpLoop(true);
 }
 function stealSync(v,OPP){
@@ -2597,30 +2601,23 @@ function flyBackToOpp(delay,fromEl){ // the opponent drew (or was given a card):
 let pendingDrop=null,audioCtx=null,soundOn=true;
 try{soundOn=localStorage.getItem('eggbog-sound')!=='off';}catch(e){}
 function syncSound(){const b=$('btnSound');b.textContent=soundOn?'🔊':'🔇';b.title=soundOn?'Sound on':'Sound off';}
-// val: the value of the card that landed (optional). Low cards land with a light, high thud, big ones deep and heavy,
-// and a soft note on a falling scale makes each value sound different
-function thud(val){
+// c: the card that landed (optional): the thud is pitched in three steps by rank: A-4 low, 5-7 as is, 8-K high
+function thud(c){
   if(!soundOn)return;
   try{
     audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();
     if(audioCtx.state==='suspended')audioCtx.resume();
-    const t=audioCtx.currentTime,v=Math.max(1,Math.min(10,val||0));
-    const k=val?1.5-(v-1)/9*.85:1;   // 1.5x the pitch for a 1, down to .65x for a 10
+    const t=audioCtx.currentTime,i=c?RANKS.indexOf(c.r):-1;   // RANKS runs A,2,...,10,J,Q,K
+    const k=i<0?1:i<=3?.8:i<=6?1:1.25;
     const o=audioCtx.createOscillator(),g=audioCtx.createGain();
     o.type='sine';o.frequency.setValueAtTime(150*k,t);o.frequency.exponentialRampToValueAtTime(45*k,t+.13);
-    if(val){
-      const notes=[784,698.5,659.3,587.3,523.3,440,392,349.2,329.6,293.7],no=audioCtx.createOscillator(),ng2=audioCtx.createGain();
-      no.type='triangle';no.frequency.setValueAtTime(notes[v-1],t);no.frequency.exponentialRampToValueAtTime(notes[v-1]*.94,t+.18);
-      ng2.gain.setValueAtTime(.0001,t);ng2.gain.exponentialRampToValueAtTime(.09,t+.008);ng2.gain.exponentialRampToValueAtTime(.0001,t+.22);
-      no.connect(ng2);ng2.connect(audioCtx.destination);no.start(t);no.stop(t+.24);
-    }
     g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.45,t+.006);g.gain.exponentialRampToValueAtTime(.0001,t+.2);
     o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+.22);
     // a short muffled slap for the card hitting the cloth
     const n=Math.floor(audioCtx.sampleRate*.05),buf=audioCtx.createBuffer(1,n,audioCtx.sampleRate),d=buf.getChannelData(0);
     for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
     const src=audioCtx.createBufferSource(),f=audioCtx.createBiquadFilter(),ng=audioCtx.createGain();
-    src.buffer=buf;f.type='lowpass';f.frequency.value=900;ng.gain.value=.22;
+    src.buffer=buf;f.type='lowpass';f.frequency.value=900*k;ng.gain.value=.22;
     src.connect(f);f.connect(ng);ng.connect(audioCtx.destination);src.start(t);
   }catch(e){}
 }
@@ -2648,7 +2645,7 @@ function dropAnim(el,fromX,fromY,delay){
   ],{duration:dur,delay:delay||0,fill:'backwards'});
   anim.onfinish=anim.oncancel=()=>{el.style.zIndex='';};
   setTimeout(()=>{
-    {const c=view&&view.me.field.concat(view.opp.field).find(x=>x.id===el.dataset.id);thud(c?cardVal(c):0);}
+    {const c=view&&view.me.field.concat(view.opp.field).find(x=>x.id===el.dataset.id);thud(c);}
     const dent=document.createElement('div');dent.className='thud-dent';
     dent.style.left=(cx-70)+'px';dent.style.top=(cy-70)+'px';document.body.appendChild(dent);
     dent.animate([{opacity:.9,transform:'scale(.6)'},{opacity:0,transform:'scale(1.25)'}],{duration:620,easing:'ease-out'}).onfinish=()=>dent.remove();
