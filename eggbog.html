@@ -2634,8 +2634,7 @@ function sendPtr(k,suit){
   if(conn&&conn.open){try{conn.send({t:'ptr',k:k===null?-1:k,suit:suit||null});}catch(e){}}
 }
 // Rune: when a round ends by a concede, every Rune on the table flares up blue before the board clears,
-// and the cards it draws fly out of it to its owner's hand
-let runeSrc=null;
+// and the cards it draws come from the deck to its owner's hand
 function runeFx(prev,v,oldCards){
   if(!prev||prev.you!==v.you||reduced()||!document.body.animate)return;
   const has=(a)=>(a||[]).includes('laststand');
@@ -2657,19 +2656,10 @@ function runeFx(prev,v,oldCards){
     ring.animate([{transform:'scale(.3)',opacity:0},{transform:'scale(1)',opacity:1,offset:.35},{transform:'scale(1.9)',opacity:0}],{duration:900,delay:250,easing:'ease-out',fill:'both'}).onfinish=()=>ring.remove();
   }
   if(!pts.me.length&&!pts.opp.length)return;
-  runeSrc={me:pts.me,opp:pts.opp,t:Date.now(),nm:0,no:0};
   fxUntil=Math.max(fxUntil,Date.now()+650);   // the draws wait for the flare
   try{if(soundOn){audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();const t0=audioCtx.currentTime;
     [523.25,783.99,1046.5].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain(),t=t0+i*.09;o.type='sine';o.frequency.value=f;
       g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.12,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.6);o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+.65);});}}catch(e){}
-}
-// where a Rune's drawn card should fly from (null when it's an ordinary draw)
-// where a Greed draw should fly from (the Greed card that paid out; null when it's an ordinary draw)
-let greedSrc=null;
-function greedFrom(side){
-  if(!greedSrc||Date.now()-greedSrc.t>6000)return null;
-  const a=greedSrc[side];if(!a.length)return null;
-  const k=side==='me'?greedSrc.nm++:greedSrc.no++;return a[k%a.length];
 }
 // Greed pays out: gold coins spray up out of the sack and tumble down
 function coinBurst(r){
@@ -2694,11 +2684,6 @@ function chaChing(){
       const n=audioCtx.createBufferSource(),b=audioCtx.createBuffer(1,2205,44100),d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);
       const hp=audioCtx.createBiquadFilter(),ng=audioCtx.createGain();hp.type='highpass';hp.frequency.value=5000;ng.gain.value=.08;n.buffer=b;n.connect(hp);hp.connect(ng);ng.connect(audioCtx.destination);n.start(t);});
   }catch(e){}
-}
-function runeFrom(side){
-  if(!runeSrc||Date.now()-runeSrc.t>6000)return null;
-  const a=runeSrc[side];if(!a.length)return null;
-  const k=side==='me'?runeSrc.nm++:runeSrc.no++;return a[Math.floor(k/2)%a.length];   // two cards per Rune
 }
 function flyBackToOpp(delay,fromEl){ // the opponent drew (or was given a card): a card back slides to their side
   if(reduced())return;
@@ -3527,18 +3512,15 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
     let k=0;
     const old=new Set(prev.me.hand.map(c=>c.id));
     const held=$('drw')&&$('drw').dataset.mine;
-    const rn=(prev.draws||[])[0]==='laststand';
-    const gm=(prev.draws||[])[0]==='greedturn',go=(prev.oppReasons||[])[0]==='greedturn';
     const sw=Math.max(0,soulDrawAt-Date.now());   // a Soul's draw leaves the deck once its wisp gets there
     const sm=(prev.draws||[])[0]==='deathrattle'?sw:0,so=(prev.oppReasons||[])[0]==='deathrattle'?sw:0;
-    $('hand').querySelectorAll('.card').forEach(el=>{if(old.has(el.dataset.id))return;const rp=rn?runeFrom('me'):gm?greedFrom('me'):null;const dl=(held?750:0)+(k++)*90,pt=rp?{x:rp.x,y:rp.y}:held?{x:innerWidth/2,y:innerHeight/2}:undefined;if(sm&&!reduced()){el.style.opacity='0';setTimeout(()=>{el.style.opacity='';flyFromDeck(el,dl,pt);},sm);}else flyFromDeck(el,dl,pt);});
+    $('hand').querySelectorAll('.card').forEach(el=>{if(old.has(el.dataset.id))return;const dl=(held?750:0)+(k++)*90,pt=held?{x:innerWidth/2,y:innerHeight/2}:undefined;if(sm&&!reduced()){el.style.opacity='0';setTimeout(()=>{el.style.opacity='';flyFromDeck(el,dl,pt);},sm);}else flyFromDeck(el,dl,pt);});
     const oldT=new Set([...(prev.pending&&prev.pending.opts&&prev.pending.t==='discover'?prev.pending.opts.map(c=>c.id):[]),prev.startMe?prev.startMe.id:'']);
     trayEl.querySelectorAll('.card:not(.back)').forEach(el=>{if(!oldT.has(el.dataset.id))flyFromDeck(el);});
     const nb=trayEl.querySelectorAll('.card.back').length;
     const pb=prev.pending&&prev.pending.t==='discover'&&prev.pending.chooser!==prev.you?prev.pending.n:0;
     if(nb>pb)flyFromDeck(trayEl.querySelectorAll('.card.back')[nb-1]);
-    const ro=(prev.oppReasons||[])[0]==='laststand';
-    for(let i=0;i<Math.min(3,v.opp.hand-prev.opp.hand);i++){const rp=ro?runeFrom('opp'):go?greedFrom('opp'):null;flyBackToOpp(so+i*140,rp?{getBoundingClientRect:()=>({left:rp.x-rp.w/2,top:rp.y-rp.h/2,width:rp.w,height:rp.h})}:undefined);}
+    for(let i=0;i<Math.min(3,v.opp.hand-prev.opp.hand);i++){flyBackToOpp(so+i*140);}
   }
   if(prev&&!reduced()&&prev.you===v.you&&v.stolen&&v.stolen.n>((prev.stolen&&prev.stolen.n)||0)){
     if(v.stolen.by===v.you){ // a card flies in from the opponent's side
@@ -3601,7 +3583,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
       }
     }
   }
-  // Greed activates: the Greed card(s) on the field shake, spill coins (cha-ching), and the card it draws comes out of the sack
+  // Greed activates: the Greed card(s) on the field shake, spill coins (cha-ching)
   if(prev&&!reduced()&&v.greed&&v.greed.n>((prev.greed&&prev.greed.n)||0)){
     const root=v.greed.who===v.you?'#myField':'#oppField';const pts=[];
     v.greed.ids.forEach(id=>{
@@ -3609,7 +3591,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
       el.style.zIndex=20;const r=el.getBoundingClientRect();pts.push({x:r.left+r.width/2,y:r.top+r.height/2,w:r.width,h:r.height});coinBurst(r);
       el.animate([{transform:'none',filter:'none'},{transform:'translateX(-5px) rotate(-6deg) scale(1.12)',filter:'drop-shadow(0 0 10px #f2c230)',offset:.12},{transform:'translateX(5px) rotate(6deg) scale(1.12)',offset:.26},{transform:'translateX(-4px) rotate(-5deg) scale(1.1)',offset:.4},{transform:'translateX(4px) rotate(5deg) scale(1.1)',offset:.54},{transform:'translateX(-2px) rotate(-2deg) scale(1.05)',offset:.7},{transform:'none',filter:'none'}],{duration:650,easing:'ease-in-out'}).onfinish=()=>{el.style.zIndex='';};
     });
-    if(pts.length){greedSrc={me:v.greed.who===v.you?pts:[],opp:v.greed.who===v.you?[]:pts,t:Date.now(),nm:0,no:0};chaChing();fxUntil=Math.max(fxUntil,Date.now()+600);}   // the draw waits for the coins
+    if(pts.length){chaChing();fxUntil=Math.max(fxUntil,Date.now()+600);}   // the draw waits for the coins
   }
   // the computer's / opponent's plays: the card drops in from above their side, with the same thud
   // cards that left the field (removed, wiped, round over) crumple away where they lay
