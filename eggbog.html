@@ -1183,7 +1183,7 @@ function cpuChoose(s,who,level){
   level=level||'normal';
   if(level==='expert'){
     if(s.phase!=='mulligan'&&!s.drawQ.some(e=>e.who===who)&&!(s.pending&&s.pending.t==='discover'&&s.pending.chooser===who&&!s.pending.opts.length&&s.deck.length)
-      &&!(s.phase==='play'&&s.turn===who&&s.startCards[who]&&!s.pending)){
+      &&!(s.phase==='play'&&s.turn===who&&s.startCards[who]&&!s.pending)&&!(s.pending&&s.pending.jk)){   // the Joker makes its own choices
       const opts=cpuOptions(s,who);
       if(opts.length>1)return cpuExpert(s,who,opts);
     }
