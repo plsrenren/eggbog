@@ -1237,6 +1237,8 @@ function cpuPending(){
   if(s.pending)return ((s.pending.t==='discover'||s.pending.t==='steal')?s.pending.chooser:s.pending.by)===1;
   return s.phase==='play'&&s.turn===1;
 }
+let cpuHoverSkipped=false;
+const overlayUp=()=>!!($('duel')||$('pack')||$('pf'));
 function scheduleCpu(){
   clearTimeout(cpuTimer);
   if(!cpuPending())return;
@@ -1244,12 +1246,15 @@ function scheduleCpu(){
   let extra=0;const key=state.id+':'+state.round;
   if(state.phase==='play'&&cpuHeldKey!==key){cpuHeldKey=key;extra=1200;}
   const oneDraw=state.drawQ.length>=1&&state.drawQ[0].who===1&&state.drawQ[0].reason!=='start'&&state.drawQ[0].reason!=='greed';
-  const D=(oneDraw?350:700+Math.random()*900)+extra+Math.max(0,fxUntil-Date.now());
+  let D=(oneDraw?350:700+Math.random()*900)+extra+Math.max(0,fxUntil-Date.now());
   clearTimeout(cpuHoverTimer);cpuPre=null;
   // the computer 'thinks' with its hand visible: it lifts a card or two, then holds its choice over the column
   const pl=state.phase==='play'&&state.turn===1&&!state.pending&&!state.drawQ.length&&!(state.jokerQ&&state.jokerQ.length)&&!state.startCards[1];
+  if(pl)D=Math.max(D,900);   // always leave time to see the card lifted and held over its column
   if(pl)cpuHoverTimer=setTimeout(()=>{
     if(!cpuPending()||state.phase!=='play')return;
+    if(overlayUp()){cpuHoverSkipped=true;return;}
+    cpuHoverSkipped=false;
     const ch=cpuChoose(state,1,cpuLevel);cpuPre={ch,n:state.logN};
     if(ch.t!=='play')return;
     const h=state.p[1].hand,k=h.findIndex(c=>c.id===ch.id),ca=h.find(c=>c.id===ch.id);
@@ -1261,6 +1266,9 @@ function scheduleCpu(){
   },Math.max(0,D-(D>1300?1000:D>800?700:0)-100));
   cpuTimer=setTimeout(()=>{
     if(!cpuPending())return;
+    // never move while a full-screen event (the "who goes first" reveal, a pack) covers the board: the move would land unseen
+    if(state.phase==='play'&&overlayUp()){cpuTimer=setTimeout(scheduleCpu,250);return;}
+    if(cpuHoverSkipped){cpuHoverSkipped=false;scheduleCpu();return;}   // the overlay hid the 'thinking' hover: start over so the move is seen
     const pre=cpuPre&&cpuPre.n===state.logN?cpuPre.ch:null;cpuPre=null;
     const err=act(state,1,pre||cpuChoose(state,1,cpuLevel));
     if(err)console.warn('CPU move rejected:',err);
