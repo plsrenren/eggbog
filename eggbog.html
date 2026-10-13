@@ -220,6 +220,7 @@ header h2{margin:0;font-size:1.3rem}
 .card.hushed>*{transition:filter .4s,opacity .4s}
 .hush-wave{position:fixed;pointer-events:none;z-index:45;border-radius:50%;border:10px solid #fff;box-shadow:0 0 30px 12px #7fa8ffaa,inset 0 0 30px 12px #ffffff88;filter:blur(1.5px)}
 @media (prefers-reduced-motion:reduce){.card.hushed::after{animation:none}}
+.morph-cloud{position:fixed;border-radius:50%;pointer-events:none;z-index:42;background:radial-gradient(circle at 40% 35%,#ffffff,#f1e8ff 45%,#cdb6f5 80%,#b39be8);box-shadow:0 3px 8px #3a237055,inset -4px -5px 10px #9f86d888}
 .morph-puff{position:fixed;border-radius:50%;pointer-events:none;z-index:41;background:radial-gradient(circle,#e6d4ffee,#b48cffaa 45%,#7a52d600 72%)}
 .mimic-mask{position:fixed;width:58px;height:58px;pointer-events:none;z-index:62;filter:drop-shadow(0 3px 6px #0008) drop-shadow(0 0 8px #c58bff88)}
 .mimic-mask .mm{transform-box:fill-box;transform-origin:50% 0;animation:mimicLaugh .17s ease-in-out infinite alternate}
@@ -2822,6 +2823,15 @@ function morphFx(prev,v,oldCards){
   o.style.cssText+=`;position:fixed;left:${old.r.left}px;top:${old.r.top}px;margin:0;z-index:40;pointer-events:none`;document.body.appendChild(o);
   const D=480;   // let the Morph card land first
   o.animate([{transform:'none',filter:'none'},{transform:'none',filter:'brightness(1.4) drop-shadow(0 0 8px #c58bff)',offset:.35},{transform:'rotate(200deg) scale(.15)',filter:'brightness(2) hue-rotate(60deg)',opacity:.3}],{duration:520,delay:D,easing:'ease-in',fill:'forwards'}).onfinish=()=>o.remove();
+  // a fluffy cloud billows over the card, hides the change, then drifts apart
+  {const r=old.r,cx=r.left+r.width/2,cy=r.top+r.height/2,W=r.width,H=r.height;
+    const spots=[[0,0,1.05],[-.42,-.3,.72],[.42,-.3,.74],[-.45,.28,.7],[.45,.3,.72],[0,-.5,.66],[0,.52,.68],[-.2,.05,.6],[.22,.08,.6],[-.62,0,.5],[.62,-.02,.5]];
+    spots.forEach(([fx,fy,k],i)=>{const sz=W*k,c=document.createElement('div');c.className='morph-cloud';
+      c.style.cssText=`left:${cx+fx*W*.75-sz/2}px;top:${cy+fy*H*.62-sz/2}px;width:${sz}px;height:${sz}px`;document.body.appendChild(c);
+      const a=Math.atan2(fy||.01,fx||.01),out=24+Math.random()*16,wob=(Math.random()-.5)*6;
+      c.animate([{transform:'scale(0)',opacity:0},{transform:'scale(1.12)',opacity:1,offset:.18},{transform:`scale(.96) translate(${wob}px,${-wob}px)`,offset:.32},{transform:`scale(1.04) translate(${-wob}px,${wob}px)`,offset:.48},{transform:'scale(1)',opacity:1,offset:.6},{transform:`translate(${Math.cos(a)*out}px,${Math.sin(a)*out-14}px) scale(1.35)`,opacity:0}],
+        {duration:1250,delay:D-60+i*22,easing:'ease-out',fill:'both'}).onfinish=()=>c.remove();});
+  }
   const cur=()=>document.querySelector('#myField .card[data-id="'+id+'"],#oppField .card[data-id="'+id+'"]');
   setTimeout(()=>{
     morphHold.delete(id);const el=cur();if(!el)return;el.classList.remove('mo-hold');
