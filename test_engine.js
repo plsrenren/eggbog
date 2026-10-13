@@ -188,6 +188,7 @@ function zones(s){
   if(s.pending&&s.pending.t==='discover')s.pending.opts.forEach(c=>ids.push(c.id));
   s.startCards.forEach(c=>{if(c)ids.push(c.id);});
   (s.jokerQ||[]).forEach(e=>ids.push(e.c.id));
+  (s.gone||[]).forEach(c=>ids.push(c.id));   // a Joker with nothing to draw leaves the game
   return ids.filter(id=>id!=='EGG');   // the Egg is an extra card outside the deck
 }
 t('2000 random games: terminate, conserve 52 unique cards',()=>{
@@ -385,7 +386,7 @@ t('Joker: draws 5, 3 highest to the player, 2 lowest to the opponent',()=>{
   const mine=s.p[0].field.map(c=>c.id),theirs=s.p[1].field.map(c=>c.id);
   assert.deepEqual(mine.filter(i=>i!=='JK1').sort(),['7C','8S','9D'].sort(),'highest three');
   assert.deepEqual(theirs.sort(),['3S','5H'].sort(),'lowest two');
-  assert.ok(!s.p[0].field.some(c=>c.id==='JK1'),'the Joker burns up');assert.ok(s.discard.concat(s.deck).some(c=>c.id==='JK1'&&c.s==='*'),'back in the discard pile or reshuffled, wild again');
+  assert.ok(!s.p[0].field.some(c=>c.id==='JK1'),'the Joker burns up');assert.ok((s.gone||[]).some(c=>c.id==='JK1'),'a played Joker leaves the game');assert.ok(!s.discard.concat(s.deck).some(c=>c.id==='JK1'));
   assert.equal(total(s,0),7+8+9);assert.equal(total(s,1),3+5);
   assert.equal(s.turn,1,'turn passes once ahead');
   const v=viewFor(s,1);assert.equal(v.joker.hi.length,3);assert.equal(v.joker.lo.length,2);
@@ -595,8 +596,8 @@ t('Joker: when only the other Joker is left to draw, it goes back in the deck (n
   assert.equal(act(s,1,{t:'play',id:'JK1',suit:'C'}),null);
   assert.ok(!s.p[1].hand.some(c=>c.r==='JK'),'the drawn Joker did not go to the hand');
   assert.equal(s.p[1].hand.length,2);
-  // both Jokers are now in the discard pile (or reshuffled into the deck): nothing is lost
-  assert.equal(s.deck.concat(s.discard).filter(c=>c.r==='JK').length,2);
+  // the other Joker is back in the deck; the played one found nothing to draw, so it left the game (no endless Joker swap)
+  assert.ok(s.deck.some(c=>c.id==='JK2'));assert.ok((s.gone||[]).some(c=>c.id==='JK1'));assert.ok(!s.discard.some(c=>c.id==='JK1'));
 });
 t('Morph: the top card of its suit on the opponent\'s side becomes a 1-point Egg, and turns back when it leaves',()=>{
   const s=setup([X('3','H','O'),X('2','C','')],[X('5','S','')],[],[X('4','H',''),X('9','H','G'),X('8','S','')]);s.crazy=true;

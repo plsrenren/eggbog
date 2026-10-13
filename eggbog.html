@@ -831,7 +831,9 @@ function jokerEffect(s,i,jk){
   }
   // the set-aside Joker is shuffled back into the deck (after the draws, so it can't be drawn again straight away)
   for(const x of aside){s.deck.splice(Math.floor(Math.random()*(s.deck.length+1)),0,x);log(s,i,'Joker: drew the other Joker, which is shuffled back into the deck');}
-  s.discard.push(jk);   // into the discard pile only after the draws, so it cannot be drawn straight back
+  // a played Joker leaves the game for good (it is never shuffled back in); otherwise the two Jokers could keep
+  // trading places forever at the end of a long game
+  (s.gone=s.gone||[]).push(jk);
   got.sort((a,b)=>cardVal(b)-cardVal(a)||SUIT_RANK[b.s]-SUIT_RANK[a.s]);
   const hi=got.slice(0,3),lo=got.slice(3,5);
   // the cards are played one at a time (highest first for the Joker's owner, then the lowest for the opponent), each with its own effect
@@ -2736,8 +2738,36 @@ const ART={
 };
 // Hush: a white wave rolls out of the played card across the opponent's side; each card it reaches gets a white halo
 const hushHold=new Set();
+// Hush: a long soft "shhh" under a few overlapping whispers that drift between left and right
+function hushSound(){
+  if(!soundOn)return;
+  try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();
+    const A=audioCtx,t0=A.currentTime+.45,sr=A.sampleRate;
+    const noise=dur=>{const n=Math.floor(sr*dur),b=A.createBuffer(1,n,sr),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;const s=A.createBufferSource();s.buffer=b;return s;};
+    const out=(node,pan)=>{if(A.createStereoPanner){const p=A.createStereoPanner();p.pan.value=pan;node.connect(p);p.connect(A.destination);}else node.connect(A.destination);};
+    // the shhh: high band-passed noise that swells and fades
+    {const s=noise(1.6),f=A.createBiquadFilter(),g=A.createGain();f.type='bandpass';f.Q.value=1.2;
+      f.frequency.setValueAtTime(3800,t0);f.frequency.linearRampToValueAtTime(3000,t0+1.5);
+      g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(.16,t0+.25);g.gain.setValueAtTime(.16,t0+.7);g.gain.exponentialRampToValueAtTime(.0001,t0+1.55);
+      s.connect(f);f.connect(g);out(g,0);s.start(t0);s.stop(t0+1.6);}
+    // whispers: breath noise through two moving vowel formants, chopped into little syllables
+    const V=[[700,1200],[400,2200],[500,900],[300,2400],[600,1700]];
+    for(let w=0;w<3;w++){
+      const st=t0+.1+w*.22,len=1.1+Math.random()*.3,s=noise(len),g=A.createGain(),mix=A.createGain(),hp=A.createBiquadFilter();
+      hp.type='highpass';hp.frequency.value=250;s.connect(hp);
+      [0,1].forEach(k=>{const f=A.createBiquadFilter();f.type='bandpass';f.Q.value=6;
+        let tt=st;while(tt<st+len){f.frequency.linearRampToValueAtTime(V[Math.floor(Math.random()*V.length)][k]*(.9+Math.random()*.2),tt);tt+=.08+Math.random()*.07;}
+        hp.connect(f);f.connect(mix);});
+      mix.connect(g);g.gain.setValueAtTime(.0001,st);
+      let tt=st;while(tt<st+len-.12){const sy=.07+Math.random()*.1,pk=.05+Math.random()*.05;
+        g.gain.linearRampToValueAtTime(pk,tt+sy*.35);g.gain.linearRampToValueAtTime(.004,tt+sy);tt+=sy+Math.random()*.04;}
+      g.gain.linearRampToValueAtTime(.0001,st+len);
+      out(g,[-.6,.6,0][w]);s.start(st);s.stop(st+len);}
+  }catch(e){}
+}
 function hushFx(prev,v){
   if(!prev||!v.hush||prev.you!==v.you||v.hush.n<=((prev.hush&&prev.hush.n)||0))return;
+  hushSound();
   const h=v.hush,ids=h.ids.slice();if(reduced()||!ids.length)return;
   const mine=h.by===v.you,side=$(mine?'oppSide':'mySide'),fld=mine?'#oppField':'#myField';
   const q=id=>document.querySelector(fld+' .card[data-id="'+id+'"]');
@@ -3704,7 +3734,7 @@ function showRules(){
   const on=(view&&view.fxOn)||fxCfg[cz?'crazy':'normal'];
   const fxList=cz
     ?on.map(k=>'<li><b>'+ABILITY[k]+':</b> '+ABILITY_TEXT[k].replace(/^[^:]*:\s*/,'')+'</li>').join('')
-      +'<li><b>Joker:</b> '+ABILITY_TEXT.X.replace(/^[^:]*:\s*/,'')+' If it draws the other Joker, that Joker is shuffled back into the deck and doesn\'t count toward the 5.</li>'
+      +'<li><b>Joker:</b> '+ABILITY_TEXT.X.replace(/^[^:]*:\s*/,'')+' If it draws the other Joker, that Joker is shuffled back into the deck and doesn\'t count toward the 5. A Joker that has been played leaves the game: it is never shuffled back into the deck.</li>'
     :FX_KEYS.filter(k=>on.includes(k)).map(k=>'<li><b>'+RANK[k]+' — '+ABILITY[k]+':</b> '+ABILITY_TEXT[k].replace(/^[^:]*:\s*/,'')+'</li>').join('');
   const off=cz?'':FX_KEYS.filter(k=>!on.includes(k)).map(k=>RANK[k]).join(', ');
   $('modalRoot').innerHTML=`<div class="modal" id="rulesModal"><div class="box rules"><h3>Eggbog — ${cz?'🌀 Crazy mode rules':'Rules'}</h3>
