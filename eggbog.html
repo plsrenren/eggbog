@@ -173,7 +173,7 @@ header h2{margin:0;font-size:1.3rem}
 .card .art{position:absolute;left:50%;top:50%;width:64%;height:auto;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 1px 1px #0005)}
 .card.art-on .cs{font-size:1rem;right:5px;bottom:15px;opacity:.85}
 .card .cs{display:none}   /* one suit icon per card: the one next to the rank in the corner (it's also the part that shows on stacked cards) */
-/* the face is tinted by suit colour: pink for hearts and diamonds, blue for clubs and spades (Jokers, the Egg and card backs keep their own look) */
+/* the face is tinted by suit colour: pink for hearts and diamonds, blue for clubs and spades (Surges, the Egg and card backs keep their own look) */
 .card.red:not(.joker):not(.egg):not(.back):not(.oc){background:linear-gradient(160deg,#fff1f1,#fbd9d9)}
 .card:not(.red):not(.joker):not(.egg):not(.back):not(.oc){background:linear-gradient(160deg,#eef4ff,#d5e2fa)}
 .card.red:not(.joker):not(.egg):not(.back):not(.oc):not(.r4){border-color:#e3a2a2}
@@ -664,7 +664,7 @@ const SUITS=['C','S','H','D'];
 const SUIT_RANK={C:0,S:1,H:2,D:3,'*':4};
 const SYM={C:'♣',S:'♠',H:'♥',D:'♦','*':''};
 const DISCOVER_N=3; // cards the opponent draws for a Scry; they keep one for you, the rest are discarded
-const ABILITY={A:'Draw','2':'Deathrattle','3':'Scry','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Blaze',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',O:'Morph',U:'Hush',X:'Joker'};
+const ABILITY={A:'Draw','2':'Deathrattle','3':'Scry','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Blaze',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',O:'Morph',U:'Hush',X:'Surge'};
 const ABILITY_TEXT={
   A:'Draw: draw one card from the deck into your hand.',
   '2':'Deathrattle: if this card is removed from the field, its owner draws one card.',
@@ -680,13 +680,13 @@ const ABILITY_TEXT={
   G:'Greed (Crazy mode): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
   O:'Morph (Crazy mode): the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It hits Sturdy cards too (they lose Sturdy). It turns back when it leaves the table. An Egg on top is not affected.',
   U:'Hush (Crazy mode): every card on your opponent\'s side is silenced for as long as it stays on the table: it keeps its value but loses its effect (a Sturdy card can be removed, Deathrattle, Greed and Rune do nothing). Cards they play after it are not silenced. A silenced card that gets Morphed loses its silence.',
-  X:'Joker (Crazy mode): can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Joker also makes any choice those cards need (which card Scry keeps, which card Steal takes), at random.'
+  X:'Surge (Crazy mode): can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Surge also makes any choice those cards need (which card Scry keeps, which card Steal takes), at random.'
 };
 function F(c){if(c.hu)return '';return c.f===undefined?(DEF_F[c.r]||''):c.f;}   // a card silenced by Hush has no effect
 function cardVal(c){if(c.v!==undefined)return c.v;return (c.r==='A'||c.r==='JK'||c.r==='J'||c.r==='Q'||c.r==='K')?1:parseInt(c.r,10);}
 function rk(c){return c.r==='JK'?13:RANKS.indexOf(c.r);}
-function cardStr(c){return c.r==='JK'?'Joker'+(SYM[c.s]||''):c.r==='EG'?'Egg'+(SYM[c.s]||''):c.r+SYM[c.s];}
-function wild(c){return c.r==='JK'||c.r==='EG';}   // Jokers and the Egg have no suit until played: they go on any column
+function cardStr(c){return c.r==='JK'?'Surge'+(SYM[c.s]||''):c.r==='EG'?'Egg'+(SYM[c.s]||''):c.r+SYM[c.s];}
+function wild(c){return c.r==='JK'||c.r==='EG';}   // Surges and the Egg have no suit until played: they go on any column
 // The Egg: whoever goes first in round 1 gets this plain card in hand to make up for moving first (worth 1 in Crazy, 5 in Normal).
 const EGG_VAL={crazy:1,normal:5};
 const DEF_F={A:'A','2':'2','3':'3','4':'4','5':'5',J:'J',Q:'Q',K:'K'};
@@ -824,39 +824,39 @@ function resolve(s,i,c){
       break;}
   }
 }
-// Joker: draw 5; the 3 highest are played for the joker's owner and the 2 lowest for the opponent, taking turns (the owner first), one at a time, each with its own effect.
+// Surge: draw 5; the 3 highest are played for the joker's owner and the 2 lowest for the opponent, taking turns (the owner first), one at a time, each with its own effect.
 function jokerEffect(s,i,jk){
   const opp=1-i,got=[],aside=[];
-  // the Joker is used up: it burns away before its cards are played
+  // the Surge is used up: it burns away before its cards are played
   const jf=s.p[i].field,ji=jf.findIndex(x=>x.id===jk.id);if(ji>=0)jf.splice(ji,1);
-  const jcopy=cp(jk);jk.s='*';log(s,i,'Joker burns up');
+  const jcopy=cp(jk);jk.s='*';log(s,i,'Surge burns up');
   while(got.length<5){
     if(!s.deck.length)fillDeck(s);
     const c=draw(s);if(!c)break;
-    if(c.r==='JK'){c.s='*';aside.push(c);continue;}   // the other Joker doesn't count: it is set aside and a replacement is drawn
+    if(c.r==='JK'){c.s='*';aside.push(c);continue;}   // the other Surge doesn't count: it is set aside and a replacement is drawn
     got.push(c);
   }
-  // the set-aside Joker is shuffled back into the deck (after the draws, so it can't be drawn again straight away)
-  for(const x of aside){s.deck.splice(Math.floor(Math.random()*(s.deck.length+1)),0,x);log(s,i,'Joker: drew the other Joker, which is shuffled back into the deck');}
-  // a played Joker leaves the game for good (it is never shuffled back in); otherwise the two Jokers could keep
+  // the set-aside Surge is shuffled back into the deck (after the draws, so it can't be drawn again straight away)
+  for(const x of aside){s.deck.splice(Math.floor(Math.random()*(s.deck.length+1)),0,x);log(s,i,'Surge: drew the other Surge, which is shuffled back into the deck');}
+  // a played Surge leaves the game for good (it is never shuffled back in); otherwise the two Surges could keep
   // trading places forever at the end of a long game
   (s.gone=s.gone||[]).push(jk);
   got.sort((a,b)=>cardVal(b)-cardVal(a)||SUIT_RANK[b.s]-SUIT_RANK[a.s]);
   const hi=got.slice(0,3),lo=got.slice(3,5);
-  // the cards are played one at a time (highest first for the Joker's owner, then the lowest for the opponent), each with its own effect
-  s.jokerQ=[];for(let q=0;q<3;q++){if(hi[q])s.jokerQ.push({who:i,c:hi[q]});if(lo[q])s.jokerQ.push({who:opp,c:lo[q]});}   // taking turns, starting with the Joker's owner
+  // the cards are played one at a time (highest first for the Surge's owner, then the lowest for the opponent), each with its own effect
+  s.jokerQ=[];for(let q=0;q<3;q++){if(hi[q])s.jokerQ.push({who:i,c:hi[q]});if(lo[q])s.jokerQ.push({who:opp,c:lo[q]});}   // taking turns, starting with the Surge's owner
   if(s.stats)got.forEach(c=>s.stats.drawn[i].push(Object.assign(cp(c),{how:'joker'})));
-  log(s,i,'Joker: drew '+got.map(cardStr).join(' ')+' — the highest three are played for them, the lowest two for the opponent');
+  log(s,i,'Surge: drew '+got.map(cardStr).join(' ')+' — the highest three are played for them, the lowest two for the opponent');
   s.joker={n:((s.joker&&s.joker.n)||0)+1,who:i,card:jcopy,hi:hi.map(cp),lo:lo.map(cp),extra:[]};
 }
-// plays the next waiting Joker card (the client paces these so each effect can be seen; without pacing they run straight through)
+// plays the next waiting Surge card (the client paces these so each effect can be seen; without pacing they run straight through)
 function jokerStep(s){
   const e=s.jokerQ.shift();if(!e)return;
   if(s.stats){s.stats.played[e.who]+=cardVal(e.c);s.stats.cards[e.who]++;}
   s.p[e.who].field.push(e.c);
-  log(s,e.who,'Joker plays '+cardStr(e.c)+(ABILITY[F(e.c)]?' ('+ABILITY[F(e.c)]+')':''));
+  log(s,e.who,'Surge plays '+cardStr(e.c)+(ABILITY[F(e.c)]?' ('+ABILITY[F(e.c)]+')':''));
   resolve(s,e.who,e.c);
-  if(s.pending&&(s.pending.t==='discover'||s.pending.t==='steal'))s.pending.jk=true;   // the Joker makes this choice (see jkpick)
+  if(s.pending&&(s.pending.t==='discover'||s.pending.t==='steal'))s.pending.jk=true;   // the Surge makes this choice (see jkpick)
 }
 function putCard(s,i,c){
   if(s.stats){s.stats.played[i]+=cardVal(c);s.stats.cards[i]++;}
@@ -901,7 +901,7 @@ function resolveStart(s){
   // (exempt from the hand limit: in normal mode this makes 11)
   if(c0)s.p[0].hand.push(c0);if(c1)s.p[1].hand.push(c1);
   // the Egg: the starter gets a plain card worth a few points (also exempt from the hand limit); it never goes back into the deck
-  const egg={id:'EGG',r:'EG',s:'*',f:'',v:s.crazy?EGG_VAL.crazy:EGG_VAL.normal};   // suit-less like a Joker: it takes the suit of the column it is played on
+  const egg={id:'EGG',r:'EG',s:'*',f:'',v:s.crazy?EGG_VAL.crazy:EGG_VAL.normal};   // suit-less like a Surge: it takes the suit of the column it is played on
   s.p[starter].hand.push(egg);s.startReveal.egg=cp(egg);log(s,starter,'gets the Egg ('+egg.v+' point'+(egg.v>1?'s':'')+')');
   s.phase='play';s.turn=starter;
   settle(s);
@@ -1000,14 +1000,14 @@ function act0(s,i,a){
       if(s.phase!=='play'||s.turn!==i)return 'Not your turn';
       if(busy(s))return 'Finish the current draw or choice first';
       const sc=s.startCards[i];
-      if(sc){if(a.id!==sc.id)return 'Play your drawn card first';if(wild(sc)){if(!SUITS.includes(a.suit))return 'Choose a column for the '+(sc.r==='EG'?'Egg':'Joker');sc.s=a.suit;}s.startCards[i]=null;putCard(s,i,sc);return null;}
+      if(sc){if(a.id!==sc.id)return 'Play your drawn card first';if(wild(sc)){if(!SUITS.includes(a.suit))return 'Choose a column for the '+(sc.r==='EG'?'Egg':'Surge');sc.s=a.suit;}s.startCards[i]=null;putCard(s,i,sc);return null;}
       const h=s.p[i].hand;const k=h.findIndex(c=>c.id===a.id);
       if(k<0)return 'That card is not in your hand';
-      if(wild(h[k])&&!SUITS.includes(a.suit))return 'Choose a column for the '+(h[k].r==='EG'?'Egg':'Joker');
+      if(wild(h[k])&&!SUITS.includes(a.suit))return 'Choose a column for the '+(h[k].r==='EG'?'Egg':'Surge');
       const [c]=h.splice(k,1);if(wild(c))c.s=a.suit;putCard(s,i,c);return null;}
     case 'pick':{
       const pd=s.pending;if(!pd)return 'Nothing to choose';
-      if(pd.jk&&!a.jk)return 'The Joker makes this choice';
+      if(pd.jk&&!a.jk)return 'The Surge makes this choice';
       if(pd.t==='target'){
         if(pd.by!==i)return 'Not your choice';
         if(!pd.opts.includes(a.id))return 'Not a valid target';
@@ -1042,7 +1042,7 @@ function act0(s,i,a){
         afterDraw(s);return null;}
       return 'Unknown choice';}
     case 'jstep':{
-      if(!s.jokerQ||!s.jokerQ.length)return 'No Joker cards waiting';
+      if(!s.jokerQ||!s.jokerQ.length)return 'No Surge cards waiting';
       if(s.pending||s.drawQ.length)return 'Finish the current draw or choice first';
       jokerStep(s);settle(s);return null;}
     case 'concede':{
@@ -1060,15 +1060,15 @@ function act0(s,i,a){
         log(s,w,'Rune: draws '+(ls[w]*2)+' cards');
         for(let k=0;k<ls[w]*2&&s.deck.length>s.drawQ.length;k++)queueDraw(s,w,'laststand');}
       return null;}
-    case 'jkpick':{ // a Joker card's Scry or Steal: the Joker picks at random, first showing its choice, then (on the next jkpick) making it
-      const pd=s.pending;if(!pd||!pd.jk)return 'Nothing for the Joker to choose';
+    case 'jkpick':{ // a Surge card's Scry or Steal: the Surge picks at random, first showing its choice, then (on the next jkpick) making it
+      const pd=s.pending;if(!pd||!pd.jk)return 'Nothing for the Surge to choose';
       if(pd.t==='discover'&&!pd.opts.length)return 'Open the booster pack first';
       if(!pd.jkId){
         const ids=pd.t==='discover'?pd.opts.map(c=>c.id):s.p[pd.chooser].hand.map(c=>c.id);
-        if(!ids.length)return 'Nothing for the Joker to choose';
+        if(!ids.length)return 'Nothing for the Surge to choose';
         pd.jkId=ids[Math.floor(Math.random()*ids.length)];pd.jkAt=Math.floor(Math.random()*ids.length);
         return null;}
-      log(s,null,'The Joker made the '+(pd.t==='steal'?'Steal':'Scry')+' choice');
+      log(s,null,'The Surge made the '+(pd.t==='steal'?'Steal':'Scry')+' choice');
       return act0(s,pd.chooser,{t:'pick',id:pd.jkId,jk:true});}
     case 'choose':{
       if(s.phase!=='choose'||s.chooser!==i)return 'Not your choice';
@@ -1104,12 +1104,12 @@ function viewFor(s,i){
 // ---- Computer player: 'easy' plays at random, 'normal' plays sensibly, 'hard' plans its cards and rounds ----
 const CPU_HV={A:2.5,'2':1.2,'3':2.5,'4':2,'5':2.5,J:4,Q:5,K:6,M:2.5,T:3,L:.5,G:.5,O:3,U:2.5,X:4};   // extra reluctance to spend a special card
 function cardKeep(c){return cardVal(c)+CPU_CFG.hvScale*(CPU_HV[F(c)]||0);}
-let CPU_ROLL=false;   // true while the expert imagines whole games: cheaper Joker estimates
+let CPU_ROLL=false;   // true while the expert imagines whole games: cheaper Surge estimates
 const CPU_CFG={marginW:.2,mullMax:7,start:'opp',stratK:1,hvScale:1,greedHunt:0,concedeMode:0,stratFrac:0};   // stratFrac 0 = automatic: Hard concedes a bit more readily in Crazy mode   // greedHunt: bonus for taking an opponent's Greed off the field
 // Try a play on a copy of the game (the engine is pure, so this is exact) and score how it leaves the board.
 function fastClone(s){const L=s.log,ST=s.stats;s.log=[];s.stats=null;const c=JSON.parse(JSON.stringify(s));s.log=L;s.stats=ST;c.paced=false;return c;}
 function cpuScorePlay(s,who,c,suit){
-  if(c.r==='JK'){ // a Joker draws from the deck: the computer cannot know the order, so it averages over a few shuffles
+  if(c.r==='JK'){ // a Surge draws from the deck: the computer cannot know the order, so it averages over a few shuffles
     let tot=0,n=0;for(let k=0;k<(CPU_ROLL?1:3);k++){const v=cpuScorePlay1(s,who,c,suit,true);if(v===null)return null;tot+=v;n++;}
     return tot/n;
   }
@@ -1190,7 +1190,7 @@ function cpuChoose(s,who,level){
   level=level||'normal';
   if(level==='expert'){
     if(s.phase!=='mulligan'&&!s.drawQ.some(e=>e.who===who)&&!(s.pending&&s.pending.t==='discover'&&s.pending.chooser===who&&!s.pending.opts.length&&s.deck.length)
-      &&!(s.phase==='play'&&s.turn===who&&s.startCards[who]&&!s.pending)&&!(s.pending&&s.pending.jk)){   // the Joker makes its own choices
+      &&!(s.phase==='play'&&s.turn===who&&s.startCards[who]&&!s.pending)&&!(s.pending&&s.pending.jk)){   // the Surge makes its own choices
       const opts=cpuOptions(s,who);
       if(opts.length>1)return cpuExpert(s,who,opts);
     }
@@ -1213,7 +1213,7 @@ function cpuChoose(s,who,level){
     if(level==='hard')return {t:'choose',who:CPU_CFG.start==='me'?who:CPU_CFG.start==='opp'?1-who:(Math.random()<.5?0:1)};
     return {t:'choose',who:Math.random()<.5?0:1};
   }
-  if(s.pending&&s.pending.jk)return {t:'jkpick'};   // the Joker chooses, not the computer
+  if(s.pending&&s.pending.jk)return {t:'jkpick'};   // the Surge chooses, not the computer
   if(s.pending&&s.pending.t==='steal'){ // give away the card we value least
     const hh=h.slice().sort((a,b)=>cardKeep(a)-cardKeep(b));return {t:'pick',id:hh[0].id};
   }
@@ -1285,11 +1285,11 @@ try{const l=localStorage.getItem('eggbog-level');if(l==='easy'||l==='normal'||l=
 function cpuPending(){
   if(mode!=='cpu'||!state||state.phase==='over')return false;
   const s=state;
-  if(s.jokerQ&&s.jokerQ.length&&!s.drawQ.length&&!s.pending)return false;   // Joker cards are being played out
+  if(s.jokerQ&&s.jokerQ.length&&!s.drawQ.length&&!s.pending)return false;   // Surge cards are being played out
   if(s.phase==='mulligan')return !s.p[1].mull;
   if(s.drawQ.length)return s.drawQ.some(e=>e.who===1);
   if(s.phase==='choose')return s.chooser===1;
-  if(s.pending&&s.pending.jk&&!(s.pending.t==='discover'&&!s.pending.opts.length))return false;   // the Joker is choosing (see jokerTick)
+  if(s.pending&&s.pending.jk&&!(s.pending.t==='discover'&&!s.pending.opts.length))return false;   // the Surge is choosing (see jokerTick)
   if(s.pending)return ((s.pending.t==='discover'||s.pending.t==='steal')?s.pending.chooser:s.pending.by)===1;
   return s.phase==='play'&&s.turn===1;
 }
@@ -1334,13 +1334,13 @@ function scheduleCpu(){
   },D);
 }
 let jokerTimer=null;
-// Joker cards are played one at a time: the host steps the queue with a pause so every effect can be seen
+// Surge cards are played one at a time: the host steps the queue with a pause so every effect can be seen
 const jkReady=()=>!!(state&&state.pending&&state.pending.jk&&!(state.pending.t==='discover'&&!state.pending.opts.length)&&!state.drawQ.length&&state.phase!=='over');
 function jokerTick(){
   clearTimeout(jokerTimer);jokerTimer=null;
-  if(state&&mode!=='guest'&&jkReady()){   // a Joker card's Scry or Steal: the Joker 'thinks', shows its pick, then makes it
+  if(state&&mode!=='guest'&&jkReady()){   // a Surge card's Scry or Steal: the Surge 'thinks', shows its pick, then makes it
     const set=!!state.pending.jkId;
-    jokerTimer=setTimeout(()=>{jokerTimer=null;if(!jkReady())return;const err=act(state,0,{t:'jkpick'});if(err)console.warn('Joker pick rejected:',err);pushState();},reduced()?300:set?1000:1700);
+    jokerTimer=setTimeout(()=>{jokerTimer=null;if(!jkReady())return;const err=act(state,0,{t:'jkpick'});if(err)console.warn('Surge pick rejected:',err);pushState();},reduced()?300:set?1000:1700);
     return;
   }
   if(!state||mode==='guest'||!state.jokerQ||!state.jokerQ.length||state.drawQ.length||state.pending||state.phase==='over')return;
@@ -1348,7 +1348,7 @@ function jokerTick(){
     jokerTimer=null;
     if(!state||!state.jokerQ||!state.jokerQ.length||state.drawQ.length||state.pending)return;
     const w=fxUntil-Date.now();if(w>0){jokerTimer=setTimeout(go,Math.min(w+150,400));return;}   // poll: a booster screen holds fxUntil for up to a minute and releases it when it closes   // an animation is still playing
-    const err=act(state,0,{t:'jstep'});if(err)console.warn('Joker step rejected:',err);
+    const err=act(state,0,{t:'jstep'});if(err)console.warn('Surge step rejected:',err);
     pushState();
   };
   jokerTimer=setTimeout(go,600);
@@ -1475,7 +1475,7 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
   const removable=x=>x.f!=='4'||x.hu;
   const gone=[],dr=[0,0];      // cards that would leave the table; Deathrattle draws for [me, opponent]
   let swap=null;
-  if(c.r==='JK'){lines.push('🃏 Burns up: 5 random cards, the 3 highest for you, the 2 lowest for '+OPP);return {gone,swap,lines,joker:true};}
+  if(c.r==='JK'){lines.push('🌀 Burns up: 5 random cards, the 3 highest for you, the 2 lowest for '+OPP);return {gone,swap,lines,joker:true};}
   const cf=efx(c,v);
   if(c.f==='M')lines.push(cf?'🎭 Mimic copies '+ABILITY[cf]:'🎭 Mimic has nothing to copy');
   const mate={C:'S',S:'C',H:'D',D:'H'};
@@ -1590,7 +1590,7 @@ function startDrag(ev,el,id,canPlay,onTap){
   const playable=()=>!!view&&view.phase==='play'&&view.turn===view.you&&!isBusy(view)&&(!view.startMe||view.startMe.id===id);
   // The card can be dragged anywhere, but it can only be placed in its own suit column on your
   // side of the field, and only when playing is allowed. That column lights up while dragging.
-  const isJk=id.slice(0,2)==='JK'||id==='EGG';           // a Joker (or the Egg) can be dropped on any of your four columns
+  const isJk=id.slice(0,2)==='JK'||id==='EGG';           // a Surge (or the Egg) can be dropped on any of your four columns
   let px=sx,py=sy,suit=isJk?null:id.slice(-1);
   const zone=()=>{
     if(!isJk)return document.querySelector('#myField .col[data-suit="'+suit+'"]');
@@ -1665,9 +1665,9 @@ function startDrag(ev,el,id,canPlay,onTap){
     else if(overField){ // explain why the card did not stay there
       if(!view||view.phase!=='play')toast('The game hasn\'t started yet');
       else if(view.turn!==view.you)toast('It\'s not your turn');
-      else if(view.jq>0)toast('Wait for the Joker\'s cards to finish playing');
+      else if(view.jq>0)toast('Wait for the Surge\'s cards to finish playing');
       else if(isBusy(view))toast('Finish drawing / the current choice first');
-      else toast(isJk?'Drop the '+(id==='EGG'?'Egg':'Joker')+' on any column on your side':'Drop it on the '+SYM[suit]+' column on your side');
+      else toast(isJk?'Drop the '+(id==='EGG'?'Egg':'Surge')+' on any column on your side':'Drop it on the '+SYM[suit]+' column on your side');
     }
   };
   window.addEventListener('pointermove',onMove);window.addEventListener('pointerup',onUp);window.addEventListener('pointercancel',cleanup);
@@ -2285,16 +2285,16 @@ function discoverFx(v,OPP){
 }
 function discoverSync(v,OPP){
   const od=$('disc');if(od)od.remove();
-  {const tr=hovTray();   // the Joker's pick flies from where it sat in the tray
+  {const tr=hovTray();   // the Surge's pick flies from where it sat in the tray
    if(tr&&/^jdisc/.test(tr.dataset.key||'')&&v.discover&&v.discover.n>discSeen&&!discRects){discRects={};tr.querySelectorAll('.card').forEach(e=>{discRects[e.dataset.id]=e.getBoundingClientRect();});}}
   if(jkThinkFor.key&&/^discover/.test(jkThinkFor.key)&&!(v.pending&&v.pending.t==='discover'&&v.pending.jk)){jkThinkFor.key=null;jkThink(null);}
   discoverFx(v,OPP);
   const pend=v.pending&&v.pending.t==='discover'?v.pending:null;
   if(!pend){const tr=hovTray();if(tr&&!tr.dataset.hold&&/^j?disc/.test(tr.dataset.key||''))tr.remove();return;}
   const you=v.you,chooser=pend.chooser===you;
-  if(pend.jk&&pend.ready){   // a Joker card's Scry: the Joker picks, the player watches
+  if(pend.jk&&pend.ready){   // a Surge card's Scry: the Surge picks, the player watches
     const opts=chooser?(pend.opts||[]).filter(Boolean):[];
-    const lab='🃏 Scry — '+(pend.jkSet?'the Joker picked '+(chooser?'this one':'for '+OPP):'the Joker is choosing…');
+    const lab='🌀 Scry — '+(pend.jkSet?'the Surge picked '+(chooser?'this one':'for '+OPP):'the Surge is choosing…');
     const {tr,fresh}=hovShow('jdisc'+(chooser?opts.map(c=>c.id).join(','):'O'+pend.n),chooser?'me':'opp',lab,chooser?opts.map(c=>cardEl(c)).join(''):Array.from({length:pend.n||0},()=>'<div class="card back"></div>').join(''));
     if(fresh&&!reduced()&&tr.animate)[...tr.querySelectorAll('.card')].forEach((el,i)=>el.animate([{opacity:0,translate:'0 40px'},{opacity:1,translate:'0 0'}],{duration:320,delay:i*90,easing:'cubic-bezier(.2,.9,.3,1.2)',fill:'backwards'}));
     jkThinkFor(pend,()=>[...tr.querySelectorAll('.card')]);
@@ -2328,7 +2328,7 @@ function discoverSync(v,OPP){
   };
   els.forEach((el,i)=>{el.onpointerdown=ev=>simpleDrag(ev,el,()=>[$('hand'),$('handwrap')],()=>choose(i),()=>choose(i),'Drop it on your hand (or just tap it)');});
 }
-// the Joker 'thinking': a highlight hops between the cards it can choose, then settles on its pick
+// the Surge 'thinking': a highlight hops between the cards it can choose, then settles on its pick
 let jkThinkIv=null;
 function jkThink(get,pick){
   clearInterval(jkThinkIv);jkThinkIv=null;
@@ -2373,10 +2373,10 @@ function stealSync(v,OPP){
   {const sp=v.pending&&v.pending.t==='steal'?v.pending:null;blackHole(sp?(sp.chooser===v.you?'#hand':'#oppHand'):null);}
   const o=$('stl');if(o)o.remove();
   {const jp=v.pending&&v.pending.t==='steal'&&v.pending.jk?v.pending:null;
-   if(jp){   // a Joker card's Steal: the Joker picks the card to give, from whoever has to give it
+   if(jp){   // a Surge card's Steal: the Surge picks the card to give, from whoever has to give it
     document.querySelectorAll('#hand .card.stealpick').forEach(e=>e.classList.remove('stealpick'));
     const mine=jp.chooser===v.you,who=mine?'your':OPP+"'s";
-    const {tr}=hovShow('stealJ'+v.logN,mine?'me':'opp','🃏 Steal — '+(jp.jkSet?'the Joker picked from '+who+' hand':'the Joker is picking from '+who+' hand…'),'');
+    const {tr}=hovShow('stealJ'+v.logN,mine?'me':'opp','🌀 Steal — '+(jp.jkSet?'the Surge picked from '+who+' hand':'the Surge is picking from '+who+' hand…'),'');
     {const r=tr.querySelector('.ht-row');if(r)r.remove();}
     if(mine){tr.style.top=($('hand').getBoundingClientRect().top-30)+'px';hovClamp(tr);}
     jkThinkFor(jp,()=>[...document.querySelectorAll(mine?'#hand .card':'#oppHand .oc')]);
@@ -2495,7 +2495,7 @@ function shuffleSync(prev,v){
   const life=quick?1300:2900;
   setTimeout(()=>{if(o.animate&&!quick)o.animate([{opacity:1},{opacity:0}],{duration:300,fill:'forwards'}).onfinish=()=>o.remove();else o.remove();},life);
 }
-// ---- Joker: shine and bounce whenever one is revealed in an event (draw, booster pack, new pack ...) ----
+// ---- Surge: shine and bounce whenever one is revealed in an event (draw, booster pack, new pack ...) ----
 function jokerPop(el){
   if(!el||el.dataset.popped)return;el.dataset.popped='1';
   el.classList.add('pop');setTimeout(()=>el.classList.remove('pop'),1300);
@@ -2515,14 +2515,14 @@ function jokerPop(el){
   const scan=n=>{if(n.nodeType!==1)return;const list=n.matches&&n.matches('.card.joker')?[n]:[...n.querySelectorAll('.card.joker')];list.forEach(c=>{if(inEvent(c))jokerPop(c);});};
   new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(scan))).observe(document.documentElement,{childList:true,subtree:true});
 })();
-// the Joker's effect: five cards from the deck, the highest three to the joker's player, the lowest two to the other side
+// the Surge's effect: five cards from the deck, the highest three to the joker's player, the lowest two to the other side
 function jokerSync(prev,v){
   if(!prev||prev.you!==v.you||prev.gameId!==v.gameId||!v.joker||v.joker.n<=((prev.joker&&prev.joker.n)||0)||$('jkTray'))return;
   const j=v.joker,mine=j.who===v.you,OPP=mode==='cpu'?'Computer':'Opponent';
   const quick=reduced();
-  const inner='<div class="pk-logo">★</div><div class="pk-name bp-name">JOKER PACK</div><div class="pk-sub">5 cards</div><div class="pk-crimp"></div><div class="pk-shine"></div>';
+  const inner='<div class="pk-logo">★</div><div class="pk-name bp-name">SURGE PACK</div><div class="pk-sub">5 cards</div><div class="pk-crimp"></div><div class="pk-shine"></div>';
   const tr=document.createElement('div');tr.id='jkTray';
-  tr.innerHTML=`<div class="ht-lab">${mine?'Joker!':OPP+"'s Joker!"}</div><div class="ht-row"><div class="jk-wrap"><div class="jk-scale"><div id="jkPack"><div class="pk-part body">${inner}</div><div class="pk-part top">${inner}</div><div id="jkFlash"></div></div></div></div></div>`;
+  tr.innerHTML=`<div class="ht-lab">${mine?'Surge!':OPP+"'s Surge!"}</div><div class="ht-row"><div class="jk-wrap"><div class="jk-scale"><div id="jkPack"><div class="pk-part body">${inner}</div><div class="pk-part top">${inner}</div><div id="jkFlash"></div></div></div></div></div>`;
   document.body.appendChild(tr);
   // it hovers just above the hand of whoever played it (below the opponent's fan when it is theirs)
   const hr=$('hand').getBoundingClientRect(),or=$('oppHand').getBoundingClientRect();
@@ -2545,7 +2545,7 @@ function jokerSync(prev,v){
     setTimeout(close,760);
   },800);
 }
-// while a Joker's five cards are being played out, the whole table shimmers like the holographic Joker
+// while a Surge's five cards are being played out, the whole table shimmers like the holographic Surge
 let jkFxIv=null,jkFxOff=null;
 function jokerFxSet(on,now){
   const r=document.documentElement,stop=()=>{clearTimeout(jkFxOff);jkFxOff=null;clearInterval(jkFxIv);jkFxIv=null;r.classList.remove('jokerfx');};
@@ -2759,7 +2759,7 @@ const ART={
   '5':'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#d9322b" stroke="#fff" stroke-width="2"/><circle cx="20" cy="20" r="14.5" fill="none" stroke="#fff" stroke-width="1" opacity=".6"/><g fill="#fff"><path d="M9 21 L9 25 Q9 29 14 29 L19 29 L19 33 L27 27 L19 21 L19 25 L14 25 L14 21Z" transform="rotate(180 20 20)"/><path d="M9 21 L9 25 Q9 29 14 29 L19 29 L19 33 L27 27 L19 21 L19 25 L14 25 L14 21Z"/></g></svg>',
   J:'<svg class="art" viewBox="0 0 40 40"><g stroke="#3a8fd8" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M20 4V36M17 7l3 3 3-3M17 33l3-3 3 3"/><path d="M20 4V36M17 7l3 3 3-3M17 33l3-3 3 3" transform="rotate(60 20 20)"/><path d="M20 4V36M17 7l3 3 3-3M17 33l3-3 3 3" transform="rotate(120 20 20)"/></g></svg>',
   Q:'<svg class="art" viewBox="0 0 40 40"><path d="M24.5 1.5L8 22.5h10l-4.5 16L32 15.5H21.5z" fill="#ffd93b" stroke="#6b4a00" stroke-width="1.3" stroke-linejoin="round"/><path d="M22.5 4.5L11.5 20.5h4" stroke="#fff6b8" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>',
-  X:'<svg class="art" viewBox="0 0 40 40"><defs><linearGradient id="jkg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6bd6"/><stop offset=".35" stop-color="#6bd6ff"/><stop offset=".7" stop-color="#8dff8d"/><stop offset="1" stop-color="#ffe86b"/></linearGradient></defs><path d="M20 2 L24.5 14 L37.5 14.5 L27.3 22.5 L30.8 35.5 L20 28 L9.2 35.5 L12.7 22.5 L2.5 14.5 L15.5 14 Z" fill="url(#jkg)" stroke="#4b2a7a" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 8 L22 15 M20 8 L18 15" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/></svg>',
+  X:'<svg class="art" viewBox="0 0 40 40"><defs><linearGradient id="jkg" gradientUnits="userSpaceOnUse" x1="4" y1="4" x2="36" y2="36"><stop offset="0" stop-color="#ff6bd6"/><stop offset=".35" stop-color="#6bd6ff"/><stop offset=".7" stop-color="#8dff8d"/><stop offset="1" stop-color="#ffe86b"/></linearGradient></defs><path d="M21.5 20.0L21.6 20.2L21.7 20.3L21.7 20.6L21.8 20.8L21.8 21.0L21.7 21.2L21.7 21.5L21.6 21.7L21.5 21.9L21.3 22.2L21.1 22.4L20.9 22.6L20.6 22.8L20.4 22.9L20.1 23.1L19.7 23.1L19.4 23.2L19.0 23.2L18.7 23.2L18.3 23.1L17.9 23.0L17.6 22.9L17.2 22.7L16.9 22.5L16.5 22.2L16.2 21.9L16.0 21.5L15.7 21.1L15.5 20.7L15.4 20.2L15.3 19.7L15.2 19.2L15.3 18.7L15.3 18.2L15.4 17.7L15.6 17.2L15.8 16.7L16.1 16.2L16.5 15.7L16.9 15.3L17.3 14.9L17.8 14.6L18.4 14.3L19.0 14.0L19.6 13.9L20.2 13.7L20.9 13.7L21.6 13.7L22.2 13.8L22.9 14.0L23.6 14.2L24.2 14.5L24.8 14.9L25.4 15.4L25.9 15.9L26.4 16.5L26.8 17.1L27.2 17.8L27.5 18.5L27.7 19.3L27.8 20.1L27.9 20.9L27.8 21.8L27.7 22.6L27.5 23.4L27.2 24.2L26.8 25.0L26.3 25.7L25.8 26.4L25.1 27.1L24.4 27.7L23.7 28.2L22.8 28.6L22.0 29.0L21.0 29.2L20.1 29.4L19.1 29.4L18.1 29.4L17.1 29.2L16.2 29.0L15.2 28.6L14.3 28.2L13.4 27.6L12.6 27.0L11.8 26.2L11.1 25.4L10.5 24.5L10.0 23.6L9.6 22.5L9.3 21.5L9.1 20.3L9.0 19.2L9.0 18.1L9.2 16.9L9.5 15.8L9.9 14.7L10.4 13.6L11.0 12.6L11.8 11.6L12.6 10.7L13.5 9.9L14.6 9.2L15.7 8.6L16.8 8.1L18.1 7.8L19.3 7.5L20.6 7.4L21.9 7.5L23.2 7.6L24.5 7.9L25.8 8.4L27.0 8.9L28.2 9.6L29.3 10.5L30.3 11.4L31.2 12.5L32.0 13.6L32.7 14.8L33.3 16.1L33.7 17.5L34.0 18.9L34.1 20.4L34.1 21.8L34.0 23.3L33.6 24.8L33.2 26.2L32.5 27.6L31.8 28.9L30.9 30.1L29.8 31.3L28.7 32.3L27.4 33.2L26.1 34.0L24.6 34.7L23.1 35.2L21.5 35.5L19.9 35.7L18.3 35.7L16.7 35.5L15.1 35.2" fill="none" stroke="#4b2a7a" stroke-width="5" stroke-linecap="round"/><path d="M21.5 20.0L21.6 20.2L21.7 20.3L21.7 20.6L21.8 20.8L21.8 21.0L21.7 21.2L21.7 21.5L21.6 21.7L21.5 21.9L21.3 22.2L21.1 22.4L20.9 22.6L20.6 22.8L20.4 22.9L20.1 23.1L19.7 23.1L19.4 23.2L19.0 23.2L18.7 23.2L18.3 23.1L17.9 23.0L17.6 22.9L17.2 22.7L16.9 22.5L16.5 22.2L16.2 21.9L16.0 21.5L15.7 21.1L15.5 20.7L15.4 20.2L15.3 19.7L15.2 19.2L15.3 18.7L15.3 18.2L15.4 17.7L15.6 17.2L15.8 16.7L16.1 16.2L16.5 15.7L16.9 15.3L17.3 14.9L17.8 14.6L18.4 14.3L19.0 14.0L19.6 13.9L20.2 13.7L20.9 13.7L21.6 13.7L22.2 13.8L22.9 14.0L23.6 14.2L24.2 14.5L24.8 14.9L25.4 15.4L25.9 15.9L26.4 16.5L26.8 17.1L27.2 17.8L27.5 18.5L27.7 19.3L27.8 20.1L27.9 20.9L27.8 21.8L27.7 22.6L27.5 23.4L27.2 24.2L26.8 25.0L26.3 25.7L25.8 26.4L25.1 27.1L24.4 27.7L23.7 28.2L22.8 28.6L22.0 29.0L21.0 29.2L20.1 29.4L19.1 29.4L18.1 29.4L17.1 29.2L16.2 29.0L15.2 28.6L14.3 28.2L13.4 27.6L12.6 27.0L11.8 26.2L11.1 25.4L10.5 24.5L10.0 23.6L9.6 22.5L9.3 21.5L9.1 20.3L9.0 19.2L9.0 18.1L9.2 16.9L9.5 15.8L9.9 14.7L10.4 13.6L11.0 12.6L11.8 11.6L12.6 10.7L13.5 9.9L14.6 9.2L15.7 8.6L16.8 8.1L18.1 7.8L19.3 7.5L20.6 7.4L21.9 7.5L23.2 7.6L24.5 7.9L25.8 8.4L27.0 8.9L28.2 9.6L29.3 10.5L30.3 11.4L31.2 12.5L32.0 13.6L32.7 14.8L33.3 16.1L33.7 17.5L34.0 18.9L34.1 20.4L34.1 21.8L34.0 23.3L33.6 24.8L33.2 26.2L32.5 27.6L31.8 28.9L30.9 30.1L29.8 31.3L28.7 32.3L27.4 33.2L26.1 34.0L24.6 34.7L23.1 35.2L21.5 35.5L19.9 35.7L18.3 35.7L16.7 35.5L15.1 35.2" fill="none" stroke="url(#jkg)" stroke-width="3" stroke-linecap="round"/></svg>',
   K:`<svg class="art" viewBox="0 0 40 40"><path d="M21 1.5c.6 4.6 5.2 8 7.4 13 .9-1.1 1.3-2.6 1.2-4.2 2.6 3.4 3.9 7.6 3.9 11.6 0 9-5.9 16.1-13.5 16.1S6.5 30.9 6.5 22c0-4.4 1.9-8.2 4.6-11 .1 2.1.8 3.8 2 4.8.4-6 4.4-10.4 7.9-14.3z" fill="#d8341a" stroke="#6e1408" stroke-width="1.6" stroke-linejoin="round"/><path d="M20.5 11.5c.7 3.6 4.3 6.2 5.6 10 .7-.8 1-1.9 1-3.1 1.6 2.3 2.4 5 2.4 7.4 0 6-4.1 10.6-9.5 10.6s-9.5-4.4-9.5-10c0-2.9 1.2-5.4 3-7.2.2 1.5.7 2.6 1.6 3.3.6-4.6 3-7.6 5.4-11z" fill="#ff8a1a"/><path d="M20 21c.8 2.4 3.4 4.2 4 6.8.5 2.8-1.4 6-4 6s-4.6-2.8-4.2-5.6c.3-2.4 2.4-4.2 4.2-7.2z" fill="#ffd84a"/></svg>`
 };
 // Hush: a white wave rolls out of the played card across the opponent's side; each card it reaches gets a white halo
@@ -2981,8 +2981,8 @@ function paintDiff(){
   let text=fmtDiff(cur),shown=cur,prevw=false,title='',pm=null,po=null;   // pm/po: previewed side totals
   const playing=v.phase==='play'&&v.turn===v.you&&!isBusy(v)&&!v.startMe;
   const card=previewId&&playing?v.me.hand.find(c=>c.id===previewId):null;
-  if(card&&card.r==='JK'){   // the Joker burns up and plays five unknown cards
-    text=fmtDiff(cur)+' \u2192 ?';shown=cur;prevw=true;pm='?';po='?';title='The Joker burns up and plays five cards from the deck \u2014 the result is unknown';
+  if(card&&card.r==='JK'){   // the Surge burns up and plays five unknown cards
+    text=fmtDiff(cur)+' \u2192 ?';shown=cur;prevw=true;pm='?';po='?';title='The Surge burns up and plays five cards from the deck \u2014 the result is unknown';
   }else if(card){
     const t=projectTotals(v,card),nd=t.me-t.opp;
     text=fmtDiff(cur)+' \u2192 '+fmtDiff(nd);shown=nd;prevw=true;pm=t.me;po=t.opp;
@@ -3376,7 +3376,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   }else if(mustTarget){st='Removal: click a highlighted card on your opponent\'s side to remove it.';}
   else if(pend&&pend.t==='steal'){st='Steal: waiting for '+OPP.toLowerCase()+' to choose a card to give you…';}
   else if(pend){st='Waiting for your opponent\'s choice…';}
-  else if(v.jq>0){st='Joker: '+(v.joker&&v.joker.who===you?'your':OPP.toLowerCase()+'\'s')+' five cards are being played out, one by one…';}
+  else if(v.jq>0){st='Surge: '+(v.joker&&v.joker.who===you?'your':OPP.toLowerCase()+'\'s')+' five cards are being played out, one by one…';}
   else if(myTurn&&v.startMe){st='You play first: drag your drawn '+cardStr(v.startMe)+' from the tray onto its highlighted suit column on your field.';}
   else if(myTurn){st=mT>oT?'Your turn':'Your turn — drag a card from your hand onto its highlighted suit column on your side until your total is strictly greater than your opponent\'s.';}
   else st=OPP+'\'s turn…';
@@ -3781,7 +3781,7 @@ function showFx(){
   let h;
   if(view.crazy){
     const keys=(view.fxOn&&view.fxOn.length?view.fxOn:CRAZY_DEFAULT);
-    h=`<h3>🌀 Crazy mode — card effects</h3><p>Every card in the deck has its own random effect from this list, so two Aces can do different things. The effect is written on each card. When the deck runs out, all discarded cards are shuffled back in.</p><div class="fxlist">${keys.map(f=>`<b>${ABILITY[f]}</b><span>${clean(ABILITY_TEXT[f])}</span>`).join('')}</div><p>The deck also holds <b>2 holographic Jokers</b>. ${clean(ABILITY_TEXT.X)}</p>`;
+    h=`<h3>🌀 Crazy mode — card effects</h3><p>Every card in the deck has its own random effect from this list, so two Aces can do different things. The effect is written on each card. When the deck runs out, all discarded cards are shuffled back in.</p><div class="fxlist">${keys.map(f=>`<b>${ABILITY[f]}</b><span>${clean(ABILITY_TEXT[f])}</span>`).join('')}</div><p>The deck also holds <b>2 holographic Surges</b>. ${clean(ABILITY_TEXT.X)}</p>`;
   }else{
     const on=view.fxOn||FX_KEYS,NM={A:'Ace','2':'2','3':'3','4':'4','5':'5',J:'Jack',Q:'Queen',K:'King'};
     h=`<h3>Card effects in this game</h3><p>Some effects were switched off on the title screen. Those cards are plain.</p><div class="fxlist">${FX_KEYS.map(f=>`<b>${NM[f]}</b><span>${on.includes(f)?'<b>'+ABILITY[f]+'</b> — '+clean(ABILITY_TEXT[f]):'<i>no effect</i>'}</span>`).join('')}</div>`;
@@ -3797,20 +3797,20 @@ function showRules(){
   const on=(view&&view.fxOn)||fxCfg[cz?'crazy':'normal'];
   const fxList=cz
     ?on.map(k=>'<li><b>'+ABILITY[k]+':</b> '+ABILITY_TEXT[k].replace(/^[^:]*:\s*/,'')+'</li>').join('')
-      +'<li><b>Joker:</b> '+ABILITY_TEXT.X.replace(/^[^:]*:\s*/,'')+' If it draws the other Joker, that Joker is shuffled back into the deck and doesn\'t count toward the 5. A Joker that has been played leaves the game: it is never shuffled back into the deck.</li>'
+      +'<li><b>Surge:</b> '+ABILITY_TEXT.X.replace(/^[^:]*:\s*/,'')+' If it draws the other Surge, that Surge is shuffled back into the deck and doesn\'t count toward the 5. A Surge that has been played leaves the game: it is never shuffled back into the deck.</li>'
     :FX_KEYS.filter(k=>on.includes(k)).map(k=>'<li><b>'+RANK[k]+' — '+ABILITY[k]+':</b> '+ABILITY_TEXT[k].replace(/^[^:]*:\s*/,'')+'</li>').join('');
   const off=cz?'':FX_KEYS.filter(k=>!on.includes(k)).map(k=>RANK[k]).join(', ');
   $('modalRoot').innerHTML=`<div class="modal" id="rulesModal"><div class="box rules"><h3>Eggbog — ${cz?'🌀 Crazy mode rules':'Rules'}</h3>
-  <h4>Goal</h4><p>2 players, a standard 52-card deck${cz?' plus 2 Jokers':''}. You win the game when your opponent runs out of cards and cannot beat your total. That can happen in any round. A round also ends when someone concedes: their opponent wins that round, and the game goes on to the next one. Each player can concede once per game, so there are at most 3 rounds, and round 3 (the death match) is always played until someone runs out.</p>
+  <h4>Goal</h4><p>2 players, a standard 52-card deck${cz?' plus 2 Surges':''}. You win the game when your opponent runs out of cards and cannot beat your total. That can happen in any round. A round also ends when someone concedes: their opponent wins that round, and the game goes on to the next one. Each player can concede once per game, so there are at most 3 rounds, and round 3 (the death match) is always played until someone runs out.</p>
   <h4>Card values</h4><p>Ace = 1, 2–10 = face value, Jack/Queen/King = ${cz?'10':'1'}. Suits low to high: ♣ ♠ ♥ ♦.</p>
   ${cz?`<h4>Setup</h4><p>Each player opens a starter pack of 7 cards. You either keep it or open a different pack of 7 new cards from the deck (your first pack is discarded and counts as mulliganed in the stats). There is no other mulligan.</p>`
       :`<h4>Setup</h4><p>Each player is dealt 10 cards and may mulligan up to 5 of them.</p>`}
-  <h4>Starting a round</h4><p>Each player is dealt one card from the deck, face down, and both flip at once. Both cards go into their owners' hands, and the player whose card is lowest goes first (equal values: lower suit goes first). To make up for moving first, that player also gets the 🥚 Egg: a plain card with no effect, worth ${cz?'1 point':'5 points'}. Like a Joker it has no suit, so it can be played on any of your columns. It is never shuffled back into the deck. In later rounds, the loser of the previous round chooses who starts.</p>
+  <h4>Starting a round</h4><p>Each player is dealt one card from the deck, face down, and both flip at once. Both cards go into their owners' hands, and the player whose card is lowest goes first (equal values: lower suit goes first). To make up for moving first, that player also gets the 🥚 Egg: a plain card with no effect, worth ${cz?'1 point':'5 points'}. Like a Surge it has no suit, so it can be played on any of your columns. It is never shuffled back into the deck. In later rounds, the loser of the previous round chooses who starts.</p>
   <h4>Turns</h4><p>Play a card by dragging it from your hand onto its own suit column on your side of the field (the column lights up). Drag cards within your hand to arrange them however you like. Once your total is strictly greater than your opponent's, your turn ends. You cannot play while your total is already strictly greater. You may concede on any turn with the 🏳️ Concede button above your hand, only once per game (so you can never concede the whole match away), and never in round 3: the death match, which has to be played out.</p>
   <h4>The field</h4><p>Each player has a side, organized in suit columns (♣ ♠ ♥ ♦) that face the matching column on the opponent's side.</p>
   ${cz?`<h4>Card effects</h4><p>Every single card gets one of the effects below at random, so two Aces (or two 7s) can do different things. The effect is written on each card, and the 🌀 button shows the effects in this game. Effects trigger when the card is played.</p><ul>${fxList}</ul>`
       :`<h4>Special cards (trigger when played)</h4><ul>${fxList}</ul>${off?`<p>Switched off in this game: ${off}. They play with no effect.</p>`:''}`}
-  <h4>Hand limit</h4><p>You can hold at most 10 cards. A card drawn into a full hand (from the deck${cz?', a booster pack, Scry or a Joker':' or Scry'}) is shown to you and then burned. The card you draw at the start of round 1 and the 🥚 Egg are the only exceptions.</p>
+  <h4>Hand limit</h4><p>You can hold at most 10 cards. A card drawn into a full hand (from the deck${cz?', a booster pack, Scry or a Surge':' or Scry'}) is shown to you and then burned. The card you draw at the start of round 1 and the 🥚 Egg are the only exceptions.</p>
   ${cz?`<h4>Deck reshuffle</h4><p>When the deck is drawn out, every discarded card (removed, burned, mulliganed, or played in an earlier round) is shuffled back in.</p>`:''}
   <h4>Running out</h4><p>If you run out of cards (including drawn ones) and cannot exceed your opponent's total, the game ends and your opponent wins.</p>
   <p style="text-align:right"><button id="closeRules">Close</button></p></div></div>`;
