@@ -620,6 +620,25 @@ t('Morph: hits a Sturdy card, not an Egg on top; a Morphed card turns back at th
   const all=s2.deck.concat(s2.discard,s2.p[0].hand,s2.p[1].hand,s2.p[0].field,s2.p[1].field);
   const ten=all.find(c=>c.id==='10D');assert.ok(ten);assert.equal(ten.r,'10','back to a 10 after the round');
 });
+t('Hush: the opponent\'s cards lose their effects until the caster\'s next turn',()=>{
+  const {F}=mod.exports;
+  // player 0 gets ahead with Hush, so the turn passes: the silenced Greed does not draw
+  const s=setup([X('3','H','U'),X('2','C','')],[X('5','S',''),X('10','C','')],[X('10','D',''),X('8','D','')],[X('9','H','4'),X('4','C','G'),X('2','S','2')]);s.crazy=true;
+  assert.equal(act(s,0,{t:'play',id:'3H'}),null);
+  assert.ok(s.p[1].field.every(c=>F(c)===''),'all silenced');assert.equal(s.hush.ids.length,3);
+  assert.equal(s.turn,1);assert.ok(!s.drawQ.some(e=>e.reason==='greedturn'),'silenced Greed does not draw');
+  assert.equal(act(s,1,{t:'play',id:'5S'}),null);assert.equal(s.turn,1);assert.ok(s.p[1].field.some(c=>c.hu),'still silenced during their turn');
+  assert.ok(F(s.p[1].field.find(c=>c.id==='5S'))!==undefined&&!s.p[1].field.find(c=>c.id==='5S').hu,'a card played after Hush is not silenced');
+  assert.equal(act(s,1,{t:'play',id:'10C'}),null);assert.equal(s.turn,0);
+  assert.ok(!s.p[1].field.some(c=>c.hu),'Hush wears off when the caster\'s turn comes back');assert.equal(F(s.p[1].field.find(c=>c.id==='9H')),'4');
+});
+t('Hush: a silenced Sturdy card can be removed, and a silenced Deathrattle does not draw',()=>{
+  const s=setup([X('3','H','U'),X('Q','H','Q'),X('K','C','K'),X('2','C','')],[X('5','S','')],[],[X('9','H','4'),X('2','S','2'),X('10','D','')]);s.crazy=true;
+  act(s,0,{t:'play',id:'3H'});assert.equal(s.turn,0);
+  act(s,0,{t:'play',id:'QH'});assert.ok(!s.p[1].field.some(c=>c.id==='9H'),'Bolt removed the silenced Sturdy card');
+  const d=s.discard.find(c=>c.id==='9H');assert.ok(d&&!d.hu,'not silenced in the discard pile');
+  act(s,0,{t:'play',id:'KC'});assert.equal(s.p[1].field.length,0);assert.ok(!s.drawQ.some(e=>e.reason==='deathrattle'),'no Deathrattle draw');
+});
 t('no conceding in round 3, and the computer never tries',()=>{
   const s=setup([C('2','C'),C('3','C')],[C('9','S'),C('8','S')],[],[C('8','H')]);
   s.round=3;s.p[0].wins=1;s.p[1].wins=1;

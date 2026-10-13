@@ -214,6 +214,12 @@ header h2{margin:0;font-size:1.3rem}
 #hand .card.mul,#stlHand .card.mul{transform:translateY(-10px);outline:3px solid #ff6b6b}
 .card.ghost{position:fixed;z-index:60;pointer-events:none;margin:0;transform:rotate(5deg) scale(1.08);box-shadow:0 8px 20px #0009}
 .card.mo-hold{visibility:hidden}
+.card.hushed{box-shadow:0 0 0 2px #fff,0 0 10px 3px #ffffffcc,0 0 22px 6px #dfe9ff88!important;animation:hushHalo 2.4s ease-in-out infinite}
+@keyframes hushHalo{50%{box-shadow:0 0 0 2px #fff,0 0 16px 5px #ffffffee,0 0 32px 10px #dfe9ffaa}}
+.card.hushed.hush-in{animation:hushIn .5s ease-out,hushHalo 2.4s ease-in-out .5s infinite}
+@keyframes hushIn{from{box-shadow:0 0 0 14px #fff0,0 0 0 0 #fff0}40%{box-shadow:0 0 0 3px #fff,0 0 24px 10px #fff}}
+.hush-wave{position:fixed;pointer-events:none;z-index:45;border-radius:50%;border:10px solid #fff;box-shadow:0 0 30px 12px #ffffffaa,inset 0 0 30px 12px #ffffff88;filter:blur(1.5px)}
+@media (prefers-reduced-motion:reduce){.card.hushed{animation:none}}
 .morph-puff{position:fixed;border-radius:50%;pointer-events:none;z-index:41;background:radial-gradient(circle,#e6d4ffee,#b48cffaa 45%,#7a52d600 72%)}
 .mimic-mask{position:fixed;width:58px;height:58px;pointer-events:none;z-index:62;filter:drop-shadow(0 3px 6px #0008) drop-shadow(0 0 8px #c58bff88)}
 .mimic-mask .mm{transform-box:fill-box;transform-origin:50% 0;animation:mimicLaugh .17s ease-in-out infinite alternate}
@@ -648,7 +654,7 @@ const SUITS=['C','S','H','D'];
 const SUIT_RANK={C:0,S:1,H:2,D:3,'*':4};
 const SYM={C:'♣',S:'♠',H:'♥',D:'♦','*':''};
 const DISCOVER_N=3; // cards the opponent draws for a Scry; they keep one for you, the rest are discarded
-const ABILITY={A:'Draw','2':'Deathrattle','3':'Scry','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Wipe',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',O:'Morph',X:'Joker'};
+const ABILITY={A:'Draw','2':'Deathrattle','3':'Scry','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Wipe',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',O:'Morph',U:'Hush',X:'Joker'};
 const ABILITY_TEXT={
   A:'Draw: draw one card from the deck into your hand.',
   '2':'Deathrattle: if this card is removed from the field, its owner draws one card.',
@@ -663,9 +669,10 @@ const ABILITY_TEXT={
   L:'Rune (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards.',
   G:'Greed (Crazy mode): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
   O:'Morph (Crazy mode): the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It hits Sturdy cards too (they lose Sturdy). It turns back when it leaves the table. An Egg on top is not affected.',
+  U:'Hush (Crazy mode): every card on your opponent\'s side is silenced until your next turn: it keeps its value but loses its effect (a Sturdy card can be removed, Deathrattle, Greed and Rune do nothing). Cards they play after it are not silenced.',
   X:'Joker (Crazy mode): can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Joker also makes any choice those cards need (which card Scry keeps, which card Steal takes), at random.'
 };
-function F(c){return c.f===undefined?(DEF_F[c.r]||''):c.f;}
+function F(c){if(c.hu)return '';return c.f===undefined?(DEF_F[c.r]||''):c.f;}   // a card silenced by Hush has no effect
 function cardVal(c){if(c.v!==undefined)return c.v;return (c.r==='A'||c.r==='JK'||c.r==='J'||c.r==='Q'||c.r==='K')?1:parseInt(c.r,10);}
 function rk(c){return c.r==='JK'?13:RANKS.indexOf(c.r);}
 function cardStr(c){return c.r==='JK'?'Joker'+(SYM[c.s]||''):c.r==='EG'?'Egg'+(SYM[c.s]||''):c.r+SYM[c.s];}
@@ -675,7 +682,7 @@ const EGG_VAL={crazy:1,normal:5};
 const DEF_F={A:'A','2':'2','3':'3','4':'4','5':'5',J:'J',Q:'Q',K:'K'};
 const FX_KEYS=['A','2','3','4','5','J','Q','K'];
 const CRAZY_HAND=7;
-const CRAZY_KEYS=FX_KEYS.concat(['M','T','L','G','O']);   // the extra effects only exist in Crazy mode
+const CRAZY_KEYS=FX_KEYS.concat(['M','T','L','G','O','U']);   // the extra effects only exist in Crazy mode
 const CRAZY_DEFAULT=CRAZY_KEYS.filter(k=>k!=='A'&&k!=='5');   // Crazy mode starts without Draw and Swap (they can still be switched on in the effects menu)
 // crazy mode: every single card gets its own random effect (each card picks independently, so counts vary from game to game)
 function mkDeck(crazy,rng,enabled){
@@ -737,7 +744,7 @@ function gameOver(s,winner,reason){
 function removeCard(s,owner,c){
   const f=s.p[owner].field;const k=f.findIndex(x=>x.id===c.id);if(k<0)return;
   const fx=F(c);
-  f.splice(k,1);unmorph(c);unmirror(c);s.discard.push(c);log(s,owner,'lost '+cardStr(c));
+  f.splice(k,1);delete c.hu;unmorph(c);unmirror(c);s.discard.push(c);log(s,owner,'lost '+cardStr(c));
   if(s.stats){s.stats.lostN[owner]++;s.stats.lostV[owner]+=cardVal(c);}
   if(fx==='2')queueDraw(s,owner,'deathrattle');
 }
@@ -792,6 +799,11 @@ function resolve(s,i,c){
       if(tg){const was=cardStr(tg);tg.mo={r:tg.r,f:tg.f,v:tg.v};tg.r='EG';tg.f='';tg.v=EGG_VAL.crazy;
         s.morph={n:((s.morph&&s.morph.n)||0)+1,id:tg.id,by:i};log(s,i,'Morph: '+was+' turned into an Egg');}
       else log(s,i,'Morph: nothing to turn into an Egg');
+      break;}
+    case 'U':{ // Hush: every card on the opponent's side loses its effect until this player's next turn
+      const ids=s.p[opp].field.map(x=>x.id);s.p[opp].field.forEach(x=>{x.hu=i+1;});   // hu = 1 + the player whose next turn ends it
+      s.hush={n:((s.hush&&s.hush.n)||0)+1,by:i,src:c.id,ids};
+      log(s,i,ids.length?'Hush: '+ids.length+' card'+(ids.length>1?'s are':' is')+' silenced until their next turn':'Hush: nothing to silence');
       break;}
     case 'G': // Greed does nothing when played: while it is on your field you draw a card each time the turn passes to you (see settle)
       break;
@@ -853,6 +865,7 @@ function settle(s){
     const me=s.turn,op=1-me;
     if(total(s,me)>total(s,op)){
       s.turn=op;
+      for(const w of [0,1])s.p[w].field.forEach(c=>{if(c.hu===op+1)delete c.hu;});   // Hush wears off when its caster's turn comes round again
       const gr=s.p[op].field.filter(c=>F(c)==='G').length; // Greed on the field: draw when the turn switches to you
       if(gr){s.greedFx={n:((s.greedFx&&s.greedFx.n)||0)+1,who:op,ids:s.p[op].field.filter(c=>F(c)==='G').map(c=>c.id)};log(s,op,'Greed: draws '+gr+' card'+(gr>1?'s':'')+' as the turn passes');for(let g=0;g<gr;g++)queueDraw(s,op,'greedturn');if(s.drawQ.length)return;}
       continue;}
@@ -909,7 +922,7 @@ function endRound(s,loser){
   const w=1-loser;s.p[w].wins++;
   if(s.stats)s.stats.rounds.push({n:s.round,w,t:[total(s,0),total(s,1)],by:'concede'});
   log(s,loser,'conceded the round');s.flag={n:((s.flag&&s.flag.n)||0)+1,who:loser};s.lastFx=null;
-  for(const i of [0,1]){s.p[i].field.forEach(c=>{unmorph(c);unmirror(c);});s.discard.push(...s.p[i].field);s.p[i].field=[];}
+  for(const i of [0,1]){s.p[i].field.forEach(c=>{delete c.hu;unmorph(c);unmirror(c);});s.discard.push(...s.p[i].field);s.p[i].field=[];}
   if(s.p[w].wins>=2){gameOver(s,w,'rounds');return;}
   s.round++;
   s.phase='choose';s.chooser=loser;s.turn=null;
@@ -1068,7 +1081,7 @@ function viewFor(s,i){
       if(i===pd.chooser)pending.opts=pd.opts; // only the chooser sees the cards
     }
   }
-  return {you:i,logN:s.logN||0,flag:s.flag||null,pack:s.pack?{n:s.pack.n,who:s.pack.who,cards:s.pack.who===i?s.pack.cards:s.pack.cards.map(()=>null)}:null,oppReasons:s.drawQ.filter(e=>e.who!==i).map(e=>e.reason),burn:s.burn?{n:s.burn.n,who:s.burn.who,full:!!s.burn.full,cards:s.burn.who===i?s.burn.cards:s.burn.cards.map(()=>null)}:null,fxOn:s.fx||null,crazy:!!s.crazy,fm:s.fm||null,mirror:s.mirror||null,morph:s.morph||null,lastFx:s.lastFx||null,stolen:s.stolen||null,discover:s.discFx?{n:s.discFx.n,by:s.discFx.by,kept:s.discFx.by===i?s.discFx.kept:null,gift:s.discFx.gift,burnt:s.discFx.by===i?s.discFx.burnt:s.discFx.burnt.map(()=>null)}:null,greed:s.greedFx||null,joker:s.joker||null,jq:(s.jokerQ||[]).length,reshuffles:s.reshuffles||0,shuffled:s.lastShuffle||0,phase:s.phase,round:s.round,turn:s.turn,chooser:s.chooser,deck:s.deck.length,discard:s.discard.length,
+  return {you:i,logN:s.logN||0,flag:s.flag||null,pack:s.pack?{n:s.pack.n,who:s.pack.who,cards:s.pack.who===i?s.pack.cards:s.pack.cards.map(()=>null)}:null,oppReasons:s.drawQ.filter(e=>e.who!==i).map(e=>e.reason),burn:s.burn?{n:s.burn.n,who:s.burn.who,full:!!s.burn.full,cards:s.burn.who===i?s.burn.cards:s.burn.cards.map(()=>null)}:null,fxOn:s.fx||null,crazy:!!s.crazy,fm:s.fm||null,mirror:s.mirror||null,morph:s.morph||null,hush:s.hush||null,lastFx:s.lastFx||null,stolen:s.stolen||null,discover:s.discFx?{n:s.discFx.n,by:s.discFx.by,kept:s.discFx.by===i?s.discFx.kept:null,gift:s.discFx.gift,burnt:s.discFx.by===i?s.discFx.burnt:s.discFx.burnt.map(()=>null)}:null,greed:s.greedFx||null,joker:s.joker||null,jq:(s.jokerQ||[]).length,reshuffles:s.reshuffles||0,shuffled:s.lastShuffle||0,phase:s.phase,round:s.round,turn:s.turn,chooser:s.chooser,deck:s.deck.length,discard:s.discard.length,
     me:{hand:me.hand,field:me.field,wins:me.wins,mull:me.mull,pack:me.pack,conceded:!!me.conceded,newCards:(s.stats&&s.stats.mullIn&&s.stats.mullIn[i])||[],oldCards:(s.stats&&s.stats.mull&&s.stats.mull[i])||[]},
     opp:{hand:op.hand.length,field:op.field,wins:op.wins,mull:op.mull,pack:op.pack},
     draws:s.drawQ.filter(e=>e.who===i).map(e=>e.reason),drawsOpp:s.drawQ.filter(e=>e.who!==i).length,
@@ -1078,7 +1091,7 @@ function viewFor(s,i){
 // A deliberately sloppy computer player: random mulligans, random cards, random choices,
 // and it sometimes gives up a round when far behind. It never plans ahead.
 // ---- Computer player: 'easy' plays at random, 'normal' plays sensibly, 'hard' plans its cards and rounds ----
-const CPU_HV={A:2.5,'2':1.2,'3':2.5,'4':2,'5':2.5,J:4,Q:5,K:6,M:2.5,T:3,L:.5,G:.5,O:3,X:4};   // extra reluctance to spend a special card
+const CPU_HV={A:2.5,'2':1.2,'3':2.5,'4':2,'5':2.5,J:4,Q:5,K:6,M:2.5,T:3,L:.5,G:.5,O:3,U:2.5,X:4};   // extra reluctance to spend a special card
 function cardKeep(c){return cardVal(c)+CPU_CFG.hvScale*(CPU_HV[F(c)]||0);}
 let CPU_ROLL=false;   // true while the expert imagines whole games: cheaper Joker estimates
 const CPU_CFG={marginW:.2,mullMax:7,start:'opp',stratK:1,hvScale:1,greedHunt:0,concedeMode:0,stratFrac:0};   // stratFrac 0 = automatic: Hard concedes a bit more readily in Crazy mode   // greedHunt: bonus for taking an opponent's Greed off the field
@@ -1250,8 +1263,9 @@ try{const j=JSON.parse(localStorage.getItem(FXKEY)||'null');
     if(!j.v2){fxCfg.crazy=fxCfg.crazy.filter(k=>k!=='A');saveFx();}   // one-time: Draw leaves the Crazy defaults
     if(!j.v3){if(!fxCfg.crazy.includes('O'))fxCfg.crazy.push('O');saveFx();}   // one-time: Morph joins the Crazy effects
     if(!j.v4){fxCfg.crazy=fxCfg.crazy.filter(k=>k!=='5');saveFx();}   // one-time: Swap leaves the Crazy defaults
+    if(!j.v5){if(!fxCfg.crazy.includes('U'))fxCfg.crazy.push('U');saveFx();}   // one-time: Hush joins the Crazy effects
     if(!fxCfg.crazy.length)fxCfg.crazy=CRAZY_DEFAULT.slice();}}catch(e){}
-function saveFx(){try{localStorage.setItem(FXKEY,JSON.stringify(Object.assign({v2:1,v3:1,v4:1},fxCfg)));}catch(e){}}
+function saveFx(){try{localStorage.setItem(FXKEY,JSON.stringify(Object.assign({v2:1,v3:1,v4:1,v5:1},fxCfg)));}catch(e){}}
 let crazyOn=false;
 try{crazyOn=localStorage.getItem('eggbog-crazy')==='1';}catch(e){}
 function gameOpts(){return {paced:true,crazy:crazyOn,fx:(crazyOn?fxCfg.crazy:fxCfg.normal).slice()};}
@@ -1446,7 +1460,7 @@ function swapMark(oppField,suit,on){
 let ghostTimer=null;
 function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do, from what is on the table
   const OPP=mode==='cpu'?'Computer':'Opponent',lines=[];
-  const removable=x=>x.f!=='4';
+  const removable=x=>x.f!=='4'||x.hu;
   const gone=[],dr=[0,0];      // cards that would leave the table; Deathrattle draws for [me, opponent]
   let swap=null;
   if(c.r==='JK'){lines.push('🃏 Burns up: 5 random cards, the 3 highest for you, the 2 lowest for '+OPP);return {gone,swap,lines,joker:true};}
@@ -1459,6 +1473,7 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
   else if(cf==='K'){v.opp.field.filter(removable).forEach(x=>gone.push({c:x,mine:false}));v.me.field.filter(removable).forEach(x=>gone.push({c:x,mine:true}));}
   else if(cf==='A')lines.push('➕ You draw a card');
   else if(cf==='3')lines.push('🔮 Scry: keep 1 of 3 cards');
+  else if(cf==='U'){const n=v.opp.field.length;lines.push(n?'🤫 Hush: silences '+n+' of '+OPP+'\'s card'+(n>1?'s':'')+' until your next turn':'🤫 Hush: nothing to silence');}
   else if(cf==='O'){const tg=morphTarget(v.opp.field,c.s);lines.push(tg?'🥚 Morph: their '+cardStr(tg)+' becomes an Egg (1 point)':'🥚 Morph: nothing to turn into an Egg');}
   else if(cf==='T')lines.push('🫳 Steal: '+OPP+' gives you a card, you burn one');
   else if(cf==='G')lines.push('💰 Greed: you draw each time your turn starts');
@@ -2706,6 +2721,7 @@ const ART={
   T:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#6b3fa0" stroke="#2c1646" stroke-width="2"/><rect x="9" y="11" width="13" height="18" rx="2" fill="#fff" stroke="#2c1646" stroke-width="1.5" transform="rotate(-12 15 20)"/><path d="M19 21 H33 M28 15 L34 21 L28 27" fill="none" stroke="#ffd84a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   L:'<svg class="art" viewBox="0 0 40 40"><defs><filter id="rnGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.2"/></filter></defs><g stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M20 24L11.5 15.5L20 7L28.5 15.5Z M20 24L12 34M20 24L28 34" stroke="#5fd6ff" stroke-width="5" opacity=".45" filter="url(#rnGlow)"/><path d="M20 24L11.5 15.5L20 7L28.5 15.5Z M20 24L12 34M20 24L28 34" stroke="#123a5a" stroke-width="2.6"/></g></svg>',
   O:'<svg class="art" viewBox="0 0 40 40"><path d="M5 36 L17 22" stroke="#4a2f17" stroke-width="3.4" stroke-linecap="round"/><path d="M15.5 23.8 L17 22" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><path d="M17 20 Q16 10 25 8" stroke="#b48cff" stroke-width="1.6" fill="none" stroke-dasharray="2 2.2" stroke-linecap="round"/><path d="M29 6.5C24.8 6.5 22 12.8 22 16.8a7 7 0 0 0 14 0C36 12.8 33.2 6.5 29 6.5z" fill="#fff7e3" stroke="#a8823a" stroke-width="1.8"/><path d="M25.5 12.5c.7-2 1.9-3.3 3-3.7" stroke="#fff" stroke-width="1.4" fill="none" stroke-linecap="round"/><path d="M13 13l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" fill="#c58bff"/><path d="M33 27l.7 1.6 1.6.7-1.6.7-.7 1.6-.7-1.6-1.6-.7 1.6-.7z" fill="#c58bff"/></svg>',
+  U:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#eef1ff" stroke="#8d97c9" stroke-width="1.6"/><path d="M9.5 24 Q14 19.5 20 21.5 Q26 19.5 30.5 24 Q26 30 20 30 Q14 30 9.5 24Z" fill="#d8455a" stroke="#7a1f2e" stroke-width="1.4" stroke-linejoin="round"/><path d="M10.5 24 Q20 25.8 29.5 24" stroke="#7a1f2e" stroke-width="1.2" fill="none"/><rect x="17" y="9" width="6" height="24" rx="3" fill="#f6d2b4" stroke="#9a6a48" stroke-width="1.4"/><path d="M18.4 11.5 h3.2" stroke="#fff" stroke-width="1" stroke-linecap="round" opacity=".8"/><path d="M29 8c1.5 1.2 1.5 3.3 0 4.5M32 6c2.6 2.2 2.6 6.3 0 8.5" stroke="#8d97c9" stroke-width="1.4" fill="none" stroke-linecap="round" opacity=".7"/><path d="M27 6l7 9" stroke="#8d97c9" stroke-width="1.6" stroke-linecap="round"/></svg>',
   G:'<svg class="art" viewBox="0 0 40 40"><g transform="translate(-3,-1)"><path d="M14 13 Q6 20 7 29 Q8 37 20 37 Q32 37 33 29 Q34 20 26 13 Z" fill="#b8874a" stroke="#5a3a17" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 13 Q13 6 17 7 Q20 9 20 9 Q20 9 23 7 Q27 6 25 13" fill="#c9985a" stroke="#5a3a17" stroke-width="1.6" stroke-linejoin="round"/><path d="M14 13 Q20 15.5 26 13" stroke="#5a3a17" stroke-width="2.2" fill="none"/></g><ellipse cx="31" cy="34" rx="5" ry="2.4" fill="#f2c14e" stroke="#8a6410" stroke-width="1.2"/><ellipse cx="34" cy="30.5" rx="4.5" ry="2.2" fill="#ffd84a" stroke="#8a6410" stroke-width="1.2"/><ellipse cx="29" cy="28" rx="4" ry="2" fill="#f2c14e" stroke="#8a6410" stroke-width="1.2"/></svg>',
   A:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#2e9e5b" stroke="#145c32" stroke-width="2"/><text x="20" y="27" text-anchor="middle" font-family="system-ui,Arial,sans-serif" font-weight="900" font-size="20" fill="#fff">+1</text></svg>',
   '3':'<svg class="art" viewBox="0 0 40 40"><path d="M9 36 Q10 30 14 29 H26 Q30 30 31 36 Z" fill="#d9a441" stroke="#6b4a12" stroke-width="1.6" stroke-linejoin="round"/><circle cx="20" cy="17" r="13" fill="#7a52d6" stroke="#3a2370" stroke-width="1.8"/><circle cx="17.5" cy="14.5" r="9" fill="#a682f5"/><circle cx="16" cy="13" r="4.5" fill="#d9c6ff"/><path d="M12.5 13 a8.5 8.5 0 0 1 6 -5.5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" opacity=".85"/><path d="M23 18l1 2.3 2.3 1-2.3 1-1 2.3-1-2.3-2.3-1 2.3-1z" fill="#fff" opacity=".9"/><circle cx="16" cy="22" r="1" fill="#fff" opacity=".7"/></svg>',
@@ -2715,6 +2731,30 @@ const ART={
   X:'<svg class="art" viewBox="0 0 40 40"><defs><linearGradient id="jkg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6bd6"/><stop offset=".35" stop-color="#6bd6ff"/><stop offset=".7" stop-color="#8dff8d"/><stop offset="1" stop-color="#ffe86b"/></linearGradient></defs><path d="M20 2 L24.5 14 L37.5 14.5 L27.3 22.5 L30.8 35.5 L20 28 L9.2 35.5 L12.7 22.5 L2.5 14.5 L15.5 14 Z" fill="url(#jkg)" stroke="#4b2a7a" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 8 L22 15 M20 8 L18 15" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/></svg>',
   K:`<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18.5" fill="#ffe21f" stroke="#111" stroke-width="2"/>${TREFOIL}</svg>`
 };
+// Hush: a white wave rolls out of the played card across the opponent's side; each card it reaches gets a white halo
+const hushHold=new Set();
+function hushFx(prev,v){
+  if(!prev||!v.hush||prev.you!==v.you||v.hush.n<=((prev.hush&&prev.hush.n)||0))return;
+  const h=v.hush,ids=h.ids.slice();if(reduced()||!ids.length)return;
+  const mine=h.by===v.you,side=$(mine?'oppSide':'mySide'),fld=mine?'#oppField':'#myField';
+  const q=id=>document.querySelector(fld+' .card[data-id="'+id+'"]');
+  ids.forEach(id=>{hushHold.add(id);const e=q(id);if(e)e.classList.remove('hushed');});
+  const D=480;   // let the Hush card land first
+  setTimeout(()=>{
+    const src=document.querySelector('#myField .card[data-id="'+h.src+'"],#oppField .card[data-id="'+h.src+'"]'),sr=(src||side).getBoundingClientRect(),zr=side.getBoundingClientRect();
+    const cx=sr.left+sr.width/2,cy=sr.top+sr.height/2;
+    const R=Math.max(...[[zr.left,zr.top],[zr.right,zr.top],[zr.left,zr.bottom],[zr.right,zr.bottom]].map(([x,y])=>Math.hypot(x-cx,y-cy)))+40;
+    const clip=document.createElement('div');clip.style.cssText=`position:fixed;left:${zr.left}px;top:${zr.top}px;width:${zr.width}px;height:${zr.height}px;overflow:hidden;pointer-events:none;z-index:45;border-radius:12px`;
+    const w=document.createElement('div');w.className='hush-wave';w.style.cssText=`position:absolute;left:${cx-zr.left-R}px;top:${cy-zr.top-R}px;width:${2*R}px;height:${2*R}px`;
+    clip.appendChild(w);document.body.appendChild(clip);
+    const T=1100;
+    w.animate([{transform:'scale(.04)',opacity:1},{opacity:.9,offset:.7},{transform:'scale(1)',opacity:0}],{duration:T,easing:'cubic-bezier(.25,.6,.4,1)'}).onfinish=()=>clip.remove();
+    // each card lights up as the wave reaches it
+    ids.forEach(id=>{const e=q(id);let d=T*.5;if(e){const r=e.getBoundingClientRect();d=T*Math.min(1,Math.hypot(r.left+r.width/2-cx,r.top+r.height/2-cy)/R)*.9;}
+      setTimeout(()=>{hushHold.delete(id);const el=q(id);if(el&&view&&[...view.me.field,...view.opp.field].some(c=>c.id===id&&c.hu)){el.classList.add('hushed','hush-in');setTimeout(()=>el.classList.remove('hush-in'),600);}},d);});
+  },D);
+  setTimeout(()=>ids.forEach(id=>hushHold.delete(id)),D+2500);   // safety net
+}
 // Morph: the target card spins down into a puff of purple smoke and an Egg pops out in its place
 const morphHold=new Set();
 function morphFx(prev,v,oldCards){
@@ -2798,7 +2838,7 @@ function cardEl(c,cls){
   const egg=c.r==='EG';
   const tip=ABILITY[f]?ABILITY_TEXT[f]:egg&&c.id!=='EGG'?'Morphed into an Egg: worth '+cardVal(c)+' point. It turns back into its card when it leaves the table.':egg?'The Egg: a plain card worth '+cardVal(c)+(cardVal(c)>1?' points':' point')+', given to whoever goes first in round 1.':'';
   const art=egg?EGG_ART:(ART[f]||'');
-  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K','J','Q','L'].includes(f)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''}${morphHold.has(c.id)?' mo-hold':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
+  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K','J','Q','L'].includes(f)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''}${morphHold.has(c.id)?' mo-hold':''}${c.hu&&!hushHold.has(c.id)?' hushed':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
     `<div class="cr">${jk?'★':egg?cardVal(c):c.r}<span>${SYM[c.s]}</span></div><div class="cs">${SYM[c.s]}</div>${art}`+
     (ABILITY[f]?`<div class="ab">${ABILITY[f]}</div>`:egg?`<div class="ab">Egg</div>`:'')+`</div>`;
 }
@@ -2822,7 +2862,7 @@ function fieldHTML(cards,top,targets){
 }
 const SORT_ARROWS='<svg viewBox="0 0 22 22" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18V4M3 8l4-4 4 4"/><path d="M15 4v14M11 14l4 4 4-4"/></svg>';
 function sortBySuit(h){return h.slice().sort((a,b)=>SUIT_RANK[a.s]-SUIT_RANK[b.s]||cardVal(a)-cardVal(b)||rk(a)-rk(b));}
-const EFX_ORDER=['A','3','G','T','M','X','2','4','L','5','O','J','Q','K'];   // draw / card-gain effects first, removal last, plain cards at the end
+const EFX_ORDER=['A','3','G','T','M','X','2','4','L','5','U','O','J','Q','K'];   // draw / card-gain effects first, removal last, plain cards at the end
 function sortByEffect(h){
   const e=c=>{const f=view?efx(c,view):c.f;const i=EFX_ORDER.indexOf(f);return i<0?99:i;};
   return h.slice().sort((a,b)=>e(a)-e(b)||cardVal(a)-cardVal(b)||SUIT_RANK[a.s]-SUIT_RANK[b.s]);
@@ -2842,7 +2882,7 @@ function projectTotals(v,c){
   const cf=efx(c,v);
   const me=v.me.field.slice(),op=v.opp.field.slice();
   const T=f=>f.reduce((n,x)=>n+cardVal(x),0);
-  const removable=x=>x.f!=='4';
+  const removable=x=>x.f!=='4'||x.hu;
   let m=me.concat([c]),o=op;
   if(cf==='5'){
     m=me;o=op;
@@ -3204,6 +3244,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   $('oppField').innerHTML=fieldHTML(v.opp.field,true,targets);
   $('myField').innerHTML=fieldHTML(v.me.field,false,null);
   fitCols();
+  hushFx(prev,v);
   morphFx(prev,v,oldCards);
   $('oppField').querySelectorAll('.targetable').forEach(el=>el.onclick=()=>dispatch({t:'pick',id:el.dataset.id}));
 
