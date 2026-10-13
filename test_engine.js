@@ -295,7 +295,7 @@ t('Steal: the opponent chooses which card to give',()=>{
   const s2=setup([X('4','S','T')],[],[],[C('8','D')]);
   act(s2,0,{t:'play',id:'4S'});assert.equal(s2.pending,null,'no cards to steal');
 });
-t('Last stand: each one on the field draws two cards on concede',()=>{
+t('Rune: each one on the field draws two cards on concede',()=>{
   const s=setup([C('2','C')],[C('3','S')],[X('5','H','L'),X('6','D','L')],[C('9','H')],[C('9','H'),C('8','H'),C('7','H'),C('6','H'),C('5','H')]);
   s.crazy=true;
   assert.equal(act(s,0,{t:'concede'}),null);
@@ -306,7 +306,7 @@ t('Last stand: each one on the field draws two cards on concede',()=>{
   s1.crazy=true;act(s1,0,{t:'concede'});assert.equal(s1.drawQ.length,1,'deck of one card: only one draw queued');
   assert.equal(act(s,0,{t:'choose',who:1}),null);
   const s2=setup([C('2','C')],[C('3','S')],[C('5','H')],[C('9','H')]);
-  act(s2,0,{t:'concede'});assert.equal(s2.drawQ.length,0,'no Last stand, no draw');
+  act(s2,0,{t:'concede'});assert.equal(s2.drawQ.length,0,'no Rune, no draw');
 });
 t('Greed: while on your field, draw a card whenever the turn passes to you',()=>{
   const s=setup([C('6','C')],[C('10','S'),C('3','H')],[X('4','S','G')],[C('2','D')],[C('9','D'),C('8','D'),C('7','D'),C('6','D'),C('5','D')]);
@@ -497,7 +497,7 @@ t('Joker: cards are played in turns, starting with the Joker owner (highest card
   act(o,1,{t:'play',id:'JK2',suit:'S'});assert.equal(o.jokerQ[0].who,1,'the opponent as Joker owner goes first');
 });
 
-t('Last stand also works when the opponent concedes',()=>{
+t('Rune also works when the opponent concedes',()=>{
   const mk=()=>{const s=setup([C('2','C')],[C('3','S')],[X('5','H','L')],[C('9','H')],[C('9','H'),C('8','H'),C('7','H')]);s.crazy=true;s.turn=1;return s;};
   const s=mk();assert.equal(act(s,1,{t:'concede'}),null);
   assert.equal(s.drawQ.length,2);assert.equal(s.drawQ[0].who,0);assert.equal(s.drawQ[0].reason,'laststand');

@@ -172,7 +172,7 @@ header h2{margin:0;font-size:1.3rem}
 /* ---- special card art ---- */
 .card .art{position:absolute;left:50%;top:50%;width:64%;height:auto;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 1px 1px #0005)}
 .card.art-on .cs{font-size:1rem;right:5px;bottom:15px;opacity:.85}
-.card.rJ .cs,.card.rQ .cs{display:none}   /* the snowflake and bolt are see-through, so the suit pip would show behind them; the corner still shows the suit */
+.card.rJ .cs,.card.rQ .cs,.card.rL .cs{display:none}   /* the snowflake, bolt and rune are see-through, so the suit pip would show behind them; the corner still shows the suit */
 #hand .card.art-on .cs,#stlHand .card.art-on .cs,#hovTray .card.art-on .cs{font-size:1.5rem;bottom:22px}
 .card.r2::before{content:'';position:absolute;inset:0;border-radius:6px;pointer-events:none;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 88' preserveAspectRatio='none'><g fill='none' stroke='%23564f45' stroke-linecap='round' stroke-linejoin='round'><path d='M31 20l-3 9 5 6-4 8 6 7-3 10' stroke-width='1.1'/><path d='M33 35l9-3 5-8' stroke-width='.8'/><path d='M29 43l-9 4-6 10' stroke-width='.8'/><path d='M36 50l8 5 2 9' stroke-width='.7'/><path d='M28 29l-7-4-2-7' stroke-width='.6'/><path d='M0 66l7-3 4 4M62 12l-8 4-2 6' stroke-width='.7'/></g></svg>") center/100% 100% no-repeat;opacity:.75}
 .card .ab{white-space:nowrap}
@@ -637,7 +637,7 @@ const SUITS=['C','S','H','D'];
 const SUIT_RANK={C:0,S:1,H:2,D:3,'*':4};
 const SYM={C:'♣',S:'♠',H:'♥',D:'♦','*':''};
 const DISCOVER_N=3; // cards the opponent draws for a Discover; they keep one for you, the rest are discarded
-const ABILITY={A:'Draw','2':'Deathrattle','3':'Discover','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Wipe',M:'Mirror',T:'Steal',L:'Last stand',G:'Greed',X:'Joker'};
+const ABILITY={A:'Draw','2':'Deathrattle','3':'Discover','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Wipe',M:'Mirror',T:'Steal',L:'Rune',G:'Greed',X:'Joker'};
 const ABILITY_TEXT={
   A:'Draw: draw one card from the deck into your hand.',
   '2':'Deathrattle: if this card is removed from the field, its owner draws one card.',
@@ -647,9 +647,9 @@ const ABILITY_TEXT={
   J:'Frost: freeze and shatter the top (most recently played) card of its suit and of the other suit of the same colour (♥/♦ or ♣/♠) on your opponent\'s side. A Sturdy card on top blocks it for that suit.',
   Q:'Bolt: lightning destroys all cards of the same suit on your opponent\'s side.',
   K:'Wipe: clear all removable cards from both sides, excluding the King itself.',
-  M:'Mirror (Crazy mode): when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Deathrattle, Sturdy and Last stand included). If nothing was played before it, it does nothing.',
+  M:'Mirror (Crazy mode): when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Deathrattle, Sturdy and Rune included). If nothing was played before it, it does nothing.',
   T:'Steal (Crazy mode): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned.',
-  L:'Last stand (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Last stand on your side draws its own two cards.',
+  L:'Rune (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards.',
   G:'Greed (Crazy mode): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
   X:'Joker (Crazy mode): can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Joker also makes any choice those cards need (which card Discover keeps, which card Steal takes), at random.'
 };
@@ -1010,13 +1010,13 @@ function act0(s,i,a){
       if(s.p[i].conceded)return 'You can only concede once per game';   // a second concede would throw away the whole game
       if(busy(s))return 'Finish the current draw or choice first';
       if(s.startCards[i])return 'Play your drawn card first';
-      // Last stand: whoever has one on their side when the round ends by a concede draws a card for it, whether they conceded or their opponent did
+      // Rune: whoever has one on their side when the round ends by a concede draws a card for it, whether they conceded or their opponent did
       const ls=[0,1].map(w=>s.p[w].field.filter(c=>F(c)==='L').length);
       s.p[i].conceded=true;
       endRound(s,i);
       if(s.phase!=='over')for(const w of [i,1-i]){
         if(!ls[w])continue;
-        log(s,w,'Last stand: draws '+(ls[w]*2)+' cards');
+        log(s,w,'Rune: draws '+(ls[w]*2)+' cards');
         for(let k=0;k<ls[w]*2&&s.deck.length>s.drawQ.length;k++)queueDraw(s,w,'laststand');}
       return null;}
     case 'jkpick':{ // a Joker card's Discover or Steal: the Joker picks at random, first showing its choice, then (on the next jkpick) making it
@@ -1443,7 +1443,7 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
   else if(cf==='T')lines.push('🫳 Steal: '+OPP+' gives you a card, you burn one');
   else if(cf==='G')lines.push('💰 Greed: you draw each time your turn starts');
   else if(cf==='4')lines.push('🛡️ Sturdy: can never be removed');
-  else if(cf==='L')lines.push('🏳️ Last stand: draw 2 when a round is conceded');
+  else if(cf==='L')lines.push('🏳️ Rune: draw 2 when a round is conceded');
   else if(cf==='2')lines.push('💀 Deathrattle: draw a card when it is removed');
   if(gone.length){
     const n=[0,0];gone.forEach(g=>{n[g.mine?0:1]++;if(efx(g.c,v)==='2')dr[g.mine?0:1]++;});
@@ -1936,7 +1936,7 @@ function chooseSync(v,OPP){
     return;
   }
   const chooser=v.chooser===v.you;
-  if(!d&&(v.draws.length||v.drawsOpp))return; // e.g. a Last stand draw comes first
+  if(!d&&(v.draws.length||v.drawsOpp))return; // e.g. a Rune draw comes first
   if(!d||d.dataset.fin){
     if(d)d.remove();
     d=document.createElement('div');d.id='pf';
@@ -2349,7 +2349,7 @@ function drawSync(v,OPP,prev){
     if(d)d.remove();
     showBooster();return;
   }
-  // a single card to draw (Draw, Deathrattle, Greed, Last stand): no draw box, the card simply flies into the hand
+  // a single card to draw (Draw, Deathrattle, Greed, Rune): no draw box, the card simply flies into the hand
   const plain=r=>r!=='start'&&r!=='greed';
   if(v.phase!=='start'&&!v.pending&&((v.draws.length>=1&&v.draws.every(plain))||(!v.draws.length&&v.drawsOpp>=1&&(v.oppReasons||[]).every(plain)))){
     if(d&&!d.dataset.out)d.remove();
@@ -2390,12 +2390,12 @@ function drawSync(v,OPP,prev){
   }
   if(mine)d.dataset.mine='1';else delete d.dataset.mine;
   const dc=d.querySelector('.du-card'),back=d.querySelector('.card.back'),zone=$('dwZone');
-  const kind=mine?(reasons[0]==='deathrattle'?'Deathrattle':(reasons[0]==='greed'||reasons[0]==='greedturn')?'Greed':reasons[0]==='laststand'?'Last stand':'Draw'):'Draw';
+  const kind=mine?(reasons[0]==='deathrattle'?'Deathrattle':(reasons[0]==='greed'||reasons[0]==='greedturn')?'Greed':reasons[0]==='laststand'?'Rune':'Draw'):'Draw';
   $('dwTitle').textContent=mine?kind:(reasons&&reasons.length?OPP+' draws':OPP+' draws');
   zone.hidden=!mine;
   if(mine){
     zone.textContent='Drag the card into your hand';
-    $('dwHelp').textContent=(reasons[0]==='deathrattle'?'Your 2 was removed — ':(reasons[0]==='greed'||reasons[0]==='greedturn')?'Greed: ':reasons[0]==='laststand'?'Last stand: ':'')+(reasons.length>1?'you have '+reasons.length+' cards to draw. ':'')+'Drag the card to your hand (or tap it).';
+    $('dwHelp').textContent=(reasons[0]==='deathrattle'?'Your 2 was removed — ':(reasons[0]==='greed'||reasons[0]==='greedturn')?'Greed: ':reasons[0]==='laststand'?'Rune: ':'')+(reasons.length>1?'you have '+reasons.length+' cards to draw. ':'')+'Drag the card to your hand (or tap it).';
     dc.classList.add('live');
     const sl=d.querySelector('.dc-slot');
     sl.style.cursor='grab';sl.style.touchAction='none';
@@ -2565,6 +2565,42 @@ function sendPtr(k,suit){
   const key=k+'|'+suit;if(key===lastSentPtr)return;lastSentPtr=key;
   if(conn&&conn.open){try{conn.send({t:'ptr',k:k===null?-1:k,suit:suit||null});}catch(e){}}
 }
+// Rune: when a round ends by a concede, every Rune on the table flares up blue before the board clears,
+// and the cards it draws fly out of it to its owner's hand
+let runeSrc=null;
+function runeFx(prev,v,oldCards){
+  if(!prev||prev.you!==v.you||reduced()||!document.body.animate)return;
+  const has=(a)=>(a||[]).includes('laststand');
+  if(!((has(v.draws)&&!has(prev.draws))||(has(v.oppReasons)&&!has(prev.oppReasons))))return;
+  const pts={me:[],opp:[]};
+  for(const side of ['me','opp'])for(const c of prev[side].field){
+    if(efx(c,prev)!=='L')continue;
+    const o=oldCards.get(c.id);if(!o)continue;
+    pts[side].push({x:o.r.left+o.r.width/2,y:o.r.top+o.r.height/2,w:o.r.width,h:o.r.height});
+    const g=document.createElement('div');g.innerHTML=o.html;const e=g.firstChild;e.classList.remove('targetable','doomed');
+    e.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:40;pointer-events:none`;document.body.appendChild(e);
+    e.animate([{transform:'none',boxShadow:'0 1px 3px #0006',filter:'none',opacity:1},
+      {transform:'scale(1.12)',boxShadow:'0 0 18px 6px #5fd6ffcc',filter:'brightness(1.15)',opacity:1,offset:.3},
+      {transform:'scale(1.08)',boxShadow:'0 0 26px 10px #5fd6ffaa',filter:'brightness(1.25)',opacity:1,offset:.7},
+      {transform:'scale(1.25)',boxShadow:'0 0 40px 16px #5fd6ff00',filter:'brightness(1.6)',opacity:0}],{duration:1150,easing:'ease-out',fill:'forwards'}).onfinish=()=>e.remove();
+    const ring=document.createElement('i');const cx=o.r.left+o.r.width/2,cy=o.r.top+o.r.height/2;
+    ring.style.cssText=`position:fixed;left:${cx-40}px;top:${cy-40}px;width:80px;height:80px;border-radius:50%;border:3px solid #9fe8ff;box-shadow:0 0 16px #5fd6ff,inset 0 0 12px #5fd6ff;pointer-events:none;z-index:41`;
+    document.body.appendChild(ring);
+    ring.animate([{transform:'scale(.3)',opacity:0},{transform:'scale(1)',opacity:1,offset:.35},{transform:'scale(1.9)',opacity:0}],{duration:900,delay:250,easing:'ease-out',fill:'both'}).onfinish=()=>ring.remove();
+  }
+  if(!pts.me.length&&!pts.opp.length)return;
+  runeSrc={me:pts.me,opp:pts.opp,t:Date.now(),nm:0,no:0};
+  fxUntil=Math.max(fxUntil,Date.now()+650);   // the draws wait for the flare
+  try{if(soundOn){audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();const t0=audioCtx.currentTime;
+    [523.25,783.99,1046.5].forEach((f,i)=>{const o=audioCtx.createOscillator(),g=audioCtx.createGain(),t=t0+i*.09;o.type='sine';o.frequency.value=f;
+      g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(.12,t+.02);g.gain.exponentialRampToValueAtTime(.0001,t+.6);o.connect(g);g.connect(audioCtx.destination);o.start(t);o.stop(t+.65);});}}catch(e){}
+}
+// where a Rune's drawn card should fly from (null when it's an ordinary draw)
+function runeFrom(side){
+  if(!runeSrc||Date.now()-runeSrc.t>6000)return null;
+  const a=runeSrc[side];if(!a.length)return null;
+  const k=side==='me'?runeSrc.nm++:runeSrc.no++;return a[Math.floor(k/2)%a.length];   // two cards per Rune
+}
 function flyBackToOpp(delay,fromEl){ // the opponent drew (or was given a card): a card back slides to their side
   if(reduced())return;
   const d=(fromEl||$('deck')).getBoundingClientRect(),o=oppTarget();
@@ -2648,7 +2684,7 @@ const EGG_ART='<svg class="art" viewBox="0 0 40 40"><path d="M20 3C11.5 3 6 16 6
 const ART={
   M:'<svg class="art" viewBox="0 0 40 40"><ellipse cx="20" cy="20" rx="13" ry="17" fill="#cfe8f5" stroke="#3f5f72" stroke-width="2"/><path d="M12 29 L27 10" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><path d="M17 32 L29 17" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".8"/></svg>',
   T:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#6b3fa0" stroke="#2c1646" stroke-width="2"/><rect x="9" y="11" width="13" height="18" rx="2" fill="#fff" stroke="#2c1646" stroke-width="1.5" transform="rotate(-12 15 20)"/><path d="M19 21 H33 M28 15 L34 21 L28 27" fill="none" stroke="#ffd84a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-  L:'<svg class="art" viewBox="0 0 40 40"><path d="M20 3 L35 8.5 V20 C35 29.5 28 35.5 20 38 C12 35.5 5 29.5 5 20 V8.5 Z" fill="#b3282f" stroke="#4d0f13" stroke-width="2" stroke-linejoin="round"/><path d="M20 10 V24 M13 17 H27" stroke="#fff" stroke-width="3.4" stroke-linecap="round"/><circle cx="20" cy="30" r="2.2" fill="#fff"/></svg>',
+  L:'<svg class="art" viewBox="0 0 40 40"><defs><filter id="rnGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.2"/></filter></defs><g stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M20 24L11.5 15.5L20 7L28.5 15.5Z M20 24L12 34M20 24L28 34" stroke="#5fd6ff" stroke-width="5" opacity=".45" filter="url(#rnGlow)"/><path d="M20 24L11.5 15.5L20 7L28.5 15.5Z M20 24L12 34M20 24L28 34" stroke="#123a5a" stroke-width="2.6"/></g></svg>',
   G:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#f2c230" stroke="#8a6a00" stroke-width="2"/><circle cx="20" cy="20" r="13" fill="none" stroke="#c99a10" stroke-width="1.5"/><text x="20" y="27.5" text-anchor="middle" font-size="21" font-weight="800" font-family="Arial,sans-serif" fill="#6b4f00">$</text></svg>',
   A:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#2e9e5b" stroke="#145c32" stroke-width="2"/><text x="20" y="27" text-anchor="middle" font-family="system-ui,Arial,sans-serif" font-weight="900" font-size="20" fill="#fff">+1</text></svg>',
   '3':'<svg class="art" viewBox="0 0 40 40"><line x1="26" y1="26" x2="35" y2="35" stroke="#4a3320" stroke-width="5" stroke-linecap="round"/><line x1="25" y1="25" x2="28" y2="28" stroke="#b9a37a" stroke-width="4" stroke-linecap="round"/><circle cx="16" cy="16" r="11" fill="#bfe6ff" fill-opacity=".75" stroke="#3a4752" stroke-width="3.2"/><path d="M9.5 14a7 7 0 0 1 5-5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
@@ -2691,7 +2727,7 @@ function cardEl(c,cls){
   const egg=c.r==='EG';
   const tip=ABILITY[f]?ABILITY_TEXT[f]:egg?'The Egg: a plain card worth '+cardVal(c)+(cardVal(c)>1?' points':' point')+', given to whoever goes first in round 1.':'';
   const art=egg?EGG_ART:(ART[f]||'');
-  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K','J','Q'].includes(f)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
+  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K','J','Q','L'].includes(f)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
     `<div class="cr">${jk?'★':egg?cardVal(c):c.r}<span>${SYM[c.s]}</span></div><div class="cs">${SYM[c.s]}</div>${art}`+
     (ABILITY[f]?`<div class="ab">${ABILITY[f]}</div>`:egg?`<div class="ab">Egg</div>`:'')+`</div>`;
 }
@@ -3033,6 +3069,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   view=v;
   const oldCards=new Map();
   document.querySelectorAll('#oppField .card,#myField .card').forEach(el=>oldCards.set(el.dataset.id,{html:el.outerHTML,r:el.getBoundingClientRect()}));
+  runeFx(prev,v,oldCards);
   $('lobby').hidden=true;$('game').hidden=false;
   $('btnFx').hidden=!(v.crazy||(v.fxOn&&FX_KEYS.some(k=>!v.fxOn.includes(k))));
   if(prev&&v.mirror&&v.mirror.n>((prev.mirror&&prev.mirror.n)||0))toast(v.mirror.fx?'🪞 Mirror turns into '+ABILITY[v.mirror.fx]+'!':'🪞 Mirror has nothing to copy');
@@ -3103,7 +3140,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
     st=v.me.mull?'Waiting for your opponent to finish their mulligan…':'Select up to 5 cards to mulligan (or keep your hand).';
   }else if(v.draws.length){
     const r=v.draws[0];
-    st=(r==='start'?'Round 1: draw your card — ':r==='deathrattle'?'Deathrattle: ':r==='round'?'New round: ':(r==='greed'||r==='greedturn')?'Greed: ':r==='laststand'?'Last stand: ':'Draw: ')+'click the deck or drag the top card '+'into your hand.';
+    st=(r==='start'?'Round 1: draw your card — ':r==='deathrattle'?'Deathrattle: ':r==='round'?'New round: ':(r==='greed'||r==='greedturn')?'Greed: ':r==='laststand'?'Rune: ':'Draw: ')+'click the deck or drag the top card '+'into your hand.';
   }else if(v.drawsOpp&&!pend){
     st=v.phase==='start'&&v.startMe?'You drew '+cardStr(v.startMe)+'. Waiting for your opponent to draw…':'Waiting for '+OPP.toLowerCase()+' to draw from the deck…';
   }else if(v.phase==='choose'){
@@ -3206,13 +3243,15 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
     let k=0;
     const old=new Set(prev.me.hand.map(c=>c.id));
     const held=$('drw')&&$('drw').dataset.mine;
-    $('hand').querySelectorAll('.card').forEach(el=>{if(!old.has(el.dataset.id))flyFromDeck(el,(held?750:0)+(k++)*90,held?{x:innerWidth/2,y:innerHeight/2}:undefined);});
+    const rn=(prev.draws||[])[0]==='laststand';
+    $('hand').querySelectorAll('.card').forEach(el=>{if(old.has(el.dataset.id))return;const rp=rn&&runeFrom('me');flyFromDeck(el,(held?750:0)+(k++)*90,rp?{x:rp.x,y:rp.y}:held?{x:innerWidth/2,y:innerHeight/2}:undefined);});
     const oldT=new Set([...(prev.pending&&prev.pending.opts&&prev.pending.t==='discover'?prev.pending.opts.map(c=>c.id):[]),prev.startMe?prev.startMe.id:'']);
     trayEl.querySelectorAll('.card:not(.back)').forEach(el=>{if(!oldT.has(el.dataset.id))flyFromDeck(el);});
     const nb=trayEl.querySelectorAll('.card.back').length;
     const pb=prev.pending&&prev.pending.t==='discover'&&prev.pending.chooser!==prev.you?prev.pending.n:0;
     if(nb>pb)flyFromDeck(trayEl.querySelectorAll('.card.back')[nb-1]);
-    for(let i=0;i<Math.min(3,v.opp.hand-prev.opp.hand);i++)flyBackToOpp(i*140);
+    const ro=(prev.oppReasons||[])[0]==='laststand';
+    for(let i=0;i<Math.min(3,v.opp.hand-prev.opp.hand);i++){const rp=ro&&runeFrom('opp');flyBackToOpp(i*140,rp?{getBoundingClientRect:()=>({left:rp.x-rp.w/2,top:rp.y-rp.h/2,width:rp.w,height:rp.h})}:undefined);}
   }
   if(prev&&!reduced()&&prev.you===v.you&&v.stolen&&v.stolen.n>((prev.stolen&&prev.stolen.n)||0)){
     if(v.stolen.by===v.you){ // a card flies in from the opponent's side
@@ -3407,7 +3446,7 @@ function showStats(e){
   // card lists
   const cv=e.cardsView;
   const mini=(c,how,dim,burnt)=>`<span class="sc${dim?' dim2':''}${burnt?' burnt':''}">${cardEl(c,'').replace('data-id=','data-sid=')}${burnt?'<i class="char"></i>':''}${how?`<em>${how}</em>`:''}</span>`;
-  const HOW={start:'start',draw:'Ace',deathrattle:'2',discover:'Discover',greed:'Greed',greedturn:'Greed',laststand:'Last stand',steal:'Steal'};
+  const HOW={start:'start',draw:'Ace',deathrattle:'2',discover:'Discover',greed:'Greed',greedturn:'Greed',laststand:'Rune',steal:'Steal'};
   // same order as the hand sort: A, 2-10, J, Q, K (then suit)
   const byValue=arr=>[...(arr||[])].sort((x,y)=>rk(x)-rk(y)||SUIT_RANK[x.s]-SUIT_RANK[y.s]);
   const none='<span class="none">none</span>';
