@@ -3191,40 +3191,45 @@ function removalAnim(kind,pl,clones,G){
       });
     }
   }else{
-    // Blaze: both sides of the field catch fire; flames spread across them and the removed cards burn where they lie
+    // Blaze: both sides of the field glow with fire, and each removed card burns away from the bottom up,
+    // a glowing edge eating through it until nothing is left but embers
     {
       S&&noiseBurst(1.6,'lowpass',700,140,.45);S&&noiseBurst(1.2,'bandpass',2400,900,.12,.2);
       for(let q=0;q<(S?10:0);q++)S&&noiseBurst(.12,'highpass',3000+Math.random()*2000,1500,.08,.2+Math.random()*1.2);   // crackles
-      // cartoon flames drawn like the Blaze icon: red, orange and yellow layers ('flat': two tones, no outline)
-      const flat=BLAZE_LOOK==='flat';
-      const flame=(x,y,w,h,delay,dur,z)=>{const e=fx(`left:${x-w/2}px;top:${y-h}px;width:${w}px;height:${h}px;transform-origin:50% 100%`,z||57);
-        e.innerHTML=flat?`<svg viewBox="0 0 40 40" preserveAspectRatio="none" width="100%" height="100%" style="display:block;overflow:visible"><path d="${FL_OUT}" fill="#ff6a1a"/><path d="${FL_MID}" fill="#ffc83a"/></svg>`
-          :`<svg viewBox="0 0 40 40" preserveAspectRatio="none" width="100%" height="100%" style="display:block;overflow:visible"><path d="${FL_OUT}" fill="#d8341a" stroke="#6e1408" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><path d="${FL_MID}" fill="#ff8a1a"/><path d="${FL_CORE}" fill="#ffd84a"/></svg>`;
-        const sway=(Math.random()-.5)*12;
-        // grow up out of the ground, flicker a few times, then burn down
-        e.animate([{transform:'scale(.4,0)',opacity:1},{transform:'scale(1,1)',offset:.18},{transform:`scale(.9,1.15) skewX(${sway}deg)`,offset:.32},{transform:`scale(1.05,.92) skewX(${-sway*.6}deg)`,offset:.46},{transform:`scale(.92,1.12) skewX(${sway*.8}deg)`,offset:.6},{transform:`scale(1,.95) skewX(${-sway}deg)`,opacity:1,offset:.74},{transform:'scale(.6,.15)',opacity:.6}],{duration:dur,delay,easing:'ease-in-out',fill:'both'});die(e,delay+dur+40);};
       const r0=srcR(),o=r0?ctr(r0):{x:innerWidth/2,y:innerHeight/2};
       ['#oppField','#myField'].forEach(sel=>{
         const f=document.querySelector(sel);if(!f)return;const r=f.getBoundingClientRect();
-        // the side glows hot, then scorches and cools
-        const glow=fx(`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:12px;background:linear-gradient(to top,#ff7a1a66,#d8341a33 55%,#0000);box-shadow:inset 0 0 40px #ff5a1a88`,13);
-        glow.animate([{opacity:0},{opacity:1,offset:.2},{opacity:1,offset:.7},{opacity:0}],{duration:1900,fill:'both'});die(glow,1950);
-        // a carpet of flames spreads across the side from the Blaze card's end
-        const n=S?Math.round(r.width/26):Math.round(r.width/55);
-        for(let q=0;q<n;q++){const x=r.left+(q+.5)/n*r.width+(Math.random()-.5)*14,y=r.bottom-2-Math.random()*r.height*.55;
-          const spread=Math.abs(x-o.x)/Math.max(1,r.width)*500;
-          flame(x,y,22+Math.random()*22,40+Math.random()*50+(y>r.bottom-20?20:0),spread+Math.random()*150,900+Math.random()*500,14);}
-        // embers rise off the burning side
-        for(let q=0;q<(S?26:10);q++){const sz=2+Math.random()*3.5,x=r.left+Math.random()*r.width,y=r.top+r.height*(.3+Math.random()*.7);
-          const em=fx(`left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;border-radius:50%;background:${Math.random()<.65?'#ff9a3c':'#3a2a22'};box-shadow:0 0 5px #ff5a1a`,58);
-          em.animate([{transform:'none',opacity:0},{opacity:1,offset:.15},{transform:`translate(${(Math.random()-.5)*50}px,${-50-Math.random()*70}px)`,opacity:0}],{duration:1000+Math.random()*600,delay:250+Math.random()*900,easing:'ease-out',fill:'both'});die(em,2800);}
+        // an intense fire glow that flickers, then cools
+        const glow=fx(`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:12px;background:linear-gradient(to top,#ffb02ecc,#ff6a1aaa 35%,#d8341a66 70%,#7a120a22);box-shadow:inset 0 0 60px #ffd84a,inset 0 0 24px #fff3b0,0 0 40px #ff6a1acc;mix-blend-mode:screen`,13);
+        glow.animate([{opacity:0},{opacity:1,offset:.12},{opacity:.75,offset:.24},{opacity:1,offset:.36},{opacity:.8,offset:.5},{opacity:.95,offset:.64},{opacity:.7,offset:.78},{opacity:0}],{duration:2100,fill:'both'});die(glow,2150);
+        // a few embers drift up off the hot field
+        for(let q=0;q<(S?18:8);q++){const sz=2+Math.random()*3,x=r.left+Math.random()*r.width,y=r.top+r.height*(.4+Math.random()*.6);
+          const em=fx(`left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;border-radius:50%;background:${Math.random()<.7?'#ffb02e':'#3a2a22'};box-shadow:0 0 6px #ff5a1a`,58);
+          em.animate([{transform:'none',opacity:0},{opacity:1,offset:.15},{transform:`translate(${(Math.random()-.5)*50}px,${-50-Math.random()*70}px)`,opacity:0}],{duration:1000+Math.random()*600,delay:250+Math.random()*1000,easing:'ease-out',fill:'both'});die(em,2900);}
       });
-      // each removed card catches fire, blackens, curls up and crumbles away where it lies
+      // each removed card: heats up, then a glowing edge burns through it from the bottom, leaving embers
       clones.forEach(k=>{
         if(k.under){setTimeout(()=>k.el.remove(),400);return;}   // hidden under the Blaze card itself
-        const r=k.el.getBoundingClientRect(),d=150+Math.min(450,Math.abs(r.left+r.width/2-o.x)*.5);
-        for(let q=0;q<4;q++)flame(r.left+r.width*(.15+.7*Math.random()),r.bottom-r.height*.15*Math.random(),20+Math.random()*12,48+Math.random()*30,d+q*70,850,58);
-        k.el.animate([{transform:'none',filter:'none',opacity:1},{transform:'none',filter:'sepia(.7) brightness(1.15) saturate(1.6)',opacity:1,offset:.2},{transform:'translateY(-2px) rotate(-2deg) scaleY(.96)',filter:'sepia(1) brightness(.4) contrast(1.3)',opacity:1,offset:.55},{transform:'translateY(10px) rotate(3deg) scale(.85,.5)',filter:'brightness(.12)',opacity:0}],{duration:1000,delay:d,easing:'ease-in',fill:'both'}).onfinish=()=>k.el.remove();
+        const r=k.el.getBoundingClientRect(),d=200+Math.min(400,Math.abs(r.left+r.width/2-o.x)*.45),D=1100;
+        const ox=20+Math.random()*60;   // where the fire starts along the bottom edge (%)
+        const m=p=>`radial-gradient(ellipse 120% 90% at ${ox}% 108%,#0000 ${p}%,#000 ${p+6}%)`;
+        k.el.style.webkitMaskImage=k.el.style.maskImage=m(0);
+        // heat: the card yellows and darkens while the edge eats it
+        k.el.animate([{filter:'none'},{filter:'sepia(.6) saturate(1.8) brightness(1.1)',offset:.25},{filter:'sepia(1) brightness(.55) contrast(1.3)'}],{duration:D,delay:d,fill:'both'});
+        // the burn: step the mask (a mask image can't be tweened), with a glowing rim riding the edge
+        const rim=fx(`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:6px;pointer-events:none;mix-blend-mode:screen`,58);
+        const t0=performance.now()+d;
+        const step=()=>{if(!k.el.isConnected){rim.remove();return;}const t=(performance.now()-t0)/D;
+          if(t<0){requestAnimationFrame(step);return;}
+          const p=Math.min(1,t)*125;k.el.style.webkitMaskImage=k.el.style.maskImage=m(p);
+          rim.style.background=`radial-gradient(ellipse 120% 90% at ${ox}% 108%,#0000 ${Math.max(0,p-2)}%,#fff3b0 ${p+1}%,#ffb02e ${p+3}%,#ff5a1aaa ${p+6}%,#d8341a33 ${p+10}%,#0000 ${p+14}%)`;
+          // sparks fly off the burning edge now and then
+          if(S&&Math.random()<.3&&t<1){const a=ox/100,ex=r.left+r.width*(a+(Math.random()-.5)*Math.min(1,t*1.6)),ey=r.bottom-r.height*Math.min(1,t*1.15)*(.7+Math.random()*.3);
+            const sp=fx(`left:${ex}px;top:${ey}px;width:3px;height:3px;border-radius:50%;background:#ffd84a;box-shadow:0 0 6px #ff5a1a`,59);
+            sp.animate([{transform:'none',opacity:1},{transform:`translate(${(Math.random()-.5)*30}px,${-20-Math.random()*40}px)`,opacity:0}],{duration:600+Math.random()*400,easing:'ease-out',fill:'forwards'});die(sp,1100);}
+          if(t>=1){k.el.remove();rim.remove();return;}
+          requestAnimationFrame(step);};
+        requestAnimationFrame(step);
       });
     }
   }
