@@ -645,12 +645,12 @@ const RANKS=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 const SUITS=['C','S','H','D'];
 const SUIT_RANK={C:0,S:1,H:2,D:3,'*':4};
 const SYM={C:'♣',S:'♠',H:'♥',D:'♦','*':''};
-const DISCOVER_N=3; // cards the opponent draws for a Discover; they keep one for you, the rest are discarded
-const ABILITY={A:'Draw','2':'Deathrattle','3':'Discover','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Wipe',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',X:'Joker'};
+const DISCOVER_N=3; // cards the opponent draws for a Scry; they keep one for you, the rest are discarded
+const ABILITY={A:'Draw','2':'Deathrattle','3':'Scry','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Wipe',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',X:'Joker'};
 const ABILITY_TEXT={
   A:'Draw: draw one card from the deck into your hand.',
   '2':'Deathrattle: if this card is removed from the field, its owner draws one card.',
-  '3':'Discover: you look at three cards from the deck and keep one. A random one of the other two goes to the opponent\'s hand, and the last one burns.',
+  '3':'Scry: you look at three cards from the deck and keep one. A random one of the other two goes to the opponent\'s hand, and the last one burns.',
   '4':'Sturdy: this card cannot be removed from the field by any means.',
   '5':'Swap: this card moves to your opponent\'s side. If they have a card of the same suit, the most recently played one swaps sides with it.',
   J:'Frost: freeze and shatter the top (most recently played) card of its suit and of the other suit of the same colour (♥/♦ or ♣/♠) on your opponent\'s side. A Sturdy card on top blocks it for that suit.',
@@ -660,7 +660,7 @@ const ABILITY_TEXT={
   T:'Steal (Crazy mode): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned.',
   L:'Rune (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards.',
   G:'Greed (Crazy mode): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
-  X:'Joker (Crazy mode): can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Joker also makes any choice those cards need (which card Discover keeps, which card Steal takes), at random.'
+  X:'Joker (Crazy mode): can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Joker also makes any choice those cards need (which card Scry keeps, which card Steal takes), at random.'
 };
 function F(c){return c.f===undefined?(DEF_F[c.r]||''):c.f;}
 function cardVal(c){if(c.v!==undefined)return c.v;return (c.r==='A'||c.r==='JK'||c.r==='J'||c.r==='Q'||c.r==='K')?1:parseInt(c.r,10);}
@@ -753,7 +753,7 @@ function resolve(s,i,c){
     case 'X':{jokerEffect(s,i,c);break;}
     case 'A':{queueDraw(s,i,'draw');break;}
     case '3':{ // we look at three cards from the deck: we keep one, a random other one goes to the opponent, the last burns
-      if(!s.deck.length)log(s,i,'Discover: the deck is empty');
+      if(!s.deck.length)log(s,i,'Scry: the deck is empty');
       else s.pending={t:'discover',by:i,chooser:i,opts:[]};
       break;}
     case '5':{
@@ -889,7 +889,7 @@ function afterDraw(s){
   if(!s.deck.length&&s.drawQ.length){log(s,null,'The deck is empty — the remaining draws are skipped');s.drawQ=[];}
   if((s.burnQ||[]).length&&!s.drawQ.some(e=>e.reason==='greed'))runBurn(s);
   const pd=s.pending;
-  if(pd&&pd.t==='discover'&&!pd.opts.length&&!s.deck.length){s.pending=null;log(s,pd.by,'Discover: the deck ran out');}
+  if(pd&&pd.t==='discover'&&!pd.opts.length&&!s.deck.length){s.pending=null;log(s,pd.by,'Scry: the deck ran out');}
   if(s.drawQ.length||s.pending)return;
   if(s.phase==='start')resolveStart(s);else settle(s);
 }
@@ -934,7 +934,7 @@ function act0(s,i,a){
       log(s,i,s.crazy?(ids.length?'opened a different pack':'kept their pack'):ids.length?'mulliganed '+ids.length+' card'+(ids.length>1?'s':''):'kept all cards');
       if(s.p[0].mull&&s.p[1].mull)startRound(s);
       return null;}
-    case 'draw':{ // take the top card of the deck (from a queued draw, or for your Discover)
+    case 'draw':{ // take the top card of the deck (from a queued draw, or for your Scry)
       const k=s.drawQ.findIndex(e=>e.who===i);
       if(k>=0){
         const e=s.drawQ.splice(k,1)[0];
@@ -956,7 +956,7 @@ function act0(s,i,a){
         if(pd.opts.length)return 'You already opened the pack — give one card to your opponent';
         for(let n=0;n<DISCOVER_N;n++){const c=draw(s);if(!c)break;pd.opts.push(c);}
         if(!pd.opts.length)return 'The deck is empty';
-        log(s,i,'turned up cards for Discover ('+pd.opts.length+' card'+(pd.opts.length===1?'':'s')+')');
+        log(s,i,'turned up cards for Scry ('+pd.opts.length+' card'+(pd.opts.length===1?'':'s')+')');
         afterDraw(s);return null;
       }
       return 'You have nothing to draw right now';}
@@ -987,7 +987,7 @@ function act0(s,i,a){
         s.pending=null;s.discard.push(...burnt);
         const keptOk=giveCard(s,pd.by,c),giftOk=gift?giveCard(s,1-pd.by,gift):false;
         if(s.stats){if(keptOk)s.stats.drawn[pd.by].push(Object.assign(cp(c),{how:'discover'}));if(giftOk)s.stats.drawn[1-pd.by].push(Object.assign(cp(gift),{how:'discover'}));burnt.forEach(o=>s.stats.burned[pd.by].push(cp(o)));}
-        log(s,i,'kept a card'+(gift?', a random one went to the opponent':'')+(burnt.length?' and the last burned':'')+' (Discover)');
+        log(s,i,'kept a card'+(gift?', a random one went to the opponent':'')+(burnt.length?' and the last burned':'')+' (Scry)');
         s.discFx={n:((s.discFx&&s.discFx.n)||0)+1,by:pd.by,kept:cp(c),gift:gift?cp(gift):null,burnt:burnt.map(cp)};
         afterDraw(s);return null;}
       if(pd.t==='steal'){
@@ -1024,7 +1024,7 @@ function act0(s,i,a){
         log(s,w,'Rune: draws '+(ls[w]*2)+' cards');
         for(let k=0;k<ls[w]*2&&s.deck.length>s.drawQ.length;k++)queueDraw(s,w,'laststand');}
       return null;}
-    case 'jkpick':{ // a Joker card's Discover or Steal: the Joker picks at random, first showing its choice, then (on the next jkpick) making it
+    case 'jkpick':{ // a Joker card's Scry or Steal: the Joker picks at random, first showing its choice, then (on the next jkpick) making it
       const pd=s.pending;if(!pd||!pd.jk)return 'Nothing for the Joker to choose';
       if(pd.t==='discover'&&!pd.opts.length)return 'Open the booster pack first';
       if(!pd.jkId){
@@ -1032,7 +1032,7 @@ function act0(s,i,a){
         if(!ids.length)return 'Nothing for the Joker to choose';
         pd.jkId=ids[Math.floor(Math.random()*ids.length)];pd.jkAt=Math.floor(Math.random()*ids.length);
         return null;}
-      log(s,null,'The Joker made the '+(pd.t==='steal'?'Steal':'Discover')+' choice');
+      log(s,null,'The Joker made the '+(pd.t==='steal'?'Steal':'Scry')+' choice');
       return act0(s,pd.chooser,{t:'pick',id:pd.jkId,jk:true});}
     case 'choose':{
       if(s.phase!=='choose'||s.chooser!==i)return 'Not your choice';
@@ -1183,7 +1183,7 @@ function cpuChoose(s,who,level){
   }
   if(s.pending){
     const o=s.pending.opts.map(x=>typeof x==='string'?{id:x,r:x.slice(0,-1),s:x.slice(-1)}:x);
-    if(smart&&s.pending.t==='discover'){ // Discover: keep the card we value most
+    if(smart&&s.pending.t==='discover'){ // Scry: keep the card we value most
       o.sort((a,b)=>cardKeep(b)-cardKeep(a));return {t:'pick',id:o[0].id};
     }
     if(smart){
@@ -1298,7 +1298,7 @@ let jokerTimer=null;
 const jkReady=()=>!!(state&&state.pending&&state.pending.jk&&!(state.pending.t==='discover'&&!state.pending.opts.length)&&!state.drawQ.length&&state.phase!=='over');
 function jokerTick(){
   clearTimeout(jokerTimer);jokerTimer=null;
-  if(state&&mode!=='guest'&&jkReady()){   // a Joker card's Discover or Steal: the Joker 'thinks', shows its pick, then makes it
+  if(state&&mode!=='guest'&&jkReady()){   // a Joker card's Scry or Steal: the Joker 'thinks', shows its pick, then makes it
     const set=!!state.pending.jkId;
     jokerTimer=setTimeout(()=>{jokerTimer=null;if(!jkReady())return;const err=act(state,0,{t:'jkpick'});if(err)console.warn('Joker pick rejected:',err);pushState();},reduced()?300:set?1000:1700);
     return;
@@ -1444,7 +1444,7 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
   else if(cf==='Q')v.opp.field.filter(x=>x.s===c.s&&removable(x)).forEach(x=>gone.push({c:x,mine:false}));
   else if(cf==='K'){v.opp.field.filter(removable).forEach(x=>gone.push({c:x,mine:false}));v.me.field.filter(removable).forEach(x=>gone.push({c:x,mine:true}));}
   else if(cf==='A')lines.push('➕ You draw a card');
-  else if(cf==='3')lines.push('🔍 Discover: keep 1 of 3 cards');
+  else if(cf==='3')lines.push('🔮 Scry: keep 1 of 3 cards');
   else if(cf==='T')lines.push('🫳 Steal: '+OPP+' gives you a card, you burn one');
   else if(cf==='G')lines.push('💰 Greed: you draw each time your turn starts');
   else if(cf==='4')lines.push('🛡️ Sturdy: can never be removed');
@@ -1956,7 +1956,7 @@ function chooseSync(v,OPP){
     o.onclick=chooser?()=>{if(d.dataset.sent)return;d.dataset.sent='1';dispatch({t:'choose',who:+o.dataset.who});setTimeout(()=>{delete d.dataset.sent;},600);}:null;
   });
 }
-// ---- Discover: a big event over the middle of the screen ----
+// ---- Scry: a big event over the middle of the screen ----
 // The card nobody chose is burned away; everything else in the overlay fades out.
 function discoverClose(d){
   const slots=[...d.querySelectorAll('.dc-slot')].filter(sl=>!sl.classList.contains('empty'));
@@ -2019,7 +2019,7 @@ function showBooster(opt){
   const pkd=Math.floor(Math.random()*4);
   const o=document.createElement('div');o.id='pack';o.className='booster pkd'+pkd;
   const inner='<div class="pk-logo">'+['🥚','🔥','🌊','🌙'][pkd]+'</div><div class="pk-name bp-name">BOOSTER PACK</div><div class="pk-sub">3 cards</div><div class="pk-crimp"></div><div class="pk-shine"></div>';
-  o.innerHTML=`<div class="pk-title" id="pkTitle">${disc?'Discover':'Greed!'}</div><div class="pk-help" id="pkHelp"></div>
+  o.innerHTML=`<div class="pk-title" id="pkTitle">${disc?'Scry':'Greed!'}</div><div class="pk-help" id="pkHelp"></div>
     <div id="pkStage"><div id="pkPack"><div class="pk-part body">${inner}</div><div class="pk-part top">${inner}</div><div id="pkTear"></div><div id="pkGrab" title="Swipe to tear"></div></div><div id="pkFlash"></div></div>
     <div id="pkRow"></div>
     <div class="pk-btns"><button class="secondary" id="pkSkip">Tear it open</button></div>`;
@@ -2032,11 +2032,11 @@ function showBooster(opt){
     const go=()=>{o.remove();fxUntil=Date.now()+400;burnRelease();if(view)render(view);if(mode==='cpu')scheduleCpu();jokerTick();};
     if(reduced()||!o.animate)go();else o.animate([{opacity:1},{opacity:0}],{duration:250,fill:'forwards'}).onfinish=go;
   };
-  // Discover: the three cards are shown, you drag one into your opponent's hand and the other two burn
+  // Scry: the three cards are shown, you drag one into your opponent's hand and the other two burn
   const revealPick=cards=>{
     const OPPn=mode==='cpu'?'Computer':'Opponent';
     $('pkStage').hidden=true;btns.hidden=true;
-    $('pkTitle').textContent='Discover';
+    $('pkTitle').textContent='Scry';
     $('pkHelp').textContent='Choose one card to give '+OPPn+'. Drag it into their hand (or tap it). The other two are burned.';
     const zone=document.createElement('div');zone.id='pkPick';zone.textContent='Drop the card you choose here to put it in '+OPPn+'\'s hand';
     row.before(zone);
@@ -2127,7 +2127,7 @@ function showBooster(opt){
   $('pkSkip').onclick=rip;
   // already opened (e.g. the page was reloaded mid-event): go straight to the cards
   if(disc&&view.pending&&view.pending.t==='discover'&&view.pending.opts&&view.pending.opts.length){opened=true;reveal(view.pending.opts.filter(Boolean));}
-  else if(disc){   // Discover has no pack to tear: the three cards are simply turned up
+  else if(disc){   // Scry has no pack to tear: the three cards are simply turned up
     opened=true;$('pkStage').hidden=true;btns.hidden=true;$('pkHelp').textContent='';
     setTimeout(()=>{dispatch({t:'draw'});waitCards();},0);
   }
@@ -2202,7 +2202,7 @@ function hovShow(key,where,label,cardsHTML){   // creates / refreshes the tray; 
 }
 function hovClear(){const tr=hovTray();if(tr&&!tr.dataset.hold)tr.remove();}
 let discoverOpenKey=null,discSeen=0,discGame=null,discRects=null;
-// Discover: you keep one of three cards, a random other one goes to the opponent and the last one burns
+// Scry: you keep one of three cards, a random other one goes to the opponent and the last one burns
 function discoverFx(v,OPP){
   if(discGame!==v.gameId){discGame=v.gameId;discSeen=(v.discover&&v.discover.n)||0;return;}
   if(!v.discover||v.discover.n<=discSeen)return;
@@ -2230,9 +2230,9 @@ function discoverSync(v,OPP){
   const pend=v.pending&&v.pending.t==='discover'?v.pending:null;
   if(!pend){const tr=hovTray();if(tr&&!tr.dataset.hold&&/^j?disc/.test(tr.dataset.key||''))tr.remove();return;}
   const you=v.you,chooser=pend.chooser===you;
-  if(pend.jk&&pend.ready){   // a Joker card's Discover: the Joker picks, the player watches
+  if(pend.jk&&pend.ready){   // a Joker card's Scry: the Joker picks, the player watches
     const opts=chooser?(pend.opts||[]).filter(Boolean):[];
-    const lab='🃏 Discover — '+(pend.jkSet?'the Joker picked '+(chooser?'this one':'for '+OPP):'the Joker is choosing…');
+    const lab='🃏 Scry — '+(pend.jkSet?'the Joker picked '+(chooser?'this one':'for '+OPP):'the Joker is choosing…');
     const {tr,fresh}=hovShow('jdisc'+(chooser?opts.map(c=>c.id).join(','):'O'+pend.n),chooser?'me':'opp',lab,chooser?opts.map(c=>cardEl(c)).join(''):Array.from({length:pend.n||0},()=>'<div class="card back"></div>').join(''));
     if(fresh&&!reduced()&&tr.animate)[...tr.querySelectorAll('.card')].forEach((el,i)=>el.animate([{opacity:0,translate:'0 40px'},{opacity:1,translate:'0 0'}],{duration:320,delay:i*90,easing:'cubic-bezier(.2,.9,.3,1.2)',fill:'backwards'}));
     jkThinkFor(pend,()=>[...tr.querySelectorAll('.card')]);
@@ -2240,7 +2240,7 @@ function discoverSync(v,OPP){
   }
   if(!chooser){   // the opponent is choosing: card backs hover above their hand
     const n=Math.max(pend.n||0,0);
-    const {tr,fresh}=hovShow('discO'+n+':'+v.logN,'opp','Discover — '+OPP+(n?' is choosing a card to keep…':' is looking at three cards…'),Array.from({length:n},()=>'<div class="card back"></div>').join(''));
+    const {tr,fresh}=hovShow('discO'+n+':'+v.logN,'opp','Scry — '+OPP+(n?' is choosing a card to keep…':' is looking at three cards…'),Array.from({length:n},()=>'<div class="card back"></div>').join(''));
     if(fresh&&!reduced()&&tr.animate)tr.animate([{opacity:0,transform:'translateX(-50%) translateY(-20px)'},{opacity:1,transform:'translateX(-50%)'}],{duration:260,easing:'ease-out'});
     return;
   }
@@ -2692,7 +2692,7 @@ const ART={
   L:'<svg class="art" viewBox="0 0 40 40"><defs><filter id="rnGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.2"/></filter></defs><g stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M20 24L11.5 15.5L20 7L28.5 15.5Z M20 24L12 34M20 24L28 34" stroke="#5fd6ff" stroke-width="5" opacity=".45" filter="url(#rnGlow)"/><path d="M20 24L11.5 15.5L20 7L28.5 15.5Z M20 24L12 34M20 24L28 34" stroke="#123a5a" stroke-width="2.6"/></g></svg>',
   G:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#f2c230" stroke="#8a6a00" stroke-width="2"/><circle cx="20" cy="20" r="13" fill="none" stroke="#c99a10" stroke-width="1.5"/><text x="20" y="27.5" text-anchor="middle" font-size="21" font-weight="800" font-family="Arial,sans-serif" fill="#6b4f00">$</text></svg>',
   A:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="17" fill="#2e9e5b" stroke="#145c32" stroke-width="2"/><text x="20" y="27" text-anchor="middle" font-family="system-ui,Arial,sans-serif" font-weight="900" font-size="20" fill="#fff">+1</text></svg>',
-  '3':'<svg class="art" viewBox="0 0 40 40"><line x1="26" y1="26" x2="35" y2="35" stroke="#4a3320" stroke-width="5" stroke-linecap="round"/><line x1="25" y1="25" x2="28" y2="28" stroke="#b9a37a" stroke-width="4" stroke-linecap="round"/><circle cx="16" cy="16" r="11" fill="#bfe6ff" fill-opacity=".75" stroke="#3a4752" stroke-width="3.2"/><path d="M9.5 14a7 7 0 0 1 5-5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/></svg>',
+  '3':'<svg class="art" viewBox="0 0 40 40"><path d="M9 36 Q10 30 14 29 H26 Q30 30 31 36 Z" fill="#d9a441" stroke="#6b4a12" stroke-width="1.6" stroke-linejoin="round"/><circle cx="20" cy="17" r="13" fill="#7a52d6" stroke="#3a2370" stroke-width="1.8"/><circle cx="17.5" cy="14.5" r="9" fill="#a682f5"/><circle cx="16" cy="13" r="4.5" fill="#d9c6ff"/><path d="M12.5 13 a8.5 8.5 0 0 1 6 -5.5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" opacity=".85"/><path d="M23 18l1 2.3 2.3 1-2.3 1-1 2.3-1-2.3-2.3-1 2.3-1z" fill="#fff" opacity=".9"/><circle cx="16" cy="22" r="1" fill="#fff" opacity=".7"/></svg>',
   '5':'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#d9322b" stroke="#fff" stroke-width="2"/><circle cx="20" cy="20" r="14.5" fill="none" stroke="#fff" stroke-width="1" opacity=".6"/><g fill="#fff"><path d="M9 21 L9 25 Q9 29 14 29 L19 29 L19 33 L27 27 L19 21 L19 25 L14 25 L14 21Z" transform="rotate(180 20 20)"/><path d="M9 21 L9 25 Q9 29 14 29 L19 29 L19 33 L27 27 L19 21 L19 25 L14 25 L14 21Z"/></g></svg>',
   J:'<svg class="art" viewBox="0 0 40 40"><g stroke="#3a8fd8" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M20 4V36M17 7l3 3 3-3M17 33l3-3 3 3"/><path d="M20 4V36M17 7l3 3 3-3M17 33l3-3 3 3" transform="rotate(60 20 20)"/><path d="M20 4V36M17 7l3 3 3-3M17 33l3-3 3 3" transform="rotate(120 20 20)"/></g></svg>',
   Q:'<svg class="art" viewBox="0 0 40 40"><path d="M24.5 1.5L8 22.5h10l-4.5 16L32 15.5H21.5z" fill="#ffd93b" stroke="#6b4a00" stroke-width="1.3" stroke-linejoin="round"/><path d="M22.5 4.5L11.5 20.5h4" stroke="#fff6b8" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>',
@@ -3178,7 +3178,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   }else if(v.phase==='choose'){
     st=v.chooser===you?'You lost the round — choose who starts the next round.':'Your opponent lost the round and is choosing who starts…';
   }else if(mustDiscover){
-    st=pend.ready?'Discover: choose one card from the booster pack to give your opponent. The other two are burned.':'Discover: open the booster pack.';
+    st=pend.ready?'Scry: choose one card from the booster pack to give your opponent. The other two are burned.':'Scry: open the booster pack.';
   }else if(mustSteal){st='Steal: choose a card from your hand to give to your opponent.';
   }else if(mustTarget){st='Removal: click a highlighted card on your opponent\'s side to remove it.';}
   else if(pend&&pend.t==='steal'){st='Steal: waiting for '+OPP.toLowerCase()+' to choose a card to give you…';}
@@ -3248,7 +3248,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
       toTray?'Drop it in the tray (or just click the deck)':'Drop it on your hand (or just click the deck)');
   };
 
-  // ---- tray: Discover cards, or your Round 1 draw ----
+  // ---- tray: Scry cards, or your Round 1 draw ----
   let tray='';
   if(false){
     const mine=mustDiscover;
@@ -3259,7 +3259,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
       else if(!mine&&i<pend.n)slots+='<div class="card back"></div>';
       else slots+='<div class="slot"></div>';
     }
-    tray=`<div class="lbl">Discover${mine?'':(pend.chooser===you?'':' — '+OPP+' is choosing')}</div><div class="cards">${slots}</div>`;
+    tray=`<div class="lbl">Scry${mine?'':(pend.chooser===you?'':' — '+OPP+' is choosing')}</div><div class="cards">${slots}</div>`;
   }else if(v.startMe){
     const go=v.phase==='play'&&v.turn===you;
     tray=`<div class="lbl">${go?'Drag it onto your field':'Your draw — the lowest card plays first'}</div><div class="cards">${cardEl(v.startMe,go?'pickable':'')}</div>`;
@@ -3478,7 +3478,7 @@ function showStats(e){
   // card lists
   const cv=e.cardsView;
   const mini=(c,how,dim,burnt)=>`<span class="sc${dim?' dim2':''}${burnt?' burnt':''}">${cardEl(c,'').replace('data-id=','data-sid=')}${burnt?'<i class="char"></i>':''}${how?`<em>${how}</em>`:''}</span>`;
-  const HOW={start:'start',draw:'Ace',deathrattle:'2',discover:'Discover',greed:'Greed',greedturn:'Greed',laststand:'Rune',steal:'Steal'};
+  const HOW={start:'start',draw:'Ace',deathrattle:'2',discover:'Scry',greed:'Greed',greedturn:'Greed',laststand:'Rune',steal:'Steal'};
   // same order as the hand sort: A, 2-10, J, Q, K (then suit)
   const byValue=arr=>[...(arr||[])].sort((x,y)=>rk(x)-rk(y)||SUIT_RANK[x.s]-SUIT_RANK[y.s]);
   const none='<span class="none">none</span>';
@@ -3617,7 +3617,7 @@ function showRules(){
   <h4>The field</h4><p>Each player has a side, organized in suit columns (♣ ♠ ♥ ♦) that face the matching column on the opponent's side.</p>
   ${cz?`<h4>Card effects</h4><p>Every single card gets one of the effects below at random, so two Aces (or two 7s) can do different things. The effect is written on each card, and the 🌀 button shows the effects in this game. Effects trigger when the card is played.</p><ul>${fxList}</ul>`
       :`<h4>Special cards (trigger when played)</h4><ul>${fxList}</ul>${off?`<p>Switched off in this game: ${off}. They play with no effect.</p>`:''}`}
-  <h4>Hand limit</h4><p>You can hold at most 10 cards. A card drawn into a full hand (from the deck${cz?', a booster pack, Discover or a Joker':' or Discover'}) is shown to you and then burned. The card you draw at the start of round 1 and the 🥚 Egg are the only exceptions.</p>
+  <h4>Hand limit</h4><p>You can hold at most 10 cards. A card drawn into a full hand (from the deck${cz?', a booster pack, Scry or a Joker':' or Scry'}) is shown to you and then burned. The card you draw at the start of round 1 and the 🥚 Egg are the only exceptions.</p>
   ${cz?`<h4>Deck reshuffle</h4><p>When the deck is drawn out, every discarded card (removed, burned, mulliganed, or played in an earlier round) is shuffled back in.</p>`:''}
   <h4>Running out</h4><p>If you run out of cards (including drawn ones) and cannot exceed your opponent's total, the game ends and your opponent wins.</p>
   <p style="text-align:right"><button id="closeRules">Close</button></p></div></div>`;

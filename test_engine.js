@@ -447,7 +447,7 @@ t('Joker: cards are played one at a time and their effects trigger',()=>{
   assert.deepEqual(k.p[0].field.map(c=>c.id),['9S','4D','3D'],'King played first; the later cards land after it');
 });
 
-t('Joker: its cards\' Steal and Discover are chosen by the Joker, shown first, then made',()=>{
+t('Joker: its cards\' Steal and Scry are chosen by the Joker, shown first, then made',()=>{
   const deck=[X('5','C',''),X('6','C',''),X('10','C',''),X('2','C',''),X('3','S',''),X('4','H',''),X('7','C',''),X('8','S','3'),X('9','D','T')];
   const s=setup([J('JK1'),X('3','C','')],[X('2','S',''),X('4','S','')],[],[],deck);s.crazy=true;s.paced=true;
   act(s,0,{t:'play',id:'JK1',suit:'H'});
@@ -461,7 +461,7 @@ t('Joker: its cards\' Steal and Discover are chosen by the Joker, shown first, t
   assert.equal(act(s,1,{t:'jkpick'}),null);
   assert.equal(s.pending,null);assert.ok(s.p[0].hand.some(c=>c.id===id),'the Joker\'s pick was given');
   act(s,0,{t:'jstep'});   // 3S plain for the opponent
-  act(s,0,{t:'jstep'});   // 8S Discover for the owner
+  act(s,0,{t:'jstep'});   // 8S Scry for the owner
   assert.equal(s.pending.t,'discover');assert.ok(s.pending.jk);
   assert.ok(act(s,0,{t:'jkpick'}),'the three cards are turned up first');
   act(s,0,{t:'draw'});assert.equal(s.pending.opts.length,3);
@@ -569,7 +569,7 @@ t('hand limit: a Greed booster into a hand of 9 keeps one and burns two, shown t
   assert.equal(s.p[0].hand.length,10);
   assert.equal(s.burn.cards.length,2,'both burns in one event');assert.equal(s.discard.length,2);
 });
-t('hand limit: Discover gift to a full hand burns',()=>{
+t('hand limit: Scry gift to a full hand burns',()=>{
   const s=setup([C('3','C')],fill(10),[],[C('9','H')]);
   act(s,0,{t:'play',id:'3C'});drawFor(s,0);
   const keep=s.pending.opts[0].id;
