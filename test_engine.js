@@ -271,7 +271,7 @@ t('Normal mode never reshuffles and keeps the standard effects',()=>{
   if(m['7']!==''||m.K!=='K'||m['4']!=='4'||s.fm)throw new Error('wrong default effects');
 });
 const X=(r,s,f)=>({id:r+s,r,s,f});
-t('Mirror copies the previous card\'s effect (Removal, then Draw), and nothing when there is none',()=>{
+t('Mimic copies the previous card\'s effect (Removal, then Draw), and nothing when there is none',()=>{
   // Jack-effect card played first, then a Mirror of the same suit removes the next same-suit card
   const s=setup([X('7','S','J'),X('9','S','M')],[C('3','C')],[],[C('5','S'),C('6','S'),C('10','H'),C('10','D')]);
   s.crazy=true;
@@ -332,7 +332,7 @@ t('the four extra effects exist only in Crazy mode',()=>{
   const seen=new Set();for(let g=0;g<40;g++){const c=newGame(null,{crazy:true});c.deck.concat(c.p[0].hand,c.p[1].hand).forEach(x=>seen.add(x.f));}
   for(const k of ['M','T','L','G'])assert.ok(seen.has(k),k+' never appears in crazy games');
 });
-t('Mirror becomes the copied effect on the field (passives too) and turns back when it leaves',()=>{
+t('Mimic becomes the copied effect on the field (passives too) and turns back when it leaves',()=>{
   // copy Sturdy: cannot be removed by a Jack afterwards
   const s=setup([X('9','S','4'),X('7','H','M')],[X('3','H','J'),C('2','D')],[],[C('10','D'),C('10','C'),C('10','S')]);
   s.turn=0;act(s,0,{t:'play',id:'9S'});act(s,0,{t:'play',id:'7H'});

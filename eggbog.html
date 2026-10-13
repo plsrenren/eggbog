@@ -213,6 +213,10 @@ header h2{margin:0;font-size:1.3rem}
 .dropline{position:fixed;width:4px;border-radius:2px;background:var(--gold);z-index:25;pointer-events:none}
 #hand .card.mul,#stlHand .card.mul{transform:translateY(-10px);outline:3px solid #ff6b6b}
 .card.ghost{position:fixed;z-index:60;pointer-events:none;margin:0;transform:rotate(5deg) scale(1.08);box-shadow:0 8px 20px #0009}
+.mimic-mask{position:fixed;width:58px;height:58px;pointer-events:none;z-index:62;filter:drop-shadow(0 3px 6px #0008) drop-shadow(0 0 8px #c58bff88)}
+.mimic-mask .mm{transform-box:fill-box;transform-origin:50% 0;animation:mimicLaugh .17s ease-in-out infinite alternate}
+@keyframes mimicLaugh{from{transform:scaleY(1)}to{transform:scaleY(.45)}}
+.mimic-ha{position:fixed;pointer-events:none;z-index:63;font-weight:900;font-size:15px;color:#ffe36b;text-shadow:0 2px 0 #3a2370,0 0 6px #000a;letter-spacing:1px}
 .thud-ring{position:fixed;width:90px;height:90px;border-radius:50%;border:3px solid #ffffffaa;pointer-events:none;z-index:12}
 .thud-dent{position:fixed;width:140px;height:140px;border-radius:50%;background:radial-gradient(closest-side,#000a,#0000);pointer-events:none;z-index:-1}
 .col{border-radius:8px;transition:background .12s}
@@ -642,7 +646,7 @@ const SUITS=['C','S','H','D'];
 const SUIT_RANK={C:0,S:1,H:2,D:3,'*':4};
 const SYM={C:'♣',S:'♠',H:'♥',D:'♦','*':''};
 const DISCOVER_N=3; // cards the opponent draws for a Discover; they keep one for you, the rest are discarded
-const ABILITY={A:'Draw','2':'Deathrattle','3':'Discover','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Wipe',M:'Mirror',T:'Steal',L:'Rune',G:'Greed',X:'Joker'};
+const ABILITY={A:'Draw','2':'Deathrattle','3':'Discover','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Wipe',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',X:'Joker'};
 const ABILITY_TEXT={
   A:'Draw: draw one card from the deck into your hand.',
   '2':'Deathrattle: if this card is removed from the field, its owner draws one card.',
@@ -652,7 +656,7 @@ const ABILITY_TEXT={
   J:'Frost: freeze and shatter the top (most recently played) card of its suit and of the other suit of the same colour (♥/♦ or ♣/♠) on your opponent\'s side. A Sturdy card on top blocks it for that suit.',
   Q:'Bolt: lightning destroys all cards of the same suit on your opponent\'s side.',
   K:'Wipe: clear all removable cards from both sides, excluding the King itself.',
-  M:'Mirror (Crazy mode): when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Deathrattle, Sturdy and Rune included). If nothing was played before it, it does nothing.',
+  M:'Mimic (Crazy mode): when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Deathrattle, Sturdy and Rune included). If nothing was played before it, it does nothing.',
   T:'Steal (Crazy mode): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned.',
   L:'Rune (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards.',
   G:'Greed (Crazy mode): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
@@ -734,7 +738,7 @@ function removeCard(s,owner,c){
   if(s.stats){s.stats.lostN[owner]++;s.stats.lostV[owner]+=cardVal(c);}
   if(fx==='2')queueDraw(s,owner,'deathrattle');
 }
-// A Mirror turns into the effect it copies for as long as it stays on the table; once it leaves the field it is a Mirror again
+// A Mimic turns into the effect it copies for as long as it stays on the table; once it leaves the field it is a Mimic again
 function unmirror(c){if(c.was==='M'){c.f='M';delete c.was;}}
 function resolve(s,i,c){
   const opp=1-i;let fx=F(c);
@@ -743,7 +747,7 @@ function resolve(s,i,c){
     fx=last&&last!=='M'?last:null;
     s.mirror={n:((s.mirror&&s.mirror.n)||0)+1,fx,id:c.id};
     if(fx){c.was='M';c.f=fx;}
-    log(s,i,fx?'Mirror turns into '+ABILITY[fx]:'Mirror has nothing to copy');
+    log(s,i,fx?'Mimic turns into '+ABILITY[fx]:'Mimic has nothing to copy');
   }else if(fx!=='X')s.lastFx=fx;
   switch(fx){
     case 'X':{jokerEffect(s,i,c);break;}
@@ -1433,7 +1437,7 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
   let swap=null;
   if(c.r==='JK'){lines.push('🃏 Burns up: 5 random cards, the 3 highest for you, the 2 lowest for '+OPP);return {gone,swap,lines,joker:true};}
   const cf=efx(c,v);
-  if(c.f==='M')lines.push(cf?'🪞 Mirror copies '+ABILITY[cf]:'🪞 Mirror has nothing to copy');
+  if(c.f==='M')lines.push(cf?'🎭 Mimic copies '+ABILITY[cf]:'🎭 Mimic has nothing to copy');
   const mate={C:'S',S:'C',H:'D',D:'H'};
   if(cf==='5'){const t=swapTarget(v.opp.field,c.s);swap={t};lines.push(t?'🔄 Swaps with their '+cardStr(t):'🔄 Goes to '+OPP+'\'s side');}
   else if(cf==='J'){for(const su of [c.s,mate[c.s]]){const col=v.opp.field.filter(x=>x.s===su),top=col[col.length-1];if(top&&removable(top))gone.push({c:top,mine:false});}}
@@ -1493,7 +1497,7 @@ function ghostShow(id,suit){
       el.animate([{transform:`translate(${f.left-a.left}px,${f.top-a.top}px)`,opacity:0},{transform:'none',opacity:.55}],{duration:380,easing:'cubic-bezier(.3,1.3,.5,1)',fill:'backwards'});};
     if(plan.swap){land(oppGh,col);if(tookGh&&tookEl)T(()=>land(tookGh,tookEl),200);}
     else land(mine);
-    // a Mirror flips into what it copies
+    // a Mimic flips into what it copies
     if(card.f==='M'&&cf&&mine){T(()=>{mine.animate([{transform:'scaleX(1)'},{transform:'scaleX(0)',offset:.5},{transform:'scaleX(1)'}],{duration:360});T(()=>{const w=document.createElement('div');w.innerHTML=cardEl(Object.assign({},card,{f:cf}),'gh-card');const n=w.firstChild;mine.replaceWith(n);mine=n;},180);},420);}
     const at=card.f==='M'?900:480;
     // 2. the effect itself, as a see-through replay of the real animation
@@ -2683,7 +2687,7 @@ const TREFOIL=(()=>{ // radiation trefoil: three 60° wedges
 })();
 const EGG_ART='<svg class="art" viewBox="0 0 40 40"><path d="M20 3C11.5 3 6 16 6 24a14 14 0 0 0 28 0C34 16 28.5 3 20 3z" fill="#fff7e3" stroke="#a8823a" stroke-width="2"/><path d="M12.5 15c1.4-4 3.8-6.6 6-7.4" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/><g fill="#e9b949"><circle cx="24" cy="22" r="2"/><circle cx="16" cy="28" r="1.5"/><circle cx="25.5" cy="30.5" r="1.3"/></g></svg>';   // the Egg's art, centred like the effect cards
 const ART={
-  M:'<svg class="art" viewBox="0 0 40 40"><ellipse cx="20" cy="20" rx="13" ry="17" fill="#cfe8f5" stroke="#3f5f72" stroke-width="2"/><path d="M12 29 L27 10" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/><path d="M17 32 L29 17" stroke="#fff" stroke-width="1.6" stroke-linecap="round" opacity=".8"/></svg>',
+  M:'<svg class="art" viewBox="0 0 40 40"><path d="M5 9 Q14 6 22 9 Q23 22 13.5 28 Q4 22 5 9Z" fill="#cfd8ff" stroke="#3a3f7a" stroke-width="1.8"/><path d="M18 13 Q26 10 35 13 Q36 26 26.5 32 Q17 26 18 13Z" fill="#b48cff" stroke="#3a2370" stroke-width="1.8"/><path d="M8.5 14 q2 -2 4 0 M15 14 q2 -2 4 0 M10 21 q3.5 3 7 0" stroke="#3a3f7a" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M21.5 18 q2 -2 4 0 M28 18 q2 -2 4 0 M23 25 q3.5 3 7 0" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>',
   T:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#6b3fa0" stroke="#2c1646" stroke-width="2"/><rect x="9" y="11" width="13" height="18" rx="2" fill="#fff" stroke="#2c1646" stroke-width="1.5" transform="rotate(-12 15 20)"/><path d="M19 21 H33 M28 15 L34 21 L28 27" fill="none" stroke="#ffd84a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   L:'<svg class="art" viewBox="0 0 40 40"><defs><filter id="rnGlow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="1.2"/></filter></defs><g stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M20 24L11.5 15.5L20 7L28.5 15.5Z M20 24L12 34M20 24L28 34" stroke="#5fd6ff" stroke-width="5" opacity=".45" filter="url(#rnGlow)"/><path d="M20 24L11.5 15.5L20 7L28.5 15.5Z M20 24L12 34M20 24L28 34" stroke="#123a5a" stroke-width="2.6"/></g></svg>',
   G:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#f2c230" stroke="#8a6a00" stroke-width="2"/><circle cx="20" cy="20" r="13" fill="none" stroke="#c99a10" stroke-width="1.5"/><text x="20" y="27.5" text-anchor="middle" font-size="21" font-weight="800" font-family="Arial,sans-serif" fill="#6b4f00">$</text></svg>',
@@ -2695,7 +2699,34 @@ const ART={
   X:'<svg class="art" viewBox="0 0 40 40"><defs><linearGradient id="jkg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff6bd6"/><stop offset=".35" stop-color="#6bd6ff"/><stop offset=".7" stop-color="#8dff8d"/><stop offset="1" stop-color="#ffe86b"/></linearGradient></defs><path d="M20 2 L24.5 14 L37.5 14.5 L27.3 22.5 L30.8 35.5 L20 28 L9.2 35.5 L12.7 22.5 L2.5 14.5 L15.5 14 Z" fill="url(#jkg)" stroke="#4b2a7a" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 8 L22 15 M20 8 L18 15" stroke="#fff" stroke-width="1.4" stroke-linecap="round" opacity=".8"/></svg>',
   K:`<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18.5" fill="#ffe21f" stroke="#111" stroke-width="2"/>${TREFOIL}</svg>`
 };
-// A Mirror that was just played shows its Mirror face for a moment, then flips into the card it copied
+// Mimic: two laughing masks pop out of the played card, rock with laughter, and fade
+const MASK=(fill,ink,flip)=>`<svg viewBox="0 0 40 40" width="100%" height="100%"${flip?' style="transform:scaleX(-1)"':''}><path d="M4 6 Q20 1 36 6 Q38 26 20 37 Q2 26 4 6Z" fill="${fill}" stroke="${ink}" stroke-width="2"/><path d="M9 15 q4 -4.5 8 0 M23 15 q4 -4.5 8 0" stroke="${ink}" stroke-width="2.2" fill="none" stroke-linecap="round"/><path class="mm" d="M11 21 Q20 22 29 21 Q28 32 20 32 Q12 32 11 21Z" fill="#5a1630" stroke="${ink}" stroke-width="1.6"/><path d="M15 29.5 Q20 27 25 29.5" fill="#e0556a"/><circle cx="8.5" cy="20" r="2.2" fill="#ff8fb0" opacity=".55"/><circle cx="31.5" cy="20" r="2.2" fill="#ff8fb0" opacity=".55"/></svg>`;
+function mimicFx(id){
+  if(reduced())return;
+  setTimeout(()=>{
+    const el=document.querySelector('#myField .card[data-id="'+id+'"],#oppField .card[data-id="'+id+'"]');if(!el)return;
+    const r=el.getBoundingClientRect(),cx=r.left+r.width/2,cy=r.top+r.height/2;
+    [[-1,'#e6ebff','#3a3f7a'],[1,'#c6a6ff','#3a2370']].forEach(([d,fill,ink],k)=>{
+      const m=document.createElement('div');m.className='mimic-mask';m.innerHTML=MASK(fill,ink,d>0);
+      m.style.left=(cx-29)+'px';m.style.top=(cy-29)+'px';document.body.appendChild(m);
+      const dx=d*52,dy=-62;
+      m.animate([{transform:'translate(0,0) scale(.2) rotate(0deg)',opacity:0},
+        {transform:`translate(${dx}px,${dy}px) scale(1.1) rotate(${d*-12}deg)`,opacity:1,offset:.2},
+        {transform:`translate(${dx}px,${dy-4}px) scale(1) rotate(${d*14}deg)`,offset:.32},
+        {transform:`translate(${dx}px,${dy}px) scale(1.06) rotate(${d*-14}deg)`,offset:.44},
+        {transform:`translate(${dx}px,${dy-4}px) scale(1) rotate(${d*14}deg)`,offset:.56},
+        {transform:`translate(${dx}px,${dy}px) scale(1.06) rotate(${d*-12}deg)`,offset:.68},
+        {transform:`translate(${dx}px,${dy-3}px) scale(1) rotate(${d*8}deg)`,opacity:1,offset:.8},
+        {transform:`translate(${dx*1.15}px,${dy-26}px) scale(.85) rotate(0deg)`,opacity:0}],
+        {duration:1700,easing:'ease-out',delay:k*90,fill:'backwards'}).onfinish=()=>m.remove();
+      for(let h=0;h<2;h++){const ha=document.createElement('div');ha.className='mimic-ha';ha.textContent='HA';
+        ha.style.left=(cx+dx+(d>0?18:-34))+'px';ha.style.top=(cy+dy-14)+'px';document.body.appendChild(ha);
+        ha.animate([{opacity:0,transform:'translateY(6px) scale(.6)'},{opacity:1,transform:'translateY(0) scale(1)',offset:.3},{opacity:0,transform:`translate(${d*10}px,-22px) scale(1.1)`}],
+          {duration:700,delay:380+h*420+k*120,easing:'ease-out',fill:'backwards'}).onfinish=()=>ha.remove();}
+    });
+  },460);   // after the played card has landed (and before the Mimic flips)
+}
+// A Mimic that was just played shows its Mimic face for a moment, then flips into the card it copied
 const mirrorShow=new Set(),mirrorDone=new Set();
 function morphReal(c){ // swap the face of the card on the table (no animation)
   mirrorShow.delete(c.id);
@@ -2748,11 +2779,11 @@ function sortHand(h){return h.slice().sort((a,b)=>cardVal(a)-cardVal(b)||rk(a)-r
 let lastV=null;
 // The centre badge: current lead, or (while a card is hovered / held on your turn) what the lead would become.
 let previewId=null,dragPreview=false;
-// what a card actually does right now: a Mirror does whatever the card before it did
+// what a card actually does right now: a Mimic does whatever the card before it did
 function efx(c,v){
   if(c.f!=='M')return c.f;
-  if(v.mirror&&v.mirror.id===c.id)return v.mirror.fx;                 // a Mirror already on the table
-  return v.lastFx&&v.lastFx!=='M'?v.lastFx:null;                      // a Mirror in your hand: what it would copy
+  if(v.mirror&&v.mirror.id===c.id)return v.mirror.fx;                 // a Mimic already on the table
+  return v.lastFx&&v.lastFx!=='M'?v.lastFx:null;                      // a Mimic in your hand: what it would copy
 }
 function projectTotals(v,c){
   const cf=efx(c,v);
@@ -3048,7 +3079,7 @@ function faceFx(prev,v,oldCards){
   if(!pl)return handled;
   const removed=[...oldCards].filter(([id])=>!document.querySelector('#oppField .card[data-id="'+id+'"],#myField .card[data-id="'+id+'"]'));
   removed.forEach(([id])=>handled.add(id));
-  const T=480+(mirrorShow.has(pl.c.id)?520:0); // let the played card land first (and a Mirror finish flipping)
+  const T=480+(mirrorShow.has(pl.c.id)?520:0); // let the played card land first (and a Mimic finish flipping)
   // never run while a full-screen event (the opening "who goes first" reveal, the pack) still covers the board
   const later=fn=>{const go=()=>{if($('duel')||$('pack')||$('pf')){setTimeout(go,150);return;}setTimeout(fn,T);};setTimeout(go,0);};
   fxUntil=Math.max(fxUntil,Date.now()+T+1300);
@@ -3073,7 +3104,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   runeFx(prev,v,oldCards);
   $('lobby').hidden=true;$('game').hidden=false;
   $('btnFx').hidden=!(v.crazy||(v.fxOn&&FX_KEYS.some(k=>!v.fxOn.includes(k))));
-  if(prev&&v.mirror&&v.mirror.n>((prev.mirror&&prev.mirror.n)||0))toast(v.mirror.fx?'🪞 Mirror turns into '+ABILITY[v.mirror.fx]+'!':'🪞 Mirror has nothing to copy');
+  if(prev&&v.mirror&&v.mirror.n>((prev.mirror&&prev.mirror.n)||0)){toast(v.mirror.fx?'🎭 Mimic turns into '+ABILITY[v.mirror.fx]+'!':'🎭 Mimic has nothing to copy');mimicFx(v.mirror.id);}
   if(prev&&v.stolen&&v.stolen.n>((prev.stolen&&prev.stolen.n)||0)){
     if(v.stolen.by===v.you){const g=v.me.hand.find(c=>!prev.me.hand.some(x=>x.id===c.id));toast('🫳 Steal: you received '+(g?cardStr(g):'a card'));}
     else{const g=prev.me.hand.find(c=>!v.me.hand.some(x=>x.id===c.id));toast('🫳 Steal: you gave away '+(g?cardStr(g):'a card'));}
