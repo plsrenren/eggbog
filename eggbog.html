@@ -2833,23 +2833,32 @@ function removalAnim(kind,pl,clones,G){
   const fx=(css,z)=>{const e=document.createElement('i');e.style.cssText='position:fixed;pointer-events:none;z-index:'+(z||57)+';'+css;host.appendChild(e);return e;};
   const die=(e,ms)=>setTimeout(()=>e.remove(),ms);
   const ctr=r=>({x:r.left+r.width/2,y:r.top+r.height/2});
+  const SISTER={H:'D',D:'H',C:'S',S:'C'};
+  // where the spell comes from: the card that was just played (or its column if it can't be found)
+  const srcR=()=>{const e=document.querySelector(pl.side+' .card[data-id="'+pl.c.id+'"]');if(e)return e.getBoundingClientRect();
+    const col=document.querySelector(pl.side+' .col[data-suit="'+pl.c.s+'"]');if(!col)return null;const r=col.getBoundingClientRect();return {left:r.left+r.width/2-31,top:r.top+20,width:62,height:88};};
+  // a quick glow on the played card as it casts
+  const castGlow=(col)=>{const r=srcR();if(!r)return;const c=ctr(r);const g=fx(`left:${c.x-55}px;top:${c.y-55}px;width:110px;height:110px;border-radius:50%;background:radial-gradient(circle,#fff 0,${col} 30%,#0000 70%)`,57);
+    g.animate([{transform:'scale(.3)',opacity:0},{transform:'scale(1)',opacity:.9,offset:.3},{transform:'scale(1.3)',opacity:0}],{duration:500,fill:'both'});die(g,540);};
   if(kind==='J'){
     // Frost: an icy mist rolls over the opponent's side, freezes each removed card solid, and the ice shatters
     {
       S&&noiseBurst(1,'highpass',2500,7000,.22);
-      const tf=document.querySelector(pl.side==='#myField'?'#oppField':'#myField');
-      if(tf){
-        const r=tf.getBoundingClientRect(),dy=(pl.side==='#myField'?1:-1)*r.height*.7;   // the mist rolls in from the caster's side
-        for(let k=0;k<10;k++){
-          const sz=r.height*(.8+Math.random()*.6),x=r.left+r.width*(k/9)-sz/2,y=r.top+r.height/2-sz/2+(Math.random()-.5)*r.height*.4;
-          const m=fx(`left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;border-radius:50%;background:radial-gradient(circle,#f4fbffd0 0,#c6e9ffaa 35%,#8fd0ff44 60%,#0000 72%);filter:blur(8px)`,56);
-          m.animate([{transform:`translate(${(Math.random()-.5)*40}px,${dy}px) scale(.5)`,opacity:0},{transform:'none',opacity:.9,offset:.4},{transform:`translate(${(Math.random()-.5)*60}px,${-dy*.15}px) scale(1.3)`,opacity:0}],{duration:1150,delay:k*35,easing:'ease-out',fill:'both'});die(m,1250+k*35);
+      castGlow('#bfe6ffcc');
+      // the mist streams out of the played card and settles only over the two affected suits' columns
+      const src=srcR(),opp=pl.side==='#myField'?'#oppField':'#myField';
+      [pl.c.s,SISTER[pl.c.s]].map(s=>document.querySelector(opp+' .col[data-suit="'+s+'"]')).filter(Boolean).forEach((col,ci)=>{
+        const r=col.getBoundingClientRect(),to=ctr(r),from=src?ctr(src):to;
+        for(let k=0;k<9;k++){
+          const sz=r.width*(.7+Math.random()*.5),ox=(Math.random()-.5)*r.width*.5,oy=(Math.random()-.5)*r.height*.6;
+          const m=fx(`left:${to.x-sz/2}px;top:${to.y-sz/2}px;width:${sz}px;height:${sz}px;border-radius:50%;background:radial-gradient(circle,#f4fbffd0 0,#c6e9ffaa 35%,#8fd0ff44 60%,#0000 72%);filter:blur(7px)`,56);
+          m.animate([{transform:`translate(${from.x-to.x}px,${from.y-to.y}px) scale(.25)`,opacity:0},{opacity:.85,offset:.12},{transform:`translate(${ox}px,${oy}px) scale(1)`,opacity:.9,offset:.4},{transform:`translate(${ox*1.2}px,${oy*1.2-10}px) scale(1.25)`,opacity:0}],{duration:1250,delay:k*45+ci*60,easing:'ease-out',fill:'both'});die(m,1350+k*45+ci*60);
         }
-        const tint=fx(`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:12px;background:linear-gradient(#dff4ff30,#9fd8ff20);box-shadow:inset 0 0 40px #cfefff90`,13);
-        tint.animate([{opacity:0},{opacity:1,offset:.3},{opacity:1,offset:.75},{opacity:0}],{duration:1400,fill:'both'});die(tint,1450);
-      }
+        const tint=fx(`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:10px;background:linear-gradient(#dff4ff30,#9fd8ff20);box-shadow:inset 0 0 30px #cfefff90`,13);
+        tint.animate([{opacity:0},{opacity:0,offset:.15},{opacity:1,offset:.35},{opacity:1,offset:.75},{opacity:0}],{duration:1450,fill:'both'});die(tint,1500);
+      });
       clones.forEach((k,i)=>{
-        const r=k.el.getBoundingClientRect(),fz=300+i*90,br=820+i*110;
+        const r=k.el.getBoundingClientRect(),fz=380+i*90,br=880+i*110;
         // the card freezes: it pales to blue and a shell of ice with frost at the edges forms over it
         k.el.animate([{filter:'none'},{filter:'saturate(.3) brightness(1.12)'}],{duration:320,delay:fz,fill:'forwards'});
         const ice=fx(`left:${r.left-2}px;top:${r.top-2}px;width:${r.width+4}px;height:${r.height+4}px;border-radius:8px;background:linear-gradient(135deg,#ffffffb0 0,#cdeeff60 30%,#9fd6ff50 60%,#e8f8ffb0 100%);border:2px solid #eef9ff;box-shadow:0 0 14px #9fd8ff,inset 0 0 12px #fff`,15);
@@ -2879,18 +2888,20 @@ function removalAnim(kind,pl,clones,G){
       });
     }
   }else if(kind==='Q'){
-    // Bolt: lightning strikes each removed card from above; it flashes, chars black and crumbles to ash
+    // Bolt: lightning shoots out of the played card into each removed card; it flashes, chars black and crumbles to ash
     {
       S&&noiseBurst(.55,'bandpass',2200,300,.55);S&&boomLow(.06);
+      const src=srcR();castGlow('#9ad8ffcc');
       const strike=(r,delay)=>{
-        const c=ctr(r),top=Math.max(0,r.top-260),H=c.y-top,n=9;
-        const pts=[];let x=c.x+(Math.random()-.5)*50;
-        for(let s=0;s<=n;s++){pts.push([s===n?c.x:x,top+H*s/n]);x+=(Math.random()-.5)*40;x=x*.75+c.x*.25;}
-        const br=[];let bx=pts[4][0];for(let s=4;s<=7;s++){br.push([bx,top+H*s/n]);bx+=12+Math.random()*14;}
+        // a jagged bolt from the played card to the target, with a short fork off its middle
+        const c=ctr(r),f=src?ctr(src):{x:c.x,y:Math.max(0,r.top-260)},dx=c.x-f.x,dy=c.y-f.y,len=Math.hypot(dx,dy)||1,nx=-dy/len,ny=dx/len,n=9;
+        const pts=[];for(let s=0;s<=n;s++){const j=(s===0||s===n)?0:(Math.random()-.5)*Math.min(40,len*.18);pts.push([f.x+dx*s/n+nx*j,f.y+dy*s/n+ny*j]);}
+        const br=[pts[4]];for(let s=1;s<=3;s++){const q=br[s-1];br.push([q[0]+dx/n*.8+nx*(10+Math.random()*10),q[1]+dy/n*.8+ny*(10+Math.random()*10)]);}
+        const top=Math.min(...pts.map(p=>p[1]),...br.map(p=>p[1]))-20,H=Math.max(...pts.map(p=>p[1]),...br.map(p=>p[1]))-top+20;
         const L=Math.min(...pts.map(p=>p[0]),...br.map(p=>p[0]))-20,W=Math.max(...pts.map(p=>p[0]),...br.map(p=>p[0]))-L+20;
         const pl2=a=>a.map(p=>(p[0]-L).toFixed(1)+','+(p[1]-top).toFixed(1)).join(' ');
-        const b=fx(`left:${L}px;top:${top}px;width:${W}px;height:${H+4}px;opacity:0`,58);
-        b.innerHTML=`<svg width="${W}" height="${H+4}" style="overflow:visible;filter:drop-shadow(0 0 6px #9ad8ff) drop-shadow(0 0 16px #5aa8ff)"><polyline points="${pl2(pts)}" fill="none" stroke="#bfe4ff" stroke-width="7" stroke-linejoin="round" opacity=".55"/><polyline points="${pl2(br)}" fill="none" stroke="#bfe4ff" stroke-width="3" stroke-linejoin="round" opacity=".6"/><polyline points="${pl2(pts)}" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/><polyline points="${pl2(br)}" fill="none" stroke="#fff" stroke-width="1.2"/></svg>`;
+        const b=fx(`left:${L}px;top:${top}px;width:${W}px;height:${H}px;opacity:0`,58);
+        b.innerHTML=`<svg width="${W}" height="${H}" style="overflow:visible;filter:drop-shadow(0 0 6px #9ad8ff) drop-shadow(0 0 16px #5aa8ff)"><polyline points="${pl2(pts)}" fill="none" stroke="#bfe4ff" stroke-width="7" stroke-linejoin="round" opacity=".55"/><polyline points="${pl2(br)}" fill="none" stroke="#bfe4ff" stroke-width="3" stroke-linejoin="round" opacity=".6"/><polyline points="${pl2(pts)}" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/><polyline points="${pl2(br)}" fill="none" stroke="#fff" stroke-width="1.2"/></svg>`;
         b.animate([{opacity:0},{opacity:1,offset:.08},{opacity:.25,offset:.25},{opacity:1,offset:.4},{opacity:.6,offset:.7},{opacity:0}],{duration:420,delay,fill:'both'});die(b,delay+460);
         const hit=fx(`left:${c.x-60}px;top:${c.y-60}px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,#fff 0,#cfeaff 20%,#6bb6ff66 45%,#0000 70%)`,57);
         hit.animate([{transform:'scale(.2)',opacity:0},{transform:'scale(1)',opacity:1,offset:.15},{transform:'scale(1.4)',opacity:0}],{duration:460,delay,fill:'both'});die(hit,delay+500);
