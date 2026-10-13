@@ -621,7 +621,7 @@ t('Morph: hits a Sturdy card, not an Egg on top; a Morphed card turns back at th
   const all=s2.deck.concat(s2.discard,s2.p[0].hand,s2.p[1].hand,s2.p[0].field,s2.p[1].field);
   const ten=all.find(c=>c.id==='10D');assert.ok(ten);assert.equal(ten.r,'10','back to a 10 after the round');
 });
-t('Hush: the opponent\'s cards lose their effects until the caster\'s next turn',()=>{
+t('Hush: the opponent\'s cards lose their effects for good, but later cards are not silenced',()=>{
   const {F}=mod.exports;
   // player 0 gets ahead with Hush, so the turn passes: the silenced Greed does not draw
   const s=setup([X('3','H','U'),X('2','C','')],[X('5','S',''),X('10','C','')],[X('10','D',''),X('8','D','')],[X('9','H','4'),X('4','C','G'),X('2','S','2')]);s.crazy=true;
@@ -631,7 +631,13 @@ t('Hush: the opponent\'s cards lose their effects until the caster\'s next turn'
   assert.equal(act(s,1,{t:'play',id:'5S'}),null);assert.equal(s.turn,1);assert.ok(s.p[1].field.some(c=>c.hu),'still silenced during their turn');
   assert.ok(F(s.p[1].field.find(c=>c.id==='5S'))!==undefined&&!s.p[1].field.find(c=>c.id==='5S').hu,'a card played after Hush is not silenced');
   assert.equal(act(s,1,{t:'play',id:'10C'}),null);assert.equal(s.turn,0);
-  assert.ok(!s.p[1].field.some(c=>c.hu),'Hush wears off when the caster\'s turn comes back');assert.equal(F(s.p[1].field.find(c=>c.id==='9H')),'4');
+  assert.ok(s.p[1].field.find(c=>c.id==='9H').hu,'Hush stays after the caster\'s turn comes back');assert.equal(F(s.p[1].field.find(c=>c.id==='9H')),'');
+});
+t('Hush: Morphing a silenced card clears its silence, and it stays clear after it turns back',()=>{
+  const s=setup([X('3','H','U'),X('5','H','O'),X('2','C','')],[X('5','S','')],[],[X('9','H','4'),X('2','S','2')]);s.crazy=true;
+  act(s,0,{t:'play',id:'3H'});assert.equal(s.turn,0);assert.ok(s.p[1].field.every(c=>c.hu));
+  act(s,0,{t:'play',id:'5H'});const eg=s.p[1].field.find(c=>c.id==='9H');
+  assert.equal(eg.r,'EG');assert.ok(!eg.hu,'the Morphed card is no longer silenced');assert.ok(s.p[1].field.find(c=>c.id==='2S').hu,'others stay silenced');
 });
 t('Hush: a silenced Sturdy card can be removed, and a silenced Deathrattle does not draw',()=>{
   const s=setup([X('3','H','U'),X('Q','H','Q'),X('K','C','K'),X('2','C','')],[X('5','S','')],[],[X('9','H','4'),X('2','S','2'),X('10','D','')]);s.crazy=true;

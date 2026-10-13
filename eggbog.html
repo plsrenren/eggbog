@@ -672,7 +672,7 @@ const ABILITY_TEXT={
   L:'Rune (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards.',
   G:'Greed (Crazy mode): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
   O:'Morph (Crazy mode): the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It hits Sturdy cards too (they lose Sturdy). It turns back when it leaves the table. An Egg on top is not affected.',
-  U:'Hush (Crazy mode): every card on your opponent\'s side is silenced until your next turn: it keeps its value but loses its effect (a Sturdy card can be removed, Deathrattle, Greed and Rune do nothing). Cards they play after it are not silenced.',
+  U:'Hush (Crazy mode): every card on your opponent\'s side is silenced for as long as it stays on the table: it keeps its value but loses its effect (a Sturdy card can be removed, Deathrattle, Greed and Rune do nothing). Cards they play after it are not silenced. A silenced card that gets Morphed loses its silence.',
   X:'Joker (Crazy mode): can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Joker also makes any choice those cards need (which card Scry keeps, which card Steal takes), at random.'
 };
 function F(c){if(c.hu)return '';return c.f===undefined?(DEF_F[c.r]||''):c.f;}   // a card silenced by Hush has no effect
@@ -799,14 +799,14 @@ function resolve(s,i,c){
       break;}
     case 'O':{ // Morph: the top card of this suit on the opponent's side becomes a 1-point Egg, Sturdy or not (an Egg on top is left alone)
       const tg=morphTarget(s.p[opp].field,c.s);
-      if(tg){const was=cardStr(tg);tg.mo={r:tg.r,f:tg.f,v:tg.v};tg.r='EG';tg.f='';tg.v=EGG_VAL.crazy;
+      if(tg){const was=cardStr(tg);tg.mo={r:tg.r,f:tg.f,v:tg.v};tg.r='EG';tg.f='';tg.v=EGG_VAL.crazy;delete tg.hu;   // Morphing a silenced card clears its Hush
         s.morph={n:((s.morph&&s.morph.n)||0)+1,id:tg.id,by:i};log(s,i,'Morph: '+was+' turned into an Egg');}
       else log(s,i,'Morph: nothing to turn into an Egg');
       break;}
-    case 'U':{ // Hush: every card on the opponent's side loses its effect until this player's next turn
-      const ids=s.p[opp].field.map(x=>x.id);s.p[opp].field.forEach(x=>{x.hu=i+1;});   // hu = 1 + the player whose next turn ends it
+    case 'U':{ // Hush: every card on the opponent's side loses its effect while it stays on the table
+      const ids=s.p[opp].field.map(x=>x.id);s.p[opp].field.forEach(x=>{x.hu=i+1;});   // hu = 1 + the caster; cleared when the card leaves the table or is Morphed
       s.hush={n:((s.hush&&s.hush.n)||0)+1,by:i,src:c.id,ids};
-      log(s,i,ids.length?'Hush: '+ids.length+' card'+(ids.length>1?'s are':' is')+' silenced until their next turn':'Hush: nothing to silence');
+      log(s,i,ids.length?'Hush: '+ids.length+' card'+(ids.length>1?'s are':' is')+' silenced for good':'Hush: nothing to silence');
       break;}
     case 'G': // Greed does nothing when played: while it is on your field you draw a card each time the turn passes to you (see settle)
       break;
@@ -870,7 +870,6 @@ function settle(s){
     const me=s.turn,op=1-me;
     if(total(s,me)>total(s,op)){
       s.turn=op;
-      for(const w of [0,1])s.p[w].field.forEach(c=>{if(c.hu===op+1)delete c.hu;});   // Hush wears off when its caster's turn comes round again
       const gr=s.p[op].field.filter(c=>F(c)==='G').length; // Greed on the field: draw when the turn switches to you
       if(gr){s.greedFx={n:((s.greedFx&&s.greedFx.n)||0)+1,who:op,ids:s.p[op].field.filter(c=>F(c)==='G').map(c=>c.id)};log(s,op,'Greed: draws '+gr+' card'+(gr>1?'s':'')+' as the turn passes');for(let g=0;g<gr;g++)queueDraw(s,op,'greedturn');if(s.drawQ.length)return;}
       continue;}
@@ -1478,7 +1477,7 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
   else if(cf==='K'){v.opp.field.filter(removable).forEach(x=>gone.push({c:x,mine:false}));v.me.field.filter(removable).forEach(x=>gone.push({c:x,mine:true}));}
   else if(cf==='A')lines.push('➕ You draw a card');
   else if(cf==='3')lines.push('🔮 Scry: keep 1 of 3 cards');
-  else if(cf==='U'){const n=v.opp.field.length;lines.push(n?'🤫 Hush: silences '+n+' of '+OPP+'\'s card'+(n>1?'s':'')+' until your next turn':'🤫 Hush: nothing to silence');}
+  else if(cf==='U'){const n=v.opp.field.length;lines.push(n?'🤫 Hush: silences '+n+' of '+OPP+'\'s card'+(n>1?'s':'')+' for good':'🤫 Hush: nothing to silence');}
   else if(cf==='O'){const tg=morphTarget(v.opp.field,c.s);lines.push(tg?'🥚 Morph: their '+cardStr(tg)+' becomes an Egg (1 point)':'🥚 Morph: nothing to turn into an Egg');}
   else if(cf==='T')lines.push('🫳 Steal: '+OPP+' gives you a card, you burn one');
   else if(cf==='G')lines.push('💰 Greed: you draw each time your turn starts');
