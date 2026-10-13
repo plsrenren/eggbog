@@ -662,7 +662,7 @@ const ABILITY_TEXT={
   T:'Steal (Crazy mode): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned.',
   L:'Rune (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards.',
   G:'Greed (Crazy mode): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
-  O:'Morph (Crazy mode): the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It turns back when it leaves the table. A Sturdy card or an Egg on top is not affected.',
+  O:'Morph (Crazy mode): the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It hits Sturdy cards too (they lose Sturdy). It turns back when it leaves the table. An Egg on top is not affected.',
   X:'Joker (Crazy mode): can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Joker also makes any choice those cards need (which card Scry keeps, which card Steal takes), at random.'
 };
 function F(c){return c.f===undefined?(DEF_F[c.r]||''):c.f;}
@@ -745,7 +745,7 @@ function removeCard(s,owner,c){
 function unmirror(c){if(c.was==='M'){c.f='M';delete c.was;}}
 // A card turned into an Egg by Morph stays an Egg while it is on the table, and turns back into itself when it leaves
 function unmorph(c){if(c.mo){c.r=c.mo.r;c.f=c.mo.f;if(c.mo.v===undefined)delete c.v;else c.v=c.mo.v;delete c.mo;}}
-function morphTarget(field,suit){const col=field.filter(x=>x.s===suit),top=col[col.length-1];return top&&F(top)!=='4'&&top.r!=='EG'?top:null;}
+function morphTarget(field,suit){const col=field.filter(x=>x.s===suit),top=col[col.length-1];return top&&top.r!=='EG'?top:null;}   // Sturdy does not protect against Morph (it stops removal, and Morph removes nothing)
 function resolve(s,i,c){
   const opp=1-i;let fx=F(c);
   if(fx==='M'){
@@ -787,7 +787,7 @@ function resolve(s,i,c){
       if(!s.p[opp].hand.length)log(s,i,'Steal: the opponent has no cards');
       else s.pending={t:'steal',by:i,chooser:opp};
       break;}
-    case 'O':{ // Morph: the top card of this suit on the opponent's side becomes a 1-point Egg (a Sturdy card or an Egg on top is left alone)
+    case 'O':{ // Morph: the top card of this suit on the opponent's side becomes a 1-point Egg, Sturdy or not (an Egg on top is left alone)
       const tg=morphTarget(s.p[opp].field,c.s);
       if(tg){const was=cardStr(tg);tg.mo={r:tg.r,f:tg.f,v:tg.v};tg.r='EG';tg.f='';tg.v=EGG_VAL.crazy;
         s.morph={n:((s.morph&&s.morph.n)||0)+1,id:tg.id,by:i};log(s,i,'Morph: '+was+' turned into an Egg');}

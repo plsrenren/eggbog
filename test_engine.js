@@ -609,9 +609,10 @@ t('Morph: the top card of its suit on the opponent\'s side becomes a 1-point Egg
   s.turn=0;s.p[0].hand.push(X('Q','H','Q'));assert.equal(act(s,0,{t:'play',id:'QH'}),null);
   const d=s.discard.find(c=>c.id==='9H');assert.ok(d,'removed');assert.equal(d.r,'9');assert.equal(d.f,'G');assert.ok(!d.mo);assert.equal(cardVal(d),9);
 });
-t('Morph: a Sturdy card or an Egg on top is not affected; a Morphed card turns back at the end of a round',()=>{
+t('Morph: hits a Sturdy card, not an Egg on top; a Morphed card turns back at the end of a round',()=>{
   const s=setup([X('3','H','O'),X('2','C','')],[X('5','S','')],[],[X('9','H','4')]);s.crazy=true;
-  act(s,0,{t:'play',id:'3H'});assert.equal(s.p[1].field[0].r,'9','Sturdy blocks Morph');
+  act(s,0,{t:'play',id:'3H'});assert.equal(s.p[1].field[0].r,'EG','Morph hits Sturdy');assert.equal(mod.exports.F(s.p[1].field[0]),'','no longer Sturdy');
+  s.turn=0;s.p[0].hand.push(X('Q','H','Q'));act(s,0,{t:'play',id:'QH'});const n9=s.discard.find(c=>c.id==='9H');assert.ok(n9,'a Morphed Sturdy card can be removed');assert.equal(n9.f,'4','Sturdy again in the discard pile');
   const s2=setup([X('3','D','O'),X('2','D','O'),X('2','C','')],[X('5','S','')],[],[X('10','D','')]);s2.crazy=true;
   act(s2,0,{t:'play',id:'3D'});assert.equal(s2.p[1].field[0].r,'EG');
   s2.turn=0;act(s2,0,{t:'play',id:'2D'});assert.equal(s2.morph.n,1,'an Egg on top is not Morphed again');
