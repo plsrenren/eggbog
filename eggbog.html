@@ -234,7 +234,6 @@ header h2{margin:0;font-size:1.3rem}
 .col{border-radius:8px;transition:background .12s}
 .side.dropzone{outline:2px dashed var(--gold);outline-offset:-4px}
 .side.dropzone.hover{outline-style:solid;background-color:#f2c14e1c}
-.col.tgt{background:#f2c14e33;border-radius:10px;box-shadow:0 0 0 2px #f2c14e88}
 .sortbtn{display:inline-flex;align-items:center;gap:6px;padding:.5em .9em}
 .sortbtn .sb{font-weight:800;font-size:1.1rem;line-height:1}
 .sortbtn .sb.red{color:#ff8a7a}
@@ -1649,7 +1648,7 @@ function startDrag(ev,el,id,canPlay,onTap){
   // captured when the drag began) so a drag can never play a card the rules do not allow.
   const playable=()=>!!view&&view.phase==='play'&&view.turn===view.you&&!isBusy(view)&&(!view.startMe||view.startMe.id===id);
   // The card can be dragged anywhere and dropped anywhere on your side of the field (one big drop area),
-  // when playing is allowed; it lands in its own suit's column, which is marked while the card is over your side.
+  // when playing is allowed; it lands in its own suit's column.
   const isJk=id.slice(0,2)==='JK'||id==='EGG';           // a Surge (or the Egg) can be dropped on any of your four columns
   let px=sx,py=sy,suit=isJk?null:id.slice(-1);
   const zone=()=>{
@@ -1658,7 +1657,7 @@ function startDrag(ev,el,id,canPlay,onTap){
     if(onMat(px,py))document.querySelectorAll('#myField .col').forEach(c=>{const r=c.getBoundingClientRect(),d=Math.abs(r.left+r.width/2-px);if(d<best){best=d;z=c;}});
     suit=z?z.dataset.suit:null;return z;
   };
-  const clearZones=()=>{side.classList.remove('dropzone','hover');document.querySelectorAll('#myField .col.tgt').forEach(c=>c.classList.remove('tgt'));};
+  const clearZones=()=>side.classList.remove('dropzone','hover');
   // Jack / Queen / King: while the card is held over your side of the field, the cards it would remove glow red
   const rank=(view&&(c=>c?efx(c,view):'')(view.me.hand.find(c=>c.id===id)))||'';
   const setDoom=on=>{
@@ -1676,7 +1675,6 @@ function startDrag(ev,el,id,canPlay,onTap){
     setDoom((rank==='J'||rank==='Q'||rank==='K')&&ok&&inRect(side,x,y));
     const over=!!(ok&&z&&onMat(x,y));
     side.classList.toggle('dropzone',ok);side.classList.toggle('hover',over);
-    document.querySelectorAll('#myField .col').forEach(c=>c.classList.toggle('tgt',over&&c===z));
     if(rank==='5')swapMark(view&&view.opp.field,suit,over&&!!view);
     if((previewId===id)!==over){previewId=over?id:null;paintDiff();}
     {const gk=over?suit:null;   // ghost action: shown once the card has been held over the column for a moment
@@ -3073,21 +3071,21 @@ function paintDiff(){
   const playing=v.phase==='play'&&v.turn===v.you&&!isBusy(v)&&!v.startMe;
   const card=previewId&&playing?v.me.hand.find(c=>c.id===previewId):null;
   if(card&&card.r==='JK'){   // the Surge burns up and plays five unknown cards
-    text=fmtDiff(cur)+' \u2192 ?';shown=cur;prevw=true;pm='?';po='?';title='The Surge burns up and plays five cards from the deck \u2014 the result is unknown';
+    text='?';shown=cur;prevw=true;pm='?';po='?';title='The Surge burns up and plays five cards from the deck \u2014 the result is unknown';
   }else if(card){
     const t=projectTotals(v,card),nd=t.me-t.opp;
-    text=fmtDiff(cur)+' \u2192 '+fmtDiff(nd);shown=nd;prevw=true;pm=t.me;po=t.opp;
+    text=fmtDiff(nd);shown=nd;prevw=true;pm=t.me;po=t.opp;
     title='If you play '+cardStr(card)+': '+(nd>0?'you lead by '+nd:nd<0?'you trail by '+Math.abs(nd):'tied')+(nd>0?' (your turn would end)':'');
   }else title=cur>0?'You are ahead by '+cur:cur<0?'Your opponent is ahead by '+Math.abs(cur):'Tied';
   el.textContent=text;el.title=title;
-  // the two side totals preview the change too: 12 -> 15, in the same style as the middle badge
+  // the two side totals preview the change too, showing just the new number
   for(const [id,now,nw] of [['myTotal',sum(v.me.field),pm],['oppTotal',sum(v.opp.field),po]]){
     const te=$(id);if(!te)continue;
     const show=nw!==null&&(nw==='?'||nw!==now);
     te.classList.toggle('prev',show);
     const k=show?now+'>'+nw:'='+now;
     if(te.dataset.pv===k)continue;
-    te.innerHTML=show?`<b class="was">${now}</b><span class="arr">\u2192</span><b class="nw ${nw==='?'?'':nw>now?'up':'down'}">${nw}</b>`:`<b>${now}</b>`;
+    te.innerHTML=show?`<b class="nw ${nw==='?'?'':nw>now?'up':'down'}">${nw}</b>`:`<b>${now}</b>`;   // only the new total, green if it goes up, red if down
     if(show&&te.animate&&!reduced())te.querySelector('.nw').animate([{transform:'scale(1.5)',opacity:.4},{transform:'scale(1)',opacity:1}],{duration:260,easing:'cubic-bezier(.3,1.6,.5,1)'});
     te.dataset.pv=k;
   }
