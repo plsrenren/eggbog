@@ -232,8 +232,9 @@ header h2{margin:0;font-size:1.3rem}
 .thud-ring{position:fixed;width:90px;height:90px;border-radius:50%;border:3px solid #ffffffaa;pointer-events:none;z-index:12}
 .thud-dent{position:fixed;width:140px;height:140px;border-radius:50%;background:radial-gradient(closest-side,#000a,#0000);pointer-events:none;z-index:-1}
 .col{border-radius:8px;transition:background .12s}
-.col.dropzone{outline:2px dashed var(--gold);outline-offset:-2px;background:#f2c14e1f}
-.col.dropzone.hover{background:#f2c14e55;outline-style:solid}
+.side.dropzone{outline:2px dashed var(--gold);outline-offset:-4px}
+.side.dropzone.hover{outline-style:solid;background-color:#f2c14e1c}
+.col.tgt{background:#f2c14e33;border-radius:10px;box-shadow:0 0 0 2px #f2c14e88}
 .sortbtn{display:inline-flex;align-items:center;gap:6px;padding:.5em .9em}
 .sortbtn .sb{font-weight:800;font-size:1.1rem;line-height:1}
 .sortbtn .sb.red{color:#ff8a7a}
@@ -1632,6 +1633,7 @@ function startDrag(ev,el,id,canPlay,onTap){
   ev.preventDefault();
   const sx=ev.clientX,sy=ev.clientY;
   const side=$('mySide'),wrap=$('handwrap');
+  const onMat=(x,y)=>inRect(side,x,y)&&!inRect($('hand'),x,y);   // your side, minus the part your hand sits over
   let ghost=null,line=null,dragging=false,dx=0,dy=0,handIdx=-1,ghostKey=null;
   const inRect=(node,x,y)=>{const r=node.getBoundingClientRect();return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;};
   const slot=x=>{
@@ -1646,16 +1648,17 @@ function startDrag(ev,el,id,canPlay,onTap){
   // Playing is only possible on your own turn with nothing pending. This is checked live (not
   // captured when the drag began) so a drag can never play a card the rules do not allow.
   const playable=()=>!!view&&view.phase==='play'&&view.turn===view.you&&!isBusy(view)&&(!view.startMe||view.startMe.id===id);
-  // The card can be dragged anywhere, but it can only be placed in its own suit column on your
-  // side of the field, and only when playing is allowed. That column lights up while dragging.
+  // The card can be dragged anywhere and dropped anywhere on your side of the field (one big drop area),
+  // when playing is allowed; it lands in its own suit's column, which is marked while the card is over your side.
   const isJk=id.slice(0,2)==='JK'||id==='EGG';           // a Surge (or the Egg) can be dropped on any of your four columns
   let px=sx,py=sy,suit=isJk?null:id.slice(-1);
   const zone=()=>{
     if(!isJk)return document.querySelector('#myField .col[data-suit="'+suit+'"]');
-    const z=[...document.querySelectorAll('#myField .col')].find(c=>inRect(c,px,py))||null;
+    let z=null,best=1e9;   // a Surge or the Egg takes the suit of the column nearest to where it is dropped
+    if(onMat(px,py))document.querySelectorAll('#myField .col').forEach(c=>{const r=c.getBoundingClientRect(),d=Math.abs(r.left+r.width/2-px);if(d<best){best=d;z=c;}});
     suit=z?z.dataset.suit:null;return z;
   };
-  const clearZones=()=>document.querySelectorAll('#myField .col.dropzone').forEach(c=>c.classList.remove('dropzone','hover'));
+  const clearZones=()=>{side.classList.remove('dropzone','hover');document.querySelectorAll('#myField .col.tgt').forEach(c=>c.classList.remove('tgt'));};
   // Jack / Queen / King: while the card is held over your side of the field, the cards it would remove glow red
   const rank=(view&&(c=>c?efx(c,view):'')(view.me.hand.find(c=>c.id===id)))||'';
   const setDoom=on=>{
@@ -1670,17 +1673,15 @@ function startDrag(ev,el,id,canPlay,onTap){
     ghost.style.left=(x-dx)+'px';ghost.style.top=(y-dy)+'px';px=x;py=y;
     const ok=playable(),z=zone();
     if(isJk&&id!=='EGG')ghost.classList.toggle('boost',inRect(side,x,y)||inRect($('oppSide'),x,y));
-    if(isJk){document.querySelectorAll('#myField .col').forEach(c=>{c.classList.toggle('dropzone',ok);c.classList.toggle('hover',ok&&c===z);});}
     setDoom((rank==='J'||rank==='Q'||rank==='K')&&ok&&inRect(side,x,y));
-    const over=!!(ok&&z&&inRect(z,x,y));
+    const over=!!(ok&&z&&onMat(x,y));
+    side.classList.toggle('dropzone',ok);side.classList.toggle('hover',over);
+    document.querySelectorAll('#myField .col').forEach(c=>c.classList.toggle('tgt',over&&c===z));
     if(rank==='5')swapMark(view&&view.opp.field,suit,over&&!!view);
     if((previewId===id)!==over){previewId=over?id:null;paintDiff();}
     {const gk=over?suit:null;   // ghost action: shown once the card has been held over the column for a moment
      if(gk!==ghostKey){ghostKey=gk;ghostHide();if(gk)ghostTimer=setTimeout(()=>{ghostTimer=null;if(ghostKey===gk&&dragging)ghostShow(id,gk);},450);}}
-    if(handIdx>=0)sendPtr(handIdx,(z&&inRect(z,x,y))?(z.dataset.suit||suit):null);
-    if(isJk)return;
-    if(!ok||!z){clearZones();return;}
-    z.classList.add('dropzone');z.classList.toggle('hover',inRect(z,x,y));
+    if(handIdx>=0)sendPtr(handIdx,over?(z.dataset.suit||suit):null);
   };
   const begin=()=>{
     dragging=true;
@@ -1710,7 +1711,7 @@ function startDrag(ev,el,id,canPlay,onTap){
   const onUp=e=>{
     const was=dragging,x=e.clientX,y=e.clientY;px=x;py=y;
     const z=zone();
-    const toZone=was&&playable()&&!!z&&inRect(z,x,y);
+    const toZone=was&&playable()&&!!z&&onMat(x,y);
     const toHand=was&&!toZone&&!el.closest('#tray')&&inRect(wrap,x,y);
     const idx=toHand?slot(x).idx:0;
     const overField=was&&!toZone&&!toHand&&(inRect(side,x,y)||inRect($('oppSide'),x,y));
@@ -1725,7 +1726,7 @@ function startDrag(ev,el,id,canPlay,onTap){
       else if(view.turn!==view.you)toast('It\'s not your turn');
       else if(view.jq>0)toast('Wait for the Surge\'s cards to finish playing');
       else if(isBusy(view))toast('Finish drawing / the current choice first');
-      else toast(isJk?'Drop the '+(id==='EGG'?'Egg':'Surge')+' on any column on your side':'Drop it on the '+SYM[suit]+' column on your side');
+      else toast('Drop it anywhere on your side');
     }
   };
   window.addEventListener('pointermove',onMove);window.addEventListener('pointerup',onUp);window.addEventListener('pointercancel',cleanup);
