@@ -178,7 +178,7 @@ header h2{margin:0;font-size:1.3rem}
 .card:not(.red):not(.joker):not(.egg):not(.back):not(.oc){background:linear-gradient(160deg,#eef4ff,#d5e2fa)}
 .card.red:not(.joker):not(.egg):not(.back):not(.oc):not(.r4){border-color:#e3a2a2}
 .card:not(.red):not(.joker):not(.egg):not(.back):not(.oc):not(.r4){border-color:#9fb3da}
-#hand .card.art-on .cs,#stlHand .card.art-on .cs,#hovTray .card.art-on .cs{font-size:1.5rem;bottom:22px}
+#hand .card.art-on .cs,#stlHand .card.art-on .cs,#hovTray .card.art-on .cs,.card.ghost.hc.art-on .cs{font-size:1.5rem;bottom:22px}
 .card.r2::before{content:'';position:absolute;inset:0;border-radius:6px;pointer-events:none;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 88' preserveAspectRatio='none'><g fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round'><path d='M31 20l-3 9 5 6-4 8 6 7-3 10' stroke-width='1.1'/><path d='M33 35l9-3 5-8' stroke-width='.8'/><path d='M29 43l-9 4-6 10' stroke-width='.8'/><path d='M36 50l8 5 2 9' stroke-width='.7'/><path d='M28 29l-7-4-2-7' stroke-width='.6'/><path d='M0 66l7-3 4 4M62 12l-8 4-2 6' stroke-width='.7'/></g></svg>") center/100% 100% no-repeat;opacity:.95;filter:drop-shadow(0 0 1.5px #9fd0ff) drop-shadow(0 0 3px #bfe0ff)}
 /* Soul (2): a faded, see-through spirit card; the soul shines through its cracks */
 .card.r2.red:not(.hushed){background:linear-gradient(170deg,#fff0f4ea,#ffdfe8de)!important}
@@ -201,8 +201,8 @@ header h2{margin:0;font-size:1.3rem}
 .card.doomed{outline:3px solid #ff2d20;outline-offset:0;box-shadow:0 0 0 2px #ff2d2088,0 0 16px #ff2d20;z-index:30}
 .card.doomed::after{content:'';position:absolute;inset:0;border-radius:6px;background:#ff2d2055;pointer-events:none}
 #hand,#stlHand{display:flex;flex-wrap:nowrap;justify-content:center;padding-top:34px;min-height:176px;perspective:1000px;overflow:visible}
-#hand .card,#stlHand .card,#hovTray .card{width:80px;height:114px;padding:4px 5px}
-#hand .card .cr,#stlHand .card .cr,#hovTray .card .cr{font-size:1.15rem}#hand .card .cs,#hovTray .card .cs{font-size:2.3rem;bottom:20px;right:9px}#hand .card .ab,#hovTray .card .ab{font-size:.68rem;bottom:5px}
+#hand .card,#stlHand .card,#hovTray .card{width:80px;height:114px;padding:4px 5px}.card.ghost.hc{padding:4px 5px}
+#hand .card .cr,#stlHand .card .cr,#hovTray .card .cr,.card.ghost.hc .cr{font-size:1.15rem}#hand .card .cs,#hovTray .card .cs,.card.ghost.hc .cs{font-size:2.3rem;bottom:20px;right:9px}#hand .card .ab,#hovTray .card .ab,.card.ghost.hc .ab{font-size:.68rem;bottom:5px}
 #hand .card,#stlHand .card{cursor:grab;touch-action:none;transition:transform .1s;transform-origin:50% 160%;transform:translateY(var(--y,0px)) rotate(var(--r,0deg)) rotateX(10deg);box-shadow:0 3px 8px #0008}
 .field .card{transition:transform .12s}
 @media(hover:hover){
@@ -213,7 +213,7 @@ header h2{margin:0;font-size:1.3rem}
 #hand .card.dragging,#stlHand .card.dragging{opacity:.3}
 .dropline{position:fixed;width:4px;border-radius:2px;background:var(--gold);z-index:25;pointer-events:none}
 #hand .card.mul,#stlHand .card.mul{transform:translateY(-10px);outline:3px solid #ff6b6b}
-.card.ghost{position:fixed;z-index:60;pointer-events:none;margin:0;transform:rotate(5deg) scale(1.08);box-shadow:0 8px 20px #0009}
+.card.ghost{position:fixed;z-index:60;pointer-events:none;margin:0;transform:rotate(5deg) scale(1.15);box-shadow:0 8px 20px #0009}
 .card.mo-hold{visibility:hidden}
 .card.hushed{background:linear-gradient(160deg,#e4e4e8,#c4c4cc)!important;border-color:#8d8d99!important}
 .card.hushed>*{filter:grayscale(1);opacity:.75}
@@ -512,7 +512,7 @@ header h2{margin:0;font-size:1.3rem}
 .zone-on{outline:3px dashed var(--gold);outline-offset:-3px;background-color:#f2c14e22}
 .zone-on.hover{background-color:#f2c14e55;outline-style:solid}
 @media(max-width:640px){#lowrow{grid-template-columns:1fr}}
-@media(max-width:480px){.card{width:54px;height:78px}#hand .card{width:66px;height:94px}#hand .card .cs{font-size:1.9rem}#hand{min-height:140px;padding-top:24px}.col .card+.card{margin-top:-52px}.cs{font-size:1.4rem}}
+@media(max-width:480px){.card{width:54px;height:78px}#hand .card{width:66px;height:94px}#hand .card .cs,.card.ghost.hc .cs{font-size:1.9rem}#hand{min-height:140px;padding-top:24px}.col .card+.card{margin-top:-52px}.cs{font-size:1.4rem}}
 
 #stlHand{width:min(96vw,900px);margin-top:18px}
 #stlHand .card{cursor:grab;touch-action:none}
@@ -1717,9 +1717,10 @@ function startDrag(ev,el,id,canPlay,onTap){
     dragging=true;
     const rect=el.getBoundingClientRect();
     ghost=el.cloneNode(true);ghost.classList.remove('dragging');ghost.removeAttribute('style');ghost.classList.add('ghost');
-    ghost.style.width=rect.width+'px';ghost.style.height=rect.height+'px';
+    if(el.closest('#hand,#stlHand'))ghost.classList.add('hc');   // same text and art proportions as in the hand
+    ghost.style.width=el.offsetWidth+'px';ghost.style.height=el.offsetHeight+'px';   // layout size: not the hover zoom or the tilted outline
     document.body.appendChild(ghost);
-    dx=sx-rect.left;dy=sy-rect.top;
+    dx=(sx-rect.left)*el.offsetWidth/rect.width;dy=(sy-rect.top)*el.offsetHeight/rect.height;
     el.classList.add('dragging');
     handIdx=el.closest('#hand')?[...$('hand').querySelectorAll('.card')].indexOf(el):-1;
     if(handIdx>=0)sendPtr(handIdx,null);
@@ -1780,7 +1781,8 @@ function simpleDrag(ev,ghostEl,targets,onDrop,onTap,miss){
     if(!ghost){
       if(Math.hypot(e.clientX-sx,e.clientY-sy)<6)return;
       ghost=ghostEl.cloneNode(true);ghost.removeAttribute('style');ghost.classList.add('ghost');
-      ghost.style.width=r0.width+'px';ghost.style.height=r0.height+'px';document.body.appendChild(ghost);ghostEl.classList.add('dim');
+      if(ghostEl.closest('#hand,#stlHand,#hovTray'))ghost.classList.add('hc');
+      ghost.style.width=ghostEl.offsetWidth+'px';ghost.style.height=ghostEl.offsetHeight+'px';document.body.appendChild(ghost);ghostEl.classList.add('dim');
     }
     ghost.style.left=(e.clientX-ox)+'px';ghost.style.top=(e.clientY-oy)+'px';
     zs().forEach(z=>{z.classList.add('zone-on');z.classList.toggle('hover',inRect(z,e.clientX,e.clientY));});
