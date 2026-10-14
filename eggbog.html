@@ -1364,7 +1364,8 @@ function cpuPending(){
   if(s.pending)return ((s.pending.t==='discover'||s.pending.t==='steal')?s.pending.chooser:s.pending.by)===1;
   return s.phase==='play'&&s.turn===1;
 }
-let cpuHoverSkipped=false;
+let cpuHoverSkipped=false,cpuSeq=[];
+const cpuSeqStop=()=>{cpuSeq.forEach(clearTimeout);cpuSeq=[];};
 const overlayUp=()=>!!($('duel')||$('pack')||$('pf'));
 function scheduleCpu(){
   clearTimeout(cpuTimer);
@@ -1375,7 +1376,7 @@ function scheduleCpu(){
   const oneDraw=state.drawQ.length>=1&&state.drawQ[0].who===1&&state.drawQ[0].reason!=='start'&&state.drawQ[0].reason!=='greed';
   let D=(oneDraw?350:700+Math.random()*900)+extra+Math.max(0,fxUntil-Date.now());
   if(state.phase==='start')D=Math.max(300,fxUntil-Date.now());   // who goes first: draw as soon as the cards have slid in, so both flip together
-  clearTimeout(cpuHoverTimer);cpuPre=null;
+  clearTimeout(cpuHoverTimer);cpuSeqStop();cpuPre=null;
   // the computer 'thinks' with its hand visible: it lifts a card or two, then holds its choice over the column
   const pl=state.phase==='play'&&state.turn===1&&!state.pending&&!state.drawQ.length&&!(state.jokerQ&&state.jokerQ.length)&&!state.startCards[1];
   if(pl)D=Math.max(D,900);   // always leave time to see the card lifted and held over its column
@@ -1390,14 +1391,14 @@ function scheduleCpu(){
     const suit=ch.suit||ca.s,seq=[];
     if(D>1300&&h.length>1){let d=Math.floor(Math.random()*h.length);if(d===k)d=(d+1)%h.length;seq.push([d,null,300]);}
     seq.push([k,null,300],[k,suit,0]);
-    let at=0;seq.forEach(([i,s,dur])=>{setTimeout(()=>{if(cpuPending()&&state.phase==='play')setOppPtr(i,s);},at);at+=dur;});
+    let at=0;seq.forEach(([i,s,dur])=>{cpuSeq.push(setTimeout(()=>{if(cpuPending()&&state.phase==='play'&&state.turn===1)setOppPtr(i,s);},at));at+=dur;});
   },Math.max(0,D-(D>1300?1000:D>800?700:0)-100));
   cpuTimer=setTimeout(()=>{
-    if(!cpuPending())return;
+    if(!cpuPending()){setOppPtr(null,null);return;}
     // never move while a full-screen event (the "who goes first" reveal, a pack) covers the board: the move would land unseen
     if(state.phase==='play'&&overlayUp()){cpuTimer=setTimeout(scheduleCpu,250);return;}
     if(cpuHoverSkipped){cpuHoverSkipped=false;scheduleCpu();return;}   // the overlay hid the 'thinking' hover: start over so the move is seen
-    const pre=cpuPre&&cpuPre.n===state.logN?cpuPre.ch:null;cpuPre=null;
+    cpuSeqStop();const pre=cpuPre&&cpuPre.n===state.logN?cpuPre.ch:null;cpuPre=null;
     const err=act(state,1,pre||cpuChoose(state,1,cpuLevel));
     if(err)console.warn('CPU move rejected:',err);
     setOppPtr(null,null);
@@ -2699,12 +2700,13 @@ function paintOppPtr(){
   document.querySelectorAll('#oppField .col.oppHover').forEach(c=>c.classList.remove('oppHover'));
   let g=$('oppGhost');
   const col=oppPtr.suit?document.querySelector('#oppField .col[data-suit="'+oppPtr.suit+'"]'):null;
-  if(col&&oppPtr.k!==null){
+  const cpuOff=mode==='cpu'&&!(state&&state.phase==='play'&&state.turn===1);   // never left hanging once the computer's turn is over
+  if(col&&oppPtr.k!==null&&!cpuOff){
     col.classList.add('oppHover');
     if(!g){g=document.createElement('div');g.id='oppGhost';g.className='card back';document.body.appendChild(g);}
     const r=col.getBoundingClientRect();
     g.style.left=(r.left+r.width/2-31)+'px';g.style.top=(r.top+14)+'px';
-    requestAnimationFrame(()=>g.classList.add('on'));
+    requestAnimationFrame(()=>{if(oppPtr.k!==null&&oppPtr.suit&&!(mode==='cpu'&&state&&state.turn!==1))g.classList.add('on');});   // unless it was let go in the meantime
   }else if(g)g.classList.remove('on');
 }
 function setOppPtr(k,suit){
@@ -3902,7 +3904,7 @@ function toTitle(){
   try{if(peer)peer.destroy();}catch(e){}
   applyTheme(crazyOn);
   conn=null;peer=null;mode=null;state=null;view=null;lastV=null;hostId=null;handOrder=[];mullSel.clear();
-  dealt={0:false,1:false};dealFx=false;newcShown=null;fxUntil=0;cpuHeldKey=null;clearTimeout(cpuHoverTimer);cpuPre=null;oppK=-1;oppPtr={k:null,suit:null};oppN=0;oppGame=null;lastSentPtr='';mullPending=false;
+  dealt={0:false,1:false};dealFx=false;newcShown=null;fxUntil=0;cpuHeldKey=null;clearTimeout(cpuHoverTimer);cpuSeqStop();cpuPre=null;oppK=-1;oppPtr={k:null,suit:null};paintOppPtr();oppN=0;oppGame=null;lastSentPtr='';mullPending=false;
   ['pack','duel','pf','disc','drw','jkr','jkTray','hovTray','roundfx','victory','stats','newc','mwait','stl'].forEach(id=>{const e=$(id);if(e)e.remove();});
   document.querySelectorAll('.card.ghost,.drag-ghost').forEach(e=>e.remove());
   $('modalRoot').innerHTML='';dmPending=null;document.documentElement.classList.remove('deathmatch');jokerFxSet(false,true);{const e=$('dm');if(e)e.remove();}
