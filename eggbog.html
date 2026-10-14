@@ -241,10 +241,9 @@ header h2{margin:0;font-size:1.3rem}
 #log div{padding:1px 0}
 
 #stats{position:fixed;inset:0;z-index:44;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:radial-gradient(ellipse at 50% 20%,var(--felt),var(--felt3) 85%) local,var(--felt3);padding:20px 14px max(40px,env(safe-area-inset-bottom))}
-.crazy{display:flex;align-items:center;justify-content:center;gap:8px;font-size:.9rem;cursor:pointer;background:#00000040;border:2px solid #ffffff33;border-radius:12px;padding:8px 12px;text-align:left}
-.crazy.on{border-color:#5aa9ff;background:#1d4a8f99;box-shadow:0 0 14px #5aa9ff66}
-.crazy input{width:18px;height:18px;accent-color:#5aa9ff}
-.crazy small{display:block;opacity:.75;font-size:.78rem}
+.classic{display:inline-flex;align-items:center;justify-content:center;gap:6px;align-self:center;font-size:.8rem;opacity:.65;cursor:pointer;margin-top:2px}
+.classic:hover,.classic.on{opacity:.95}
+.classic input{width:14px;height:14px;margin:0;accent-color:var(--accent)}
 .fxset{background:#00000040;border:2px solid #ffffff33;border-radius:12px;padding:8px 12px;text-align:left;font-size:.9rem}
 .fxset summary{cursor:pointer;font-weight:700}
 .fxs-sec{margin-top:10px}
@@ -674,7 +673,6 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
   <div class="stack" id="lobbyMenu">
     <button id="btnCpu">Play vs computer</button>
     <div class="lvl" id="lvl" role="group" aria-label="Computer difficulty"><span>Computer:</span><button data-l="easy">Easy</button><button data-l="normal">Normal</button><button data-l="hard">Hard</button><button data-l="expert">Expert</button></div>
-    <label class="crazy" id="crazyBox"><input type="checkbox" id="crazyChk"><span>🌀 <b>Crazy mode</b><small>Every card gets its own random effect, you start with 7 cards, and when the deck runs out all discarded cards are shuffled back in.</small></span></label>
     <details class="fxset" id="fxSet"><summary>⚙ Choose which card effects are used</summary>
       <div class="fxs-sec"><div class="fxs-chips" id="fxsChips"></div></div>
       <button class="secondary" id="fxsReset">Reset to all effects</button>
@@ -683,6 +681,7 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
     <div class="row"><input id="joinCode" placeholder="Paste a game code or link"><button id="btnJoin" class="secondary">Join</button></div>
     <button id="btnRulesLobby" class="secondary">Read the rules</button>
     <button id="btnHistoryLobby" class="secondary">Match history</button>
+    <label class="classic" id="classicBox" title="The original rules: 10-card hands, fixed effects by rank, no Surges"><input type="checkbox" id="classicChk">Classic mode</label>
   </div>
   <div class="stack" id="lobbyWait" hidden>
     <p id="lobbyMsg">Starting…</p>
@@ -744,13 +743,13 @@ const ABILITY_TEXT={
   J:'Frost: freeze and shatter the top (most recently played) card of its suit and of the other suit of the same colour (♥/♦ or ♣/♠) on your opponent\'s side. A Sturdy card on top blocks it for that suit.',
   Q:'Bolt: lightning destroys all cards of the same suit on your opponent\'s side.',
   K:'Blaze: burn away all removable cards from both sides, excluding the King itself.',
-  M:'Mimic (Crazy mode): when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Soul, Sturdy and Rune included). If nothing was played before it, it does nothing.',
-  T:'Steal (Crazy mode): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned. Their last card can\'t be stolen.',
-  L:'Rune (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards. If you run out of cards with a Rune on your side and still have your concede (not in round 3), you can concede the round instead of losing the game.',
-  G:'Greed (Crazy mode): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
-  O:'Morph (Crazy mode): the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It hits Sturdy cards too (they lose Sturdy). It turns back when it leaves the table. An Egg on top is not affected.',
-  U:'Hush (Crazy mode): every card on your opponent\'s side is silenced for as long as it stays on the table: it keeps its value but loses its effect (a Sturdy card can be removed, Soul, Greed and Rune do nothing). Cards they play after it are not silenced. A silenced card that gets Morphed loses its silence.',
-  X:'Surge (Crazy mode): can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Surge also makes any choice those cards need (which card Scry keeps, which card Steal takes), at random.'
+  M:'Mimic (not in Classic): when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Soul, Sturdy and Rune included). If nothing was played before it, it does nothing.',
+  T:'Steal (not in Classic): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned. Their last card can\'t be stolen.',
+  L:'Rune (not in Classic): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards. If you run out of cards with a Rune on your side and still have your concede (not in round 3), you can concede the round instead of losing the game.',
+  G:'Greed (not in Classic): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
+  O:'Morph (not in Classic): the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It hits Sturdy cards too (they lose Sturdy). It turns back when it leaves the table. An Egg on top is not affected.',
+  U:'Hush (not in Classic): every card on your opponent\'s side is silenced for as long as it stays on the table: it keeps its value but loses its effect (a Sturdy card can be removed, Soul, Greed and Rune do nothing). Cards they play after it are not silenced. A silenced card that gets Morphed loses its silence.',
+  X:'Surge (not in Classic): can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Surge also makes any choice those cards need (which card Scry keeps, which card Steal takes), at random.'
 };
 function F(c){if(c.hu)return '';return c.f===undefined?(DEF_F[c.r]||''):c.f;}   // a card silenced by Hush has no effect
 function cardVal(c){if(c.v!==undefined)return c.v;return (c.r==='A'||c.r==='JK'||c.r==='J'||c.r==='Q'||c.r==='K')?1:parseInt(c.r,10);}
@@ -1355,8 +1354,8 @@ try{const j=JSON.parse(localStorage.getItem(FXKEY)||'null');
     if(!j.v5){if(!fxCfg.crazy.includes('U'))fxCfg.crazy.push('U');saveFx();}   // one-time: Hush joins the Crazy effects
     if(!fxCfg.crazy.length)fxCfg.crazy=CRAZY_DEFAULT.slice();}}catch(e){}
 function saveFx(){try{localStorage.setItem(FXKEY,JSON.stringify(Object.assign({v2:1,v3:1,v4:1,v5:1},fxCfg)));}catch(e){}}
-let crazyOn=false;
-try{crazyOn=localStorage.getItem('eggbog-crazy')==='1';}catch(e){}
+let crazyOn=true;   // Eggbog (the random-effects mode, internally 'crazy') is the default; Classic is the original rules
+try{crazyOn=localStorage.getItem('eggbog-mode')!=='classic';}catch(e){}
 function gameOpts(){return {paced:true,crazy:crazyOn,fx:(crazyOn?fxCfg.crazy:fxCfg.normal).slice()};}
 let cpuHoverTimer=null,cpuPre=null,cpuTimer=null,fxUntil=0,cpuLevel='normal',cpuHeldKey=null;
 try{const l=localStorage.getItem('eggbog-level');if(l==='easy'||l==='normal'||l==='hard'||l==='expert')cpuLevel=l;}catch(e){}
@@ -3956,7 +3955,7 @@ function showFx(){
   let h;
   if(view.crazy){
     const keys=(view.fxOn&&view.fxOn.length?view.fxOn:CRAZY_DEFAULT);
-    h=`<h3>🌀 Crazy mode — card effects</h3><p>Every card in the deck has its own random effect from this list, so two Aces can do different things. The effect is written on each card. When the deck runs out, all discarded cards are shuffled back in.</p><div class="fxlist">${keys.map(f=>`<b>${ABILITY[f]}</b><span>${clean(ABILITY_TEXT[f])}</span>`).join('')}</div><p>The deck also holds <b>2 holographic Surges</b>. ${clean(ABILITY_TEXT.X)}</p>`;
+    h=`<h3>🌀 Card effects</h3><p>Every card in the deck has its own random effect from this list, so two Aces can do different things. The effect is written on each card. When the deck runs out, all discarded cards are shuffled back in.</p><div class="fxlist">${keys.map(f=>`<b>${ABILITY[f]}</b><span>${clean(ABILITY_TEXT[f])}</span>`).join('')}</div><p>The deck also holds <b>2 holographic Surges</b>. ${clean(ABILITY_TEXT.X)}</p>`;
   }else{
     const on=view.fxOn||FX_KEYS,NM={A:'Ace','2':'2','3':'3','4':'4','5':'5',J:'Jack',Q:'Queen',K:'King'};
     h=`<h3>Card effects in this game</h3><p>Some effects were switched off on the title screen. Those cards are plain.</p><div class="fxlist">${FX_KEYS.map(f=>`<b>${NM[f]}</b><span>${on.includes(f)?'<b>'+ABILITY[f]+'</b> — '+clean(ABILITY_TEXT[f]):'<i>no effect</i>'}</span>`).join('')}</div>`;
@@ -3975,7 +3974,7 @@ function showRules(){
       +'<li><b>Surge:</b> '+ABILITY_TEXT.X.replace(/^[^:]*:\s*/,'')+' If it draws the other Surge, that Surge is shuffled back into the deck and doesn\'t count toward the 5. A Surge that has been played leaves the game: it is never shuffled back into the deck.</li>'
     :FX_KEYS.filter(k=>on.includes(k)).map(k=>'<li><b>'+RANK[k]+' — '+ABILITY[k]+':</b> '+ABILITY_TEXT[k].replace(/^[^:]*:\s*/,'')+'</li>').join('');
   const off=cz?'':FX_KEYS.filter(k=>!on.includes(k)).map(k=>RANK[k]).join(', ');
-  $('modalRoot').innerHTML=`<div class="modal" id="rulesModal"><div class="box rules"><h3>Eggbog — ${cz?'🌀 Crazy mode rules':'Rules'}</h3>
+  $('modalRoot').innerHTML=`<div class="modal" id="rulesModal"><div class="box rules"><h3>Eggbog — ${cz?'Rules':'Classic rules'}</h3>
   <h4>Goal</h4><p>2 players, a standard 52-card deck${cz?' plus 2 Surges':''}. You win the game when your opponent runs out of cards and cannot beat your total. That can happen in any round. A round also ends when someone concedes: their opponent wins that round, and the game goes on to the next one. Each player can concede once per game, so there are at most 3 rounds, and round 3 (the final duel) is always played until someone runs out.</p>
   <h4>Card values</h4><p>Ace = 1, 2–10 = face value, Jack/Queen/King = ${cz?'10':'1'}. Suits low to high: ♣ ♠ ♥ ♦.</p>
   ${cz?`<h4>Setup</h4><p>Each player opens a starter pack of 7 cards. You either keep it or open a different pack of 7 new cards from the deck (your first pack is discarded and counts as mulliganed in the stats). There is no other mulligan.</p>`
@@ -4015,15 +4014,15 @@ $('btnWaitBack').onclick=toTitle;
     el.innerHTML=keys.map(k=>`<button type="button" class="fxchip${list.includes(k)?' on':''}" data-k="${k}" title="${(crazyOn?'':RANK[k]+': ')+ABILITY_TEXT[k].replace(/"/g,'&quot;')}">${art(k)}<span>${ABILITY[k]}</span>${crazyOn?'':'<small>'+RANK[k]+'</small>'}</button>`).join('');
     el.querySelectorAll('.fxchip').forEach(b=>b.onclick=()=>{
       const k=b.dataset.k,cfg=fxCfg[mode],i=cfg.indexOf(k);
-      if(i>=0){if(mode==='crazy'&&cfg.length<=1){toast('Crazy mode needs at least one effect');return;}cfg.splice(i,1);}else cfg.push(k);
+      if(i>=0){if(mode==='crazy'&&cfg.length<=1){toast('Eggbog needs at least one effect');return;}cfg.splice(i,1);}else cfg.push(k);
       saveFx();drawFxChips();
     });
   };
   $('fxsReset').onclick=()=>{fxCfg[crazyOn?'crazy':'normal']=(crazyOn?CRAZY_DEFAULT:FX_KEYS).slice();saveFx();drawFxChips();};
   drawFxChips();
 })();
-(function(){const chk=$('crazyChk'),box=$('crazyBox');chk.checked=crazyOn;box.classList.toggle('on',crazyOn);
-  applyTheme(crazyOn);chk.onchange=()=>{crazyOn=chk.checked;applyTheme(crazyOn);box.classList.toggle('on',crazyOn);drawFxChips();try{localStorage.setItem('eggbog-crazy',crazyOn?'1':'0');}catch(e){}};})();
+(function(){const chk=$('classicChk'),box=$('classicBox');chk.checked=!crazyOn;box.classList.toggle('on',!crazyOn);
+  applyTheme(crazyOn);chk.onchange=()=>{crazyOn=!chk.checked;applyTheme(crazyOn);box.classList.toggle('on',!crazyOn);drawFxChips();try{localStorage.setItem('eggbog-mode',crazyOn?'eggbog':'classic');}catch(e){}};})();
 $('btnRulesLobby').onclick=showRules;
 $('btnHistoryLobby').onclick=()=>{const h=loadHistory();showStats(h[0]||{id:'',t:Date.now(),mode:'',win:false,over:null,score:[0,0],rounds:[],played:[0,0],cards:[0,0],removed:[0,0],removedV:[0,0],empty:true});};
 $('btnCopy').onclick=()=>{navigator.clipboard&&navigator.clipboard.writeText($('shareLink').textContent).then(()=>toast('Link copied'));};
