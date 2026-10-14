@@ -3326,23 +3326,23 @@ function removalAnim(kind,pl,clones,G){
     // Blaze: both sides of the field glow with fire, and each removed card burns away from the bottom up,
     // a glowing edge eating through it until nothing is left but embers
     {
-      S&&noiseBurst(1.6,'lowpass',700,140,.45);S&&noiseBurst(1.2,'bandpass',2400,900,.12,.2);
-      for(let q=0;q<(S?10:0);q++)S&&noiseBurst(.12,'highpass',3000+Math.random()*2000,1500,.08,.2+Math.random()*1.2);   // crackles
+      S&&noiseBurst(1,'lowpass',700,140,.45);S&&noiseBurst(.8,'bandpass',2400,900,.12,.15);
+      for(let q=0;q<(S?10:0);q++)S&&noiseBurst(.12,'highpass',3000+Math.random()*2000,1500,.08,.15+Math.random()*.7);   // crackles
       const r0=srcR(),o=r0?ctr(r0):{x:innerWidth/2,y:innerHeight/2};
       ['#oppField','#myField'].forEach(sel=>{
         const f=document.querySelector(sel);if(!f)return;const r=f.getBoundingClientRect();
         // an intense fire glow that flickers, then cools
         const glow=fx(`left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;border-radius:12px;background:linear-gradient(to top,#ffb02ecc,#ff6a1aaa 35%,#d8341a66 70%,#7a120a22);box-shadow:inset 0 0 60px #ffd84a,inset 0 0 24px #fff3b0,0 0 40px #ff6a1acc;mix-blend-mode:screen`,13);
-        glow.animate([{opacity:0},{opacity:1,offset:.12},{opacity:.75,offset:.24},{opacity:1,offset:.36},{opacity:.8,offset:.5},{opacity:.95,offset:.64},{opacity:.7,offset:.78},{opacity:0}],{duration:2100,fill:'both'});die(glow,2150);
+        glow.animate([{opacity:0},{opacity:1,offset:.12},{opacity:.75,offset:.24},{opacity:1,offset:.36},{opacity:.8,offset:.5},{opacity:.95,offset:.64},{opacity:.7,offset:.78},{opacity:0}],{duration:1300,fill:'both'});die(glow,1350);
         // a few embers drift up off the hot field
         for(let q=0;q<(S?18:8);q++){const sz=2+Math.random()*3,x=r.left+Math.random()*r.width,y=r.top+r.height*(.4+Math.random()*.6);
           const em=fx(`left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;border-radius:50%;background:${Math.random()<.7?'#ffb02e':'#3a2a22'};box-shadow:0 0 6px #ff5a1a`,58);
-          em.animate([{transform:'none',opacity:0},{opacity:1,offset:.15},{transform:`translate(${(Math.random()-.5)*50}px,${-50-Math.random()*70}px)`,opacity:0}],{duration:1000+Math.random()*600,delay:250+Math.random()*1000,easing:'ease-out',fill:'both'});die(em,2900);}
+          em.animate([{transform:'none',opacity:0},{opacity:1,offset:.15},{transform:`translate(${(Math.random()-.5)*50}px,${-50-Math.random()*70}px)`,opacity:0}],{duration:800+Math.random()*500,delay:150+Math.random()*600,easing:'ease-out',fill:'both'});die(em,2100);}
       });
       // each removed card: heats up, then a glowing edge burns through it from the bottom, leaving embers
       clones.forEach(k=>{
-        if(k.under){setTimeout(()=>k.el.remove(),400);return;}   // hidden under the Blaze card itself
-        const r=k.el.getBoundingClientRect(),d=200+Math.min(400,Math.abs(r.left+r.width/2-o.x)*.45),D=1100;
+        if(k.under){setTimeout(()=>k.el.remove(),250);return;}   // hidden under the Blaze card itself
+        const r=k.el.getBoundingClientRect(),d=100+Math.min(200,Math.abs(r.left+r.width/2-o.x)*.25),D=550;
         const ox=20+Math.random()*60;   // where the fire starts along the bottom edge (%)
         const m=p=>`radial-gradient(ellipse 120% 90% at ${ox}% 108%,#0000 ${p}%,#000 ${p+6}%)`;
         k.el.style.webkitMaskImage=k.el.style.maskImage=m(0);
