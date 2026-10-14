@@ -424,7 +424,7 @@ header h2{margin:0;font-size:1.3rem}
 #pkNext .pkn.d3 .pk-part{background:radial-gradient(circle,#fff9 0 1.5px,#0000 2px) 0 0/22px 22px,radial-gradient(circle,#fff6 0 1px,#0000 1.5px) 11px 11px/22px 22px,linear-gradient(160deg,#4b2a8f,#1b1050 60%,#0a0630);color:#f1e8ff}
 #pkNext .pkn.d1 .pk-name,#pkNext .pkn.d3 .pk-name{text-shadow:0 1px 0 #0008}
 #pkNext .pkn-lab{font-weight:700;font-size:.95rem}
-#pkNext:disabled{pointer-events:none}
+#pkNext:disabled{pointer-events:none;opacity:1}
 @media(max-width:560px){#pack.fan #pkRow.big{padding:20px 0 56px}#pack.fan #pkRow.big .mini{zoom:1.12;margin:0 -13px;transform-origin:50% 170%}#pkNext{margin-top:14px}#pkNext .pkn{zoom:.38}}
 #pkZone{position:relative;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;min-height:112px;width:min(560px,94vw);padding:10px;border:2px dashed #ffffff55;border-radius:12px;background:#0003;transition:background .15s}
 #pkZone .zlabel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:.7;pointer-events:none;font-size:.9rem}
@@ -1844,7 +1844,7 @@ function flyFromDeck(el,delay,pt){
   a.onfinish=a.oncancel=()=>{el.style.zIndex='';};
 }
 // ---- opening ritual: tear open a booster pack and reveal your starting hand, card by card ----
-let dealt={0:false,1:false},dealFx=false;
+let dealt={0:false,1:false},dealFx=false,packFrom=null;   // packFrom: where the small "new pack" sat, so the next screen grows it from there
 function showPack(second){
   if($('pack')||!view)return;
   const hand=sortHand(view.me.hand),you=view.you;
@@ -1860,9 +1860,48 @@ function showPack(second){
   const pack=$('pkPack'),tear=$('pkTear'),grab=$('pkGrab'),stack=$('pkStack'),row=$('pkRow'),btns=o.querySelector('.pk-btns');
   let opened=false,down=false,sx=0,idx=0,busyRev=false,allMode=false;
   const anim=(el,kf,opt)=>(el&&el.animate&&!reduced())?el.animate(kf,opt):{set onfinish(f){setTimeout(f,0);}};
-  const finish=()=>{
-    const go=()=>{o.remove();dealt[view?view.you:you]=true;dealFx=!(view&&view.crazy&&!second&&view.me.newCards&&view.me.newCards.length);if(view)render(view);};
-    if(reduced()||!o.animate||(view&&view.crazy)){go();return;}
+  // Eggbog mode: the opened pack grows out of the small one you tapped on the previous screen
+  if(second&&packFrom&&!reduced()&&o.animate){
+    const to=pack.getBoundingClientRect(),k=packFrom.width/to.width;
+    const dx=packFrom.left+packFrom.width/2-(to.left+to.width/2),dy=packFrom.top+packFrom.height/2-(to.top+to.height/2);
+    $('pkStage').animate([{transform:`translate(${dx}px,${dy}px) scale(${k})`},{transform:'none'}],{duration:650,easing:'cubic-bezier(.3,.7,.3,1)'});
+    [$('pkTitle'),btns].forEach(el=>el.animate([{opacity:0},{opacity:0,offset:.5},{opacity:1}],{duration:700}));
+  }
+  packFrom=null;
+  // fan the revealed cards out (Eggbog mode)
+  const fanOut=()=>{
+    o.classList.add('fan');row.classList.add('big');
+    const minis=[...row.querySelectorAll('.mini')],mid=(minis.length-1)/2,ph=innerWidth<=560;
+    minis.forEach((m,i)=>{const d=i-mid;m.style.setProperty('--rot',(d*(ph?7:6))+'deg');m.style.setProperty('--dy',(d*d*(ph?3:3.2))+'px');m.style.zIndex=i;});
+    anim(row,[{transform:'scale(.8)',opacity:.6},{transform:'scale(1)',opacity:1}],{duration:280,easing:'ease-out'});
+    return minis;
+  };
+  // ...and fly them down into your hand while this screen fades away
+  const toHand=(minis,done)=>{
+    const h=$('hand'),hc=h&&h.querySelector('.card');let hr=h&&h.getBoundingClientRect();
+    if(reduced()||!o.animate||!minis.length){done(true);return;}
+    if(!hr||!hr.width)hr={left:innerWidth*.15,width:innerWidth*.7,top:innerHeight-130,height:120};
+    const cr=hc?hc.getBoundingClientRect():{width:80,height:114},n=minis.length,mid=(n-1)/2;
+    const gap=Math.min(cr.width*.92,hr.width/n),cx=hr.left+hr.width/2,cy=hr.top+hr.height/2;
+    if(h)h.style.visibility='hidden';
+    const flying=minis.map((m,i)=>{
+      const ce=m.querySelector('.card'),r=ce.getBoundingClientRect(),z=parseFloat(getComputedStyle(m).zoom)||1,rot=getComputedStyle(m).rotate;
+      const w=ce.offsetWidth*z,hh=ce.offsetHeight*z,x=r.left+r.width/2,y=r.top+r.height/2;
+      const g=document.createElement('div');
+      g.style.cssText=`position:fixed;left:${x-w/2}px;top:${y-hh/2}px;width:${w}px;height:${hh}px;z-index:58;pointer-events:none`;
+      const inner=document.createElement('div');inner.style.cssText=`width:${ce.offsetWidth}px;height:${ce.offsetHeight}px;zoom:${z}`;inner.innerHTML=ce.outerHTML;
+      inner.firstChild.style.cssText='margin:0;transform:none';g.appendChild(inner);document.body.appendChild(g);m.style.visibility='hidden';
+      const k=cr.width/w,tx=cx+(i-mid)*gap-x,ty=cy-y,r0=rot==='none'?'0deg':rot;
+      g.animate([{transform:`rotate(${r0})`},{transform:`translate(${tx*.5}px,${ty*.35-30}px) rotate(${r0}) scale(${(1+k)/2})`,offset:.4},{transform:`translate(${tx}px,${ty}px) rotate(0deg) scale(${k})`}],
+        {duration:560,delay:i*60,easing:'cubic-bezier(.45,0,.3,1)',fill:'forwards'});
+      return g;
+    });
+    o.animate([{opacity:1},{opacity:1,offset:.3},{opacity:0}],{duration:560+n*60,fill:'forwards'});
+    setTimeout(()=>{done(true);if(h)h.style.visibility='';flying.forEach(g=>g.remove());},560+n*60+30);
+  };
+  const finish=flown=>{
+    const go=()=>{o.remove();dealt[view?view.you:you]=true;dealFx=!flown&&!(view&&view.crazy&&!second&&view.me.newCards&&view.me.newCards.length);if(view)render(view);};
+    if(flown===true||reduced()||!o.animate||(view&&view.crazy)){go();return;}
     o.animate([{opacity:1},{opacity:0}],{duration:250,fill:'forwards'}).onfinish=go;
   };
   const rip=()=>{
@@ -1897,23 +1936,22 @@ function showPack(second){
       $('pkStage').hidden=true;
       $('pkTitle').textContent='Keep this pack?';
       $('pkHelp').textContent='';
-      o.classList.add('fan');row.classList.add('big');
-      const minis=[...row.querySelectorAll('.mini')],mid=(minis.length-1)/2,ph=innerWidth<=560;
-      minis.forEach((m,i)=>{const d=i-mid;m.style.setProperty('--rot',(d*(ph?7:6))+'deg');m.style.setProperty('--dy',(d*d*(ph?3:3.2))+'px');m.style.zIndex=i;});
-      anim(row,[{transform:'scale(.8)',opacity:.6},{transform:'scale(1)',opacity:1}],{duration:280,easing:'ease-out'});
+      const minis=fanOut();
       const keep=$('pkSkip');btns.hidden=false;keep.disabled=false;keep.textContent="Let's go!";keep.classList.remove('secondary');
       const nx=(pkd+1+Math.floor(Math.random()*3))%4,nxt=document.createElement('button');nxt.id='pkNext';nxt.title='Open a new pack';
       nxt.innerHTML=`<div class="pkn d${nx}"><div class="pk-part"><div class="pk-logo">${['🥚','🔥','🌊','🌙'][nx]}</div><div class="pk-name">EGGBOG</div><div class="pk-sub">New pack · ${hand.length} cards</div><div class="pk-crimp"></div><div class="pk-shine"></div></div></div><div class="pkn-lab">Open a new pack</div>`;
       btns.after(nxt);
-      const go=(ids,wait)=>{keep.disabled=true;nxt.disabled=true;mullPending=true;setTimeout(()=>{mullPending=false;},8000);
-        dispatch({t:'mulligan',ids,pack:nx});if(view)mwaitSync(view);setTimeout(finish,wait);};
-      keep.onclick=()=>go([],150);
+      const go=(ids,then)=>{keep.disabled=true;nxt.disabled=true;mullPending=true;setTimeout(()=>{mullPending=false;},8000);
+        dispatch({t:'mulligan',ids,pack:nx});if(view)mwaitSync(view);then();};
+      keep.onclick=()=>go([],()=>{anim(keep,[{opacity:1},{opacity:0}],{duration:200,fill:'forwards'});anim(nxt,[{opacity:1},{opacity:0}],{duration:200,fill:'forwards'});toHand(minis,finish);});
       nxt.onclick=()=>{
         anim(keep,[{opacity:1},{opacity:0}],{duration:250,fill:'forwards'});
         anim(nxt.querySelector('.pkn'),[{scale:1},{scale:1.15,offset:.3},{scale:1}],{duration:400});
         const st=reduced()?0:110;
         minis.forEach((m,i)=>fanBurn(m,i*st));
-        go(hand.map(c=>c.id),reduced()?0:minis.length*st+1300);
+        anim($('pkTitle'),[{opacity:1},{opacity:0}],{duration:300,delay:minis.length*st+600,fill:'forwards'});
+        anim(nxt.querySelector('.pkn-lab'),[{opacity:1},{opacity:0}],{duration:300,delay:minis.length*st+600,fill:'forwards'});
+        go(hand.map(c=>c.id),()=>setTimeout(()=>{packFrom=nxt.querySelector('.pkn').getBoundingClientRect();finish();},reduced()?0:minis.length*st+1300));
       };
       return;
     }
@@ -1991,7 +2029,9 @@ function showPack(second){
         const dx=(r.left+r.width/2-(fr.left+fr.width/2))/k,dy=(r.top+r.height/2-(fr.top+fr.height/2))/k;
         anim(fe,[{transform:'none',opacity:1},{transform:`translate(${dx}px,${dy}px) scale(.45)`,opacity:.6}],{duration:fast?150:340,easing:'cubic-bezier(.4,0,.2,1)',fill:'forwards'}).onfinish=()=>{
           fe.remove();mini.style.visibility='';busyRev=false;
-          if(idx>=hand.length){$('pkHelp').textContent='';btns.hidden=true;setTimeout(second?finish:chooseStage,second?1100:(fast?150:700));}
+          if(idx>=hand.length){$('pkHelp').textContent='';btns.hidden=true;
+            if(second&&view&&view.crazy)setTimeout(()=>{const ms=fanOut();setTimeout(()=>toHand(ms,finish),reduced()?0:1400);},fast?150:400);   // Eggbog mode: fan the new hand, then into your hand
+            else setTimeout(second?finish:chooseStage,second?1100:(fast?150:700));}
           else if(allMode)reveal();
         };
       },fast?40:(special?750:450));
