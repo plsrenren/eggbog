@@ -342,6 +342,7 @@ header h2{margin:0;font-size:1.3rem}
 @keyframes concedeGlow{from{box-shadow:0 0 0 2px color-mix(in srgb,var(--cg,#ff6b5e) 55%,transparent),0 0 8px color-mix(in srgb,var(--cg,#ff6b5e) 40%,transparent)}to{box-shadow:0 0 0 3px var(--cg,#ff6b5e),0 0 22px var(--cg,#ff6b5e)}}
 #btnConcede.ls-mine{--cg:#5df2a6}#btnConcede.ls-theirs{--cg:#ff6b5e}#btnConcede.ls-even{--cg:#f2c14e}
 #concRow{display:flex;justify-content:flex-end;margin:0 0 4px}#concRow button{padding:5px 12px;font-size:.9rem}#concRow button[hidden]{display:none}
+#btnConcede{pointer-events:auto}#btnConcede[hidden]{display:none}
 #btnConcede.glow-concede:not(:disabled){animation:concedeGlow 1.1s ease-in-out infinite alternate}
 #deckBox{display:flex;flex-direction:column;align-items:center;gap:6px}
 #deck{position:relative;width:52px;height:66px}
@@ -599,6 +600,57 @@ button,summary,.clk{touch-action:manipulation}
 @keyframes warpwob{0%,100%{box-shadow:0 1px 3px #0006}50%{box-shadow:0 0 12px 2px #9b5cffaa}}
 body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-out infinite;z-index:5}   /* the cards sit in front of the black hole's ring */
 @media (prefers-reduced-motion:reduce){#bhole b i,body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:none}}
+
+/* Tight field: bigger field cards in four close columns, totals in a scoreboard on the left (name, total, Concede),
+   the difference on the line between the mats, both mats the same height, and each hand sits over its mat's outer edge */
+@media (orientation:portrait),(min-height:501px){
+  .field{grid-template-columns:repeat(4,86px);justify-content:center;gap:22px;height:200px;min-height:200px;margin-left:100px}
+  .field .card{zoom:1.38}
+  .col .card+.card,.col.top .card+.card{margin-top:-58px}
+  .side{padding:10px}
+  .divider{min-height:18px;padding:2px}
+  .divider span{display:none}
+  .col:empty::after{font-size:2.6rem;opacity:.13;margin:auto;color:#fff}
+  .col[data-suit=C]:empty::after{content:'♣'}.col[data-suit=S]:empty::after{content:'♠'}
+  .col[data-suit=H]:empty::after{content:'♥';color:#ff8a7a}.col[data-suit=D]:empty::after{content:'♦';color:#ff8a7a}
+  .meta{right:auto;left:12px;height:auto;flex-direction:column;align-items:flex-start;gap:10px}
+  #oppSide .meta{top:auto;bottom:30px}#mySide .meta{top:30px}
+  #oppTotal,#myTotal{flex-wrap:wrap;justify-content:flex-start;min-width:0;height:auto;width:96px;gap:4px;line-height:1}
+  #oppTotal::before,#myTotal::before{content:attr(data-n);flex-basis:100%;margin-bottom:4px;font-size:.8rem;font-weight:700;letter-spacing:.08em;opacity:.7;color:#fff;text-transform:uppercase}
+  #btnConcede{pointer-events:auto;padding:5px 10px;font-size:.85rem}#btnConcede[hidden]{display:none}
+  .divider #diff{left:12px;transform:translateY(-50%);min-width:96px;padding:0;box-sizing:border-box}
+  #oppRow{z-index:20}
+  #oppSide{margin-top:-44px;padding-top:54px;padding-bottom:10px}
+  #mySide{padding-top:10px;padding-bottom:54px}
+  #lowrow{margin-top:-100px;position:relative;z-index:20;pointer-events:none}
+  #lowrow #handwrap{background:transparent;pointer-events:none}
+  #hand,#actions{pointer-events:auto}
+  #hand{padding-bottom:6px}
+  #hand .card{box-shadow:0 6px 14px #000a}
+  #actions{position:absolute;right:16px;bottom:22px;margin:0}
+}
+@media(orientation:landscape) and (max-height:500px){#btnConcede{font-size:0;padding:2px 6px}#btnConcede::before{content:'🏳️';font-size:1rem}#mySide .meta{gap:6px}}
+@media (min-width:700px) and (min-height:501px){
+  #fieldsCol,#lowrow{max-width:700px;margin-left:auto;margin-right:auto}
+  #hand{padding-left:90px;padding-right:90px}
+  .field{grid-template-columns:repeat(4,104px);gap:16px;height:236px;min-height:236px;margin-left:116px}
+  .field .card{zoom:1.66}
+  .col .card+.card,.col.top .card+.card{margin-top:-62px}
+}
+@media (max-width:480px) and (orientation:portrait){
+  .field{grid-template-columns:repeat(4,64px);gap:10px;justify-content:end;margin:0 2px 0 0}
+  .field .card{zoom:1.18}
+  .col .card+.card,.col.top .card+.card{margin-top:-52px}
+  #oppTotal,#myTotal{width:56px}
+  #oppTotal::before,#myTotal::before{content:attr(data-s)}
+  .meta{left:4px}
+  .divider #diff{left:4px;min-width:58px;font-size:1.4rem}
+  #btnConcede{font-size:0;padding:4px 0;width:56px}#btnConcede::before{content:'🏳️';font-size:1.3rem}
+  #oppSide{margin-top:-30px;padding-top:40px}#mySide{padding-bottom:40px}
+  #lowrow{margin-top:-84px}
+  #actions{right:8px;bottom:12px}#actions button{padding:6px 8px}
+  #hand{padding-right:50px;padding-left:10px}
+}
 </style>
 </head>
 <body>
@@ -642,14 +694,14 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
   </section>
   <div class="divider"><span>♣</span><span>♠</span><span class="r">♥</span><span class="r">♦</span><div id="diff"></div></div>
   <section class="side" id="mySide">
-    <div class="meta"><span id="myMeta"></span><span id="myTotal"></span></div>
+    <div class="meta"><span id="myMeta"></span><span id="myTotal"></span><button class="secondary" id="btnConcede" hidden title="Concede the round" aria-label="Concede round">🏳️ Concede</button></div>
     <div class="field" id="myField"></div>
   </section>
   </div>
   </div>
   <div id="lowrow">
   <div id="handwrap">
-    <div id="concRow"><button class="secondary" id="btnConcede" hidden title="Concede the round" aria-label="Concede round">🏳️ Concede</button></div>
+    
     <div id="hand"></div>
     <div id="actions"></div>
   </div>
@@ -1426,7 +1478,7 @@ function orderedHand(hand){
 function layoutHand(h){
   h=h||$('hand');const cs=[...h.querySelectorAll('.card')];
   if(cs.length<2){cs.forEach(c=>{c.style.setProperty('--r','0deg');c.style.setProperty('--y','0px');});return;}
-  const cw=cs[0].offsetWidth,W=h.clientWidth,n=cs.length;
+  const hs=getComputedStyle(h),cw=cs[0].offsetWidth,W=h.clientWidth-parseFloat(hs.paddingLeft)-parseFloat(hs.paddingRight),n=cs.length;
   const step=Math.min(cw*0.55,(W-cw*1.8)/(n-1));   // room at both ends for the tilt of the outer cards
   const spread=Math.min(n*3.4,36),mid=(n-1)/2;
   cs.forEach((c,i)=>{
@@ -3389,7 +3441,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   $('myMeta').innerHTML=`You ${cnt(v.me.hand.length)}`;
   const oT=sum(v.opp.field),mT=sum(v.me.field);
   const tot=n=>`<b>${n}</b>`;
-  $('oppTotal').innerHTML=tot(oT);$('myTotal').innerHTML=tot(mT);$('oppTotal').dataset.pv=$('myTotal').dataset.pv='';
+  $('oppTotal').innerHTML=tot(oT);$('myTotal').innerHTML=tot(mT);$('oppTotal').dataset.n=OPP;$('oppTotal').dataset.s=mode==='cpu'?'CPU':'Opp';$('myTotal').dataset.n=$('myTotal').dataset.s='You';$('oppTotal').dataset.pv=$('myTotal').dataset.pv='';
   paintDiff();
 
   if(prev&&!reduced()&&prev.you===v.you&&prev.phase!=='mulligan'&&v.phase!=='mulligan'){
