@@ -672,4 +672,22 @@ t('Crazy: the starter gets a 1-point Egg, and it is never shuffled back into the
   assert.equal(s.deck.length,1);assert.ok(!s.deck.some(c=>c.r==='EG'),'the Egg left the game');
 });
 
+t('Out of cards with a Rune and a concede left: may concede instead of losing',()=>{
+  const {cpuChoose}=mod.exports;
+  const mk=()=>{const s=setup([C('2','C')],[C('3','S')],[X('5','H','L')],[C('9','H')],[C('9','D'),C('8','D'),C('7','D')]);s.crazy=true;return s;};
+  const s=mk();
+  assert.equal(act(s,0,{t:'play',id:'2C'}),null);
+  assert.equal(s.phase,'play','not over yet');assert.equal(s.turn,0);assert.ok(viewFor(s,0).me.stuck);
+  assert.ok(act(s,0,{t:'play',id:'3S'}),'nothing to play');
+  assert.equal(act(s,0,{t:'concede'}),null);
+  assert.equal(s.p[1].wins,1);assert.equal(s.drawQ.length,2,'the Rune draws two');
+  const g=mk();act(g,0,{t:'play',id:'2C'});
+  assert.equal(act(g,0,{t:'giveup'}),null);assert.equal(g.phase,'over');assert.equal(g.winner,1);assert.equal(g.over,'cards');
+  assert.ok(act(mk(),0,{t:'giveup'}),'cannot give up with cards in hand');
+  for(const lvl of ['easy','normal','hard','expert']){const c=mk();act(c,0,{t:'play',id:'2C'});assert.equal(cpuChoose(c,0,lvl).t,'concede',lvl+' should concede');}
+  // no Rune, already conceded, round 3, or a silenced Rune: the game ends as before
+  const tweaks=[s=>{s.p[0].field=[C('5','H')];},s=>{s.p[0].conceded=true;},s=>{s.round=3;},s=>{s.p[0].field[0].hu=true;}];
+  for(const tw of tweaks){const o=mk();tw(o);act(o,0,{t:'play',id:'2C'});assert.equal(o.phase,'over');assert.equal(o.winner,1);}
+});
+
 console.log('\n'+n+' checks passed');

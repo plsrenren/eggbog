@@ -746,7 +746,7 @@ const ABILITY_TEXT={
   K:'Blaze: burn away all removable cards from both sides, excluding the King itself.',
   M:'Mimic (Crazy mode): when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Soul, Sturdy and Rune included). If nothing was played before it, it does nothing.',
   T:'Steal (Crazy mode): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned. Their last card can\'t be stolen.',
-  L:'Rune (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards.',
+  L:'Rune (Crazy mode): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards. If you run out of cards with a Rune on your side and still have your concede (not in round 3), you can concede the round instead of losing the game.',
   G:'Greed (Crazy mode): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
   O:'Morph (Crazy mode): the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It hits Sturdy cards too (they lose Sturdy). It turns back when it leaves the table. An Egg on top is not affected.',
   U:'Hush (Crazy mode): every card on your opponent\'s side is silenced for as long as it stays on the table: it keeps its value but loses its effect (a Sturdy card can be removed, Soul, Greed and Rune do nothing). Cards they play after it are not silenced. A silenced card that gets Morphed loses its silence.',
@@ -816,6 +816,9 @@ function queueDraw(s,who,reason){
   if(!s.deck.length){log(s,who,'would draw, but the deck is empty');return;}
   s.drawQ.push({who,reason});
 }
+// Out of cards with a Rune on your side and a concede left (not round 3): you may concede the round instead of losing the game
+function runeStuck(s,i){return s.phase==='play'&&s.turn===i&&!s.p[i].hand.length&&!s.startCards[i]&&s.round<3&&!s.p[i].conceded&&s.p[i].field.some(c=>F(c)==='L');}
+function outOfCards(s,me){log(s,me,'is out of cards');if(s.stats)s.stats.rounds.push({n:s.round,w:1-me,t:[total(s,0),total(s,1)],by:'cards'});gameOver(s,1-me,'cards');}
 function busy(s){return !!s.pending||s.drawQ.length>0||!!(s.jokerQ&&s.jokerQ.length);}
 function cp(c){const o={id:c.id,r:c.r,s:c.s,f:c.f};if(c.v!==undefined)o.v=c.v;return o;}
 function gameOver(s,winner,reason){
@@ -951,7 +954,7 @@ function settle(s){
       const gr=s.p[op].field.filter(c=>F(c)==='G').length; // Greed on the field: draw when the turn switches to you
       if(gr){s.greedFx={n:((s.greedFx&&s.greedFx.n)||0)+1,who:op,ids:s.p[op].field.filter(c=>F(c)==='G').map(c=>c.id)};log(s,op,'Greed: draws '+gr+' card'+(gr>1?'s':'')+' as the turn passes');for(let g=0;g<gr;g++)queueDraw(s,op,'greedturn');if(s.drawQ.length)return;}
       continue;}
-    if(s.p[me].hand.length===0){log(s,me,'is out of cards');if(s.stats)s.stats.rounds.push({n:s.round,w:op,t:[total(s,0),total(s,1)],by:'cards'});gameOver(s,op,'cards');}
+    if(s.p[me].hand.length===0&&!runeStuck(s,me))outOfCards(s,me);   // with a Rune they may still concede (or give up)
     return;
   }
 }
@@ -1131,6 +1134,9 @@ function act0(s,i,a){
         log(s,w,'Rune: draws '+(ls[w]*2)+' cards');
         for(let k=0;k<ls[w]*2&&s.deck.length>s.drawQ.length;k++)queueDraw(s,w,'laststand');}
       return null;}
+    case 'giveup':{   // out of cards with a Rune, choosing not to concede: the game is lost
+      if(!runeStuck(s,i)||busy(s))return 'You can only give up when you are out of cards';
+      outOfCards(s,i);return null;}
     case 'jkpick':{ // a Surge card's Scry or Steal: the Surge picks at random, first showing its choice, then (on the next jkpick) making it
       const pd=s.pending;if(!pd||!pd.jk)return 'Nothing for the Surge to choose';
       if(pd.t==='discover'&&!pd.opts.length)return 'Open the booster pack first';
@@ -1164,7 +1170,7 @@ function viewFor(s,i){
     }
   }
   return {you:i,logN:s.logN||0,flag:s.flag||null,pack:s.pack?{n:s.pack.n,who:s.pack.who,cards:s.pack.who===i?s.pack.cards:s.pack.cards.map(()=>null)}:null,oppReasons:s.drawQ.filter(e=>e.who!==i).map(e=>e.reason),burn:s.burn?{n:s.burn.n,who:s.burn.who,full:!!s.burn.full,cards:s.burn.who===i?s.burn.cards:s.burn.cards.map(()=>null)}:null,fxOn:s.fx||null,crazy:!!s.crazy,fm:s.fm||null,mirror:s.mirror||null,morph:s.morph||null,hush:s.hush||null,lastFx:s.lastFx||null,stolen:s.stolen||null,discover:s.discFx?{n:s.discFx.n,by:s.discFx.by,kept:s.discFx.by===i?s.discFx.kept:null,gift:s.discFx.gift,burnt:s.discFx.by===i?s.discFx.burnt:s.discFx.burnt.map(()=>null)}:null,greed:s.greedFx||null,stealSafe:s.stealSafe||null,joker:s.joker||null,jq:(s.jokerQ||[]).length,reshuffles:s.reshuffles||0,shuffled:s.lastShuffle||0,phase:s.phase,round:s.round,turn:s.turn,chooser:s.chooser,deck:s.deck.length,discard:s.discard.length,
-    me:{hand:me.hand,field:me.field,wins:me.wins,mull:me.mull,pack:me.pack,conceded:!!me.conceded,newCards:(s.stats&&s.stats.mullIn&&s.stats.mullIn[i])||[],oldCards:(s.stats&&s.stats.mull&&s.stats.mull[i])||[]},
+    me:{hand:me.hand,field:me.field,wins:me.wins,mull:me.mull,pack:me.pack,conceded:!!me.conceded,stuck:runeStuck(s,i)&&!busy(s),newCards:(s.stats&&s.stats.mullIn&&s.stats.mullIn[i])||[],oldCards:(s.stats&&s.stats.mull&&s.stats.mull[i])||[]},
     opp:{hand:op.hand.length,field:op.field,wins:op.wins,mull:op.mull,pack:op.pack},
     draws:s.drawQ.filter(e=>e.who===i).map(e=>e.reason),drawsOpp:s.drawQ.filter(e=>e.who!==i).length,
     startMe:s.startCards[i],reveal:s.startReveal,
@@ -1298,6 +1304,7 @@ function cpuChoose(s,who,level){
     }
     const x=o[Math.floor(Math.random()*o.length)];return {t:'pick',id:x.id};
   }
+  if(runeStuck(s,who)&&!s.pending)return {t:'concede'};   // out of cards: conceding with the Rune beats losing the game
   if(!smart){
     if(s.round<3&&!s.p[who].conceded&&total(s,who)+8<=total(s,1-who)&&Math.random()<.2)return {t:'concede'};
     return playAct(h[Math.floor(Math.random()*h.length)]);
@@ -3584,6 +3591,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   for(let i=0;i<st6;i++)layers+=`<div class="card back" style="left:${i*2}px;top:${i*2}px;z-index:${st6-i}"></div>`;
   dEl.innerHTML=(st6?layers:'<div class="empty"></div>')+`<div class="pill"><b>${v.deck}</b></div>`;
   $('deckHint').textContent=dEl.className==='live'?'Click or drag':'';
+  if(v.me.stuck&&stuckAsked!==v.gameId+':'+v.round){stuckAsked=v.gameId+':'+v.round;setTimeout(askStuck,700);}
   {const cb=$('btnConcede');cb.hidden=v.phase!=='play'||v.round>=3||v.me.conceded;cb.disabled=!myTurn;const lsM=v.me.field.filter(c=>F(c)==='L').length,lsO=v.opp.field.filter(c=>F(c)==='L').length,ls=v.phase==='play'&&(lsM||lsO);
   cb.classList.toggle('glow-concede',v.phase==='play'&&(ls||(mT-oT<=-8&&v.opp.wins<1)));cb.classList.toggle('ls-mine',ls&&lsM>lsO);cb.classList.toggle('ls-theirs',ls&&lsO>lsM);cb.classList.toggle('ls-even',ls&&lsM===lsO);}
   const toTray=false;
@@ -3907,6 +3915,16 @@ function askConcede(){
     <p style="text-align:right;display:flex;gap:8px;justify-content:flex-end"><button class="secondary" id="concedeNo">Cancel</button><button id="concedeYes">Concede</button></p></div></div>`;
   $('concedeNo').onclick=()=>{root.innerHTML='';};
   $('concedeYes').onclick=()=>{root.innerHTML='';dispatch({t:'concede'});};
+}
+// Out of cards with a Rune on your side and a concede left: concede the round, or give up the game
+var stuckAsked=null;
+function askStuck(){
+  const root=$('modalRoot');
+  root.innerHTML=`<div class="modal"><div class="box keep"><h3>🏳️ Out of cards</h3>
+    <p>Your Rune lets you concede this round instead of losing the game. Your opponent wins the round, and your Rune draws you two cards.</p>
+    <p style="text-align:right;display:flex;gap:8px;justify-content:flex-end"><button class="secondary" id="stuckNo">Lose the game</button><button id="stuckYes">Concede</button></p></div></div>`;
+  $('stuckNo').onclick=()=>{root.innerHTML='';dispatch({t:'giveup'});};
+  $('stuckYes').onclick=()=>{root.innerHTML='';dispatch({t:'concede'});};
 }
 
 // ---- back to the title screen ----
