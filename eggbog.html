@@ -632,6 +632,7 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
   #oppTotal::before,#myTotal::before{content:attr(data-n);flex-basis:100%;margin-bottom:4px;font-size:.8rem;font-weight:700;letter-spacing:.08em;opacity:.7;color:#fff;text-transform:uppercase}
   #btnConcede{pointer-events:auto;padding:5px 10px;font-size:.85rem}#btnConcede[hidden]{display:none}
   .divider #diff{left:12px;transform:translateY(-50%);min-width:96px;padding:0;box-sizing:border-box}
+  .divider #diff.prev{font-size:1.9rem}   /* same size while previewing, so the pill never shifts */
   #oppRow{z-index:20}
   #oppSide{margin-top:-44px;padding-top:54px;padding-bottom:10px}
   #mySide{padding-top:10px;padding-bottom:54px}
@@ -646,8 +647,8 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
 @media (min-width:700px) and (min-height:501px){
   #fieldsCol,#lowrow{max-width:700px;margin-left:auto;margin-right:auto}
   #hand{padding-left:90px;padding-right:90px}
-  .field{grid-template-columns:repeat(4,104px);gap:16px;height:236px;min-height:236px;margin-left:116px}
-  .field .card{zoom:1.66}
+  .field{grid-template-columns:repeat(4,94px);gap:16px;height:216px;min-height:216px;margin-left:116px}
+  .field .card{zoom:1.5}
   .col .card+.card,.col.top .card+.card{margin-top:-62px}
 }
 @media (max-width:480px) and (orientation:portrait){
@@ -657,7 +658,7 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
   #oppTotal,#myTotal{width:56px}
   #oppTotal::before,#myTotal::before{content:attr(data-s)}
   .meta{left:4px}
-  .divider #diff{left:4px;min-width:58px;font-size:1.4rem}
+  .divider #diff,.divider #diff.prev{left:4px;min-width:58px;font-size:1.4rem}
   #btnConcede{font-size:0;padding:4px 0;width:56px}#btnConcede::before{content:'🏳️';font-size:1.3rem}
   #oppSide{margin-top:-30px;padding-top:40px}#mySide{padding-bottom:40px}
   #lowrow{margin-top:-84px}
@@ -3106,7 +3107,7 @@ function paintDiff(){
   el.className=(shown>0?'pos':shown<0?'neg':'zero')+(prevw?' prev':'');
   const key=text;
   if(el.dataset.v!==key){
-    if(el.dataset.v!==undefined&&el.animate&&!reduced())el.animate([{transform:'translate(-50%,-50%) scale('+(prevw?1.12:1.35)+')'},{transform:'translate(-50%,-50%) scale(1)'}],{duration:260,easing:'cubic-bezier(.3,1.6,.5,1)'});
+    if(el.dataset.v!==undefined&&el.animate&&!reduced())el.animate([{scale:String(prevw?1.12:1.35)},{scale:'1'}],{duration:260,easing:'cubic-bezier(.3,1.6,.5,1)'});
     el.dataset.v=key;
   }
 }
