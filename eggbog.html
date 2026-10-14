@@ -754,13 +754,30 @@ const ABILITY_TEXT={
   J:'Frost: freeze and shatter the top (most recently played) card of its suit and of the other suit of the same colour (♥/♦ or ♣/♠) on your opponent\'s side. A Sturdy card on top blocks it for that suit.',
   Q:'Bolt: lightning destroys all cards of the same suit on your opponent\'s side.',
   K:'Blaze: burn away all removable cards from both sides, excluding the King itself.',
-  M:'Mimic (not in Classic): when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Soul, Sturdy and Rune included). If nothing was played before it, it does nothing.',
-  T:'Steal (not in Classic): your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned. Their last card can\'t be stolen.',
-  L:'Rune (not in Classic): when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards. If you run out of cards with a Rune on your side and still have your concede (not in round 3), you can concede the round instead of losing the game.',
-  G:'Greed (not in Classic): while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
-  O:'Morph (not in Classic): the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It hits Sturdy cards too (they lose Sturdy). It turns back when it leaves the table. An Egg on top is not affected.',
-  U:'Hush (not in Classic): every card on your opponent\'s side is silenced for as long as it stays on the table: it keeps its value but loses its effect (a Sturdy card can be removed, Soul, Greed and Rune do nothing). Cards they play after it are not silenced. A silenced card that gets Morphed loses its silence.',
-  X:'Surge (not in Classic): can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Surge also makes any choice those cards need (which card Scry keeps, which card Steal takes), at random.'
+  M:'Mimic: when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Soul, Sturdy and Rune included). If nothing was played before it, it does nothing.',
+  T:'Steal: your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned. Their last card can\'t be stolen.',
+  L:'Rune: when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards. If you run out of cards with a Rune on your side and still have your concede (not in round 3), you can concede the round instead of losing the game.',
+  G:'Greed: while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
+  O:'Morph: the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It hits Sturdy cards too (they lose Sturdy). It turns back when it leaves the table. An Egg on top is not affected.',
+  U:'Hush: every card on your opponent\'s side is silenced for as long as it stays on the table: it keeps its value but loses its effect (a Sturdy card can be removed, Soul, Greed and Rune do nothing). Cards they play after it are not silenced. A silenced card that gets Morphed loses its silence.',
+  X:'Surge: can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Surge also makes any choice those cards need (which card Scry keeps, which card Steal takes), at random.'
+};
+const ABILITY_TIP={   // short hover tooltips; the Rules and effects screens use the full ABILITY_TEXT
+  A:'Draw: draw a card.',
+  '2':'Soul: when removed, its owner draws a card.',
+  '3':'Scry: look at 3 cards, keep 1. The opponent gets another, the last burns.',
+  '4':'Sturdy: can\'t be removed.',
+  '5':'Swap: moves to the opponent\'s side and swaps with their top card of this suit.',
+  J:'Frost: shatters the opponent\'s top card of this suit and of its same-colour suit.',
+  Q:'Bolt: destroys all the opponent\'s cards of this suit.',
+  K:'Blaze: burns all removable cards on both sides.',
+  M:'Mimic: copies the card played just before it.',
+  T:'Steal: take a card of their choice from the opponent; one of yours burns.',
+  L:'Rune: draw 2 when a round ends by concede.',
+  G:'Greed: draw a card at the start of each of your turns while on the field.',
+  O:'Morph: turns the opponent\'s top card of this suit into a 1-point Egg.',
+  U:'Hush: silences every card on the opponent\'s side.',
+  X:'Surge: plays 5 cards from the deck: the top 3 for you, the bottom 2 for them.'
 };
 function F(c){if(c.hu)return '';return c.f===undefined?(DEF_F[c.r]||''):c.f;}   // a card silenced by Hush has no effect
 function cardVal(c){if(c.v!==undefined)return c.v;return (c.r==='A'||c.r==='JK'||c.r==='J'||c.r==='Q'||c.r==='K')?1:parseInt(c.r,10);}
@@ -3039,7 +3056,7 @@ function cardEl(c,cls){
   const jk=c.r==='JK';
   const f=c.f===undefined?(ABILITY[c.r]?c.r:''):c.f;
   const egg=c.r==='EG';
-  const tip=ABILITY[f]?ABILITY_TEXT[f]:egg&&c.id!=='EGG'?'Morphed into an Egg: worth '+cardVal(c)+' point. It turns back into its card when it leaves the table.':egg?'The Egg: a plain card worth '+cardVal(c)+(cardVal(c)>1?' points':' point')+', given to whoever goes first in round 1.':'';
+  const tip=ABILITY[f]?ABILITY_TIP[f]:egg&&c.id!=='EGG'?'Morphed Egg: worth '+cardVal(c)+'. Turns back when it leaves the table.':egg?'Egg: worth '+cardVal(c)+(cardVal(c)>1?' points.':' point.'):'';
   const art=egg?EGG_ART:(ART[f]||'');
   return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K','J','Q','L'].includes(f)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''}${morphHold.has(c.id)?' mo-hold':''}${c.hu&&!hushHold.has(c.id)?' hushed':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
     `<div class="cr">${jk?'★':egg?cardVal(c):c.r}<span>${SYM[c.s]}</span></div><div class="cs">${SYM[c.s]}</div>${art}`+
@@ -4036,7 +4053,7 @@ $('btnWaitBack').onclick=toTitle;
   window.drawFxChips=()=>{
     const mode=crazyOn?'crazy':'normal',keys=crazyOn?CRAZY_KEYS:FX_KEYS,list=fxCfg[mode];
     const el=$('fxsChips');
-    el.innerHTML=keys.map(k=>`<button type="button" class="fxchip${list.includes(k)?' on':''}" data-k="${k}" title="${(crazyOn?'':RANK[k]+': ')+ABILITY_TEXT[k].replace(/"/g,'&quot;')}">${art(k)}<span>${ABILITY[k]}</span>${crazyOn?'':'<small>'+RANK[k]+'</small>'}</button>`).join('');
+    el.innerHTML=keys.map(k=>`<button type="button" class="fxchip${list.includes(k)?' on':''}" data-k="${k}" title="${(crazyOn?'':RANK[k]+': ')+ABILITY_TIP[k].replace(/"/g,'&quot;')}">${art(k)}<span>${ABILITY[k]}</span>${crazyOn?'':'<small>'+RANK[k]+'</small>'}</button>`).join('');
     el.querySelectorAll('.fxchip').forEach(b=>b.onclick=()=>{
       const k=b.dataset.k,cfg=fxCfg[mode],i=cfg.indexOf(k);
       if(i>=0){if(mode==='crazy'&&cfg.length<=1){toast('Eggbog needs at least one effect');return;}cfg.splice(i,1);}else cfg.push(k);
