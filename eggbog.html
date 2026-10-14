@@ -410,6 +410,22 @@ header h2{margin:0;font-size:1.3rem}
 #pack.booster #pkRow.big,#pack.booster #pkBurn .brow{gap:22px;max-width:96vw}
 #pack.booster #pkRow.big .mini,#pack.booster #pkBurn .mini{zoom:2;cursor:default}
 @media(max-width:560px){#pack.booster #pkRow.big,#pack.booster #pkBurn .brow{gap:10px}#pack.booster #pkRow.big .mini,#pack.booster #pkBurn .mini{zoom:1.45}}
+/* Eggbog mode: the dealt pack is fanned out, with the next (unopened) pack under the Let's go! button */
+#pack.fan #pkRow.big{flex-wrap:nowrap;gap:0;max-width:none;padding:30px 0 70px;align-items:flex-start}
+#pack.fan #pkRow.big .mini{zoom:1.55;margin:0 -9px;position:relative;cursor:default;transform-origin:50% 135%;rotate:var(--rot);translate:0 var(--dy);transition:translate .18s,filter .18s;filter:drop-shadow(0 6px 8px #0007)}
+#pack.fan #pkRow.big .mini:hover{translate:0 calc(var(--dy) - 18px);filter:drop-shadow(0 10px 14px #000a)}
+#pack.fan #pkSkip{font-size:1.1rem;padding:12px 44px}
+#pkNext{display:flex;flex-direction:column;align-items:center;gap:6px;margin-top:22px;cursor:pointer;-webkit-tap-highlight-color:transparent;background:none;border:0;padding:0;color:inherit;font:inherit}
+#pkNext .pkn{position:relative;width:170px;height:250px;zoom:.44;animation:bob 2.4s ease-in-out infinite;transition:scale .15s,filter .15s}
+#pkNext:hover .pkn,#pkNext:focus-visible .pkn{scale:1.06;filter:drop-shadow(0 0 22px #ffffff88)}
+#pkNext .pkn .pk-part{clip-path:none}
+#pkNext .pkn.d1 .pk-part{background:radial-gradient(circle at 30% 20%,#ffd36b,#ff6a1a 40%,#a3120f 80%);color:#fff4e0}
+#pkNext .pkn.d2 .pk-part{background:repeating-linear-gradient(0deg,#ffffff14 0 6px,#0000 6px 12px),linear-gradient(170deg,#7fe3ff,#1a8fd6 45%,#0a3f8f);color:#06284f}
+#pkNext .pkn.d3 .pk-part{background:radial-gradient(circle,#fff9 0 1.5px,#0000 2px) 0 0/22px 22px,radial-gradient(circle,#fff6 0 1px,#0000 1.5px) 11px 11px/22px 22px,linear-gradient(160deg,#4b2a8f,#1b1050 60%,#0a0630);color:#f1e8ff}
+#pkNext .pkn.d1 .pk-name,#pkNext .pkn.d3 .pk-name{text-shadow:0 1px 0 #0008}
+#pkNext .pkn-lab{font-weight:700;font-size:.95rem}
+#pkNext:disabled{pointer-events:none}
+@media(max-width:560px){#pack.fan #pkRow.big{padding:20px 0 56px}#pack.fan #pkRow.big .mini{zoom:1.12;margin:0 -13px;transform-origin:50% 170%}#pkNext{margin-top:14px}#pkNext .pkn{zoom:.38}}
 #pkZone{position:relative;display:flex;flex-wrap:wrap;gap:6px;justify-content:center;align-items:center;min-height:112px;width:min(560px,94vw);padding:10px;border:2px dashed #ffffff55;border-radius:12px;background:#0003;transition:background .15s}
 #pkZone .zlabel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:.7;pointer-events:none;font-size:.9rem}
 #pkZone.zone-on{background:#f2c14e33;border-color:var(--gold)}
@@ -1066,7 +1082,7 @@ function act0(s,i,a){
       if(cards.some(c=>!c))return 'Unknown card';
       p.hand=p.hand.filter(c=>!ids.includes(c.id));s.discard.push(...cards);
       const got=drawTo(s,i,cards.length);p.mull=true;
-      if(s.crazy&&ids.length&&p.pack!=null)p.pack=(p.pack+1+Math.floor(Math.random()*3))%4;   // a different pack, a different design
+      if(s.crazy&&ids.length&&p.pack!=null)p.pack=(Number.isInteger(a.pack)&&a.pack>=0&&a.pack<4&&a.pack!==p.pack)?a.pack:(p.pack+1+Math.floor(Math.random()*3))%4;   // a different pack, a different design (the one shown under Let's go!, when given)
       if(s.stats){s.stats.mull[i]=cards.map(cp);s.stats.mullIn=s.stats.mullIn||[[],[]];s.stats.mullIn[i]=got?p.hand.slice(-got).map(cp):[];}
       log(s,i,s.crazy?(ids.length?'opened a different pack':'kept their pack'):ids.length?'mulliganed '+ids.length+' card'+(ids.length>1?'s':''):'kept all cards');
       if(s.p[0].mull&&s.p[1].mull)startRound(s);
@@ -1877,22 +1893,27 @@ function showPack(second){
   // swap area to mulligan it; drag/tap it back to keep it.
   const chooseStage=()=>{
     mullSel.clear();
-    if(view&&view.crazy){ // Crazy mode: keep the pack, or open a different pack of 7
+    if(view&&view.crazy){ // Eggbog mode: keep the pack (Let's go!), or open the new pack shown under it; the old cards burn
       $('pkStage').hidden=true;
       $('pkTitle').textContent='Keep this pack?';
-      $('pkHelp').textContent='Keep these '+hand.length+' cards, or open a different pack of '+hand.length+' new cards from the deck. This pack goes to the discard pile.';
-      row.classList.add('big');
+      $('pkHelp').textContent='';
+      o.classList.add('fan');row.classList.add('big');
+      const minis=[...row.querySelectorAll('.mini')],mid=(minis.length-1)/2,ph=innerWidth<=560;
+      minis.forEach((m,i)=>{const d=i-mid;m.style.setProperty('--rot',(d*(ph?7:6))+'deg');m.style.setProperty('--dy',(d*d*(ph?3:3.2))+'px');m.style.zIndex=i;});
       anim(row,[{transform:'scale(.8)',opacity:.6},{transform:'scale(1)',opacity:1}],{duration:280,easing:'ease-out'});
-      const keep=$('pkSkip');btns.hidden=false;keep.disabled=false;keep.textContent='Keep this pack';
-      const alt=document.createElement('button');alt.id='pkNew';alt.textContent='Open a different pack';btns.insertBefore(alt,keep);
-      const go=(ids,wait)=>{keep.disabled=true;alt.disabled=true;mullPending=true;setTimeout(()=>{mullPending=false;},8000);
-        dispatch({t:'mulligan',ids});if(view)mwaitSync(view);setTimeout(finish,wait);};
+      const keep=$('pkSkip');btns.hidden=false;keep.disabled=false;keep.textContent="Let's go!";keep.classList.remove('secondary');
+      const nx=(pkd+1+Math.floor(Math.random()*3))%4,nxt=document.createElement('button');nxt.id='pkNext';nxt.title='Open a new pack';
+      nxt.innerHTML=`<div class="pkn d${nx}"><div class="pk-part"><div class="pk-logo">${['🥚','🔥','🌊','🌙'][nx]}</div><div class="pk-name">EGGBOG</div><div class="pk-sub">New pack · ${hand.length} cards</div><div class="pk-crimp"></div><div class="pk-shine"></div></div></div><div class="pkn-lab">Open a new pack</div>`;
+      btns.after(nxt);
+      const go=(ids,wait)=>{keep.disabled=true;nxt.disabled=true;mullPending=true;setTimeout(()=>{mullPending=false;},8000);
+        dispatch({t:'mulligan',ids,pack:nx});if(view)mwaitSync(view);setTimeout(finish,wait);};
       keep.onclick=()=>go([],150);
-      alt.onclick=()=>{
-        $('pkHelp').textContent='';
-        const minis=[...row.querySelectorAll('.mini')];
-        minis.forEach((m,i)=>anim(m,[{transform:'none',opacity:1},{transform:`translate(${(Math.random()*160-80)}px,-140px) rotate(${Math.random()*90-45}deg) scale(.5)`,opacity:0}],{duration:520,delay:i*50,easing:'ease-in',fill:'forwards'}));
-        go(hand.map(c=>c.id),520+minis.length*50+150);
+      nxt.onclick=()=>{
+        anim(keep,[{opacity:1},{opacity:0}],{duration:250,fill:'forwards'});
+        anim(nxt.querySelector('.pkn'),[{scale:1},{scale:1.15,offset:.3},{scale:1}],{duration:400});
+        const st=reduced()?0:110;
+        minis.forEach((m,i)=>fanBurn(m,i*st));
+        go(hand.map(c=>c.id),reduced()?0:minis.length*st+1300);
       };
       return;
     }
@@ -2303,6 +2324,31 @@ function showBooster(opt){
   }
 }
 // a card (or a card back when c is null) goes up in flames where it lies; returns the function that starts it
+// a fanned card (tilted and zoomed) burns away bottom-up, like burnCardFx, keeping its tilt
+function fanBurn(m,DEL){
+  const ce=m.querySelector('.card');if(!ce)return;
+  const r=ce.getBoundingClientRect(),z=parseFloat(getComputedStyle(m).zoom)||1,rot=getComputedStyle(m).rotate;
+  const w=ce.offsetWidth*z,h=ce.offsetHeight*z,cx=r.left+r.width/2,cy=r.top+r.height/2;
+  const g=document.createElement('div');
+  g.style.cssText=`position:fixed;left:${cx-w/2}px;top:${cy-h/2}px;width:${w}px;height:${h}px;rotate:${rot};z-index:58;pointer-events:none`;
+  const inner=document.createElement('div');inner.style.cssText=`width:${ce.offsetWidth}px;height:${ce.offsetHeight}px;zoom:${z}`;inner.innerHTML=ce.outerHTML;
+  inner.firstChild.style.cssText='margin:0;transform:none';g.appendChild(inner);document.body.appendChild(g);m.style.visibility='hidden';
+  if(reduced()||!g.animate){g.remove();return;}
+  const DUR=1100;
+  g.animate([{clipPath:'inset(0 0 0% 0)',filter:'brightness(1) sepia(0)'},{clipPath:'inset(0 0 25% 0)',filter:'brightness(.75) sepia(.8) saturate(2)',offset:.25},{clipPath:'inset(0 0 100% 0)',filter:'brightness(.25) sepia(1) saturate(3)'}],{duration:DUR,delay:DEL,easing:'cubic-bezier(.45,0,.7,1)',fill:'both'});
+  const fl=document.createElement('div'),fh=Math.max(40,h*.3);
+  fl.style.cssText=`position:fixed;left:${cx-w/2-8}px;width:${w+16}px;height:${fh}px;rotate:${rot};pointer-events:none;z-index:59;background:radial-gradient(ellipse at 50% 85%,#fff3b0 0,#ffb02e 30%,#ff4d1a 55%,#ff4d1a00 75%);filter:blur(5px);mix-blend-mode:screen;border-radius:50%`;
+  document.body.appendChild(fl);
+  const y0=cy+h/2-fh*.7,y1=cy-h/2-fh*.5;
+  fl.animate([{top:y0+'px',opacity:0},{top:(y0-(y0-y1)*.15)+'px',opacity:1,offset:.12},{top:y1+'px',opacity:.9,offset:.92},{top:y1+'px',opacity:0}],{duration:DUR,delay:DEL,easing:'cubic-bezier(.45,0,.7,1)',fill:'both'});
+  for(let i=0;i<18;i++){
+    const e=document.createElement('i'),sz=3+Math.random()*5;
+    e.style.cssText=`position:fixed;left:${cx-w/2+Math.random()*w}px;top:${cy-h/2+Math.random()*h}px;width:${sz}px;height:${sz}px;border-radius:50%;pointer-events:none;z-index:59;background:${Math.random()<.3?'#555':(Math.random()<.5?'#ffb02e':'#ff5a1f')};box-shadow:0 0 6px #ff7a1a`;
+    document.body.appendChild(e);
+    e.animate([{transform:'none',opacity:0},{opacity:1,offset:.15},{transform:`translate(${(Math.random()-.5)*90}px,${-60-Math.random()*130}px) scale(.2)`,opacity:0}],{duration:700+Math.random()*600,delay:DEL+Math.random()*DUR*.7,easing:'ease-out',fill:'both'}).onfinish=()=>e.remove();
+  }
+  setTimeout(()=>{g.remove();fl.remove();},DEL+DUR+200);
+}
 function burnCardFx(c,r,DEL){
   const g=document.createElement('div');
   const k=r.width>70?r.width/62:1; // big cards (the booster screen) are the normal card scaled up
