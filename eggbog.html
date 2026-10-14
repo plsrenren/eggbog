@@ -603,8 +603,8 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
 /* Tight field: bigger field cards in four close columns, totals in a scoreboard on the left (name, total, Concede),
    the difference on the line between the mats, both mats the same height, and each hand sits over its mat's outer edge */
 @media (orientation:portrait),(min-height:501px){
-  .field{grid-template-columns:repeat(4,86px);justify-content:center;gap:22px;height:200px;min-height:200px;margin-left:100px}
-  .field .card{zoom:1.38}
+  .field{grid-template-columns:repeat(4,84px);justify-content:center;gap:18px;height:196px;min-height:196px;margin-left:100px}
+  .field .card{zoom:1.29}   /* same size as a hand card (80x114), never bigger */
   .col .card+.card,.col.top .card+.card{margin-top:-58px}
   .side{padding:10px}
   @media(hover:hover){
@@ -647,8 +647,8 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
 @media (min-width:700px) and (min-height:501px){
   #fieldsCol,#lowrow{max-width:700px;margin-left:auto;margin-right:auto}
   #hand{padding-left:90px;padding-right:90px}
-  .field{grid-template-columns:repeat(4,94px);gap:16px;height:216px;min-height:216px;margin-left:116px}
-  .field .card{zoom:1.5}
+  .field{grid-template-columns:repeat(4,84px);gap:18px;height:196px;min-height:196px;margin-left:116px}
+  .field .card{zoom:1.29}   /* 80x114: never bigger than a card in your hand */
   .col .card+.card,.col.top .card+.card{margin-top:-62px}
 }
 @media (max-width:480px) and (orientation:portrait){
@@ -1617,7 +1617,7 @@ function ghostShow(id,suit){
     // 2. the effect itself, as a see-through replay of the real animation
     T(()=>{
       if(cf==='J'||cf==='Q'||cf==='K'){
-        const clones=goneEls.map(e=>{const o={html:e.outerHTML.replace(/\bgh-gone\b|\bdoomed\b/g,''),r:R(e)};const g=document.createElement('div');g.innerHTML=o.html;const el=g.firstChild;el.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:14;pointer-events:none`;G.appendChild(el);return {o,el};});
+        const clones=goneEls.map(e=>{const o={html:e.outerHTML.replace(/\bgh-gone\b|\bdoomed\b/g,''),r:R(e)};const g=document.createElement('div');g.innerHTML=o.html;const el=g.firstChild;el.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:14;pointer-events:none`;G.appendChild(el);pinAt(el,o.r);return {o,el};});
         removalAnim(cf,{side:'#myField',c:card},clones,G);
         let k=0;plan.gone.forEach(g=>{if(efx(g.c,view)==='2')T(()=>glide(deck(),g.mine?hand():oppHand(),0),700+(k++)*160);});   // Soul draws
       }else if(cf==='A'||cf==='G')glide(deck(),hand(),0);
@@ -2732,7 +2732,7 @@ function runeFx(prev,v,oldCards){
     const o=oldCards.get(c.id);if(!o)continue;
     pts[side].push({x:o.r.left+o.r.width/2,y:o.r.top+o.r.height/2,w:o.r.width,h:o.r.height});
     const g=document.createElement('div');g.innerHTML=o.html;const e=g.firstChild;e.classList.remove('targetable','doomed');
-    e.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:40;pointer-events:none`;document.body.appendChild(e);
+    e.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:40;pointer-events:none`;document.body.appendChild(e);pinAt(e,o.r);
     e.animate([{transform:'none',boxShadow:'0 1px 3px #0006',filter:'none',opacity:1},
       {transform:'scale(1.12)',boxShadow:'0 0 18px 6px #5fd6ffcc',filter:'brightness(1.15)',opacity:1,offset:.3},
       {transform:'scale(1.08)',boxShadow:'0 0 26px 10px #5fd6ffaa',filter:'brightness(1.25)',opacity:1,offset:.7},
@@ -2926,7 +2926,7 @@ function morphFx(prev,v,oldCards){
   const el=document.querySelector('#myField .card[data-id="'+id+'"],#oppField .card[data-id="'+id+'"]');if(!el||!old)return;
   morphHold.add(id);el.classList.add('mo-hold');
   const g=document.createElement('div');g.innerHTML=old.html;const o=g.firstChild;o.classList.remove('targetable','doomed','dim');
-  o.style.cssText+=`;position:fixed;left:${old.r.left}px;top:${old.r.top}px;margin:0;z-index:40;pointer-events:none`;document.body.appendChild(o);
+  o.style.cssText+=`;position:fixed;left:${old.r.left}px;top:${old.r.top}px;margin:0;z-index:40;pointer-events:none`;document.body.appendChild(o);pinAt(o,old.r);
   const D=480;   // let the Morph card land first
   o.animate([{transform:'none',filter:'none'},{transform:'none',filter:'brightness(1.4) drop-shadow(0 0 8px #c58bff)',offset:.35},{transform:'rotate(200deg) scale(.15)',filter:'brightness(2) hue-rotate(60deg)',opacity:.3}],{duration:520,delay:D,easing:'ease-in',fill:'forwards'}).onfinish=()=>o.remove();
   // a cartoon cloud pops up over the card with a bounce, hides the change, then bursts into little puffs with a POOF
@@ -3214,10 +3214,18 @@ function boomLow(delay){
   }catch(e){}
 }
 // the Frost / Bolt / Blaze animation; G is the ghost layer for a ghost preview (silent, see-through), or null for the real thing
+// A field card copied out of the field (for a removal or move animation) loses the field's zoom; scale the copy
+// back up so it keeps the exact size and spot of the card it stands in for.
+function pinAt(e,r){
+  const b=e.getBoundingClientRect();if(!b.width||Math.abs(b.width-r.width)<1)return;
+  e.style.zoom=r.width/b.width;
+  const c=e.getBoundingClientRect(),z=r.width/b.width;
+  e.style.left=(parseFloat(e.style.left)+(r.left-c.left)/z)+'px';e.style.top=(parseFloat(e.style.top)+(r.top-c.top)/z)+'px';
+}
 function removalAnim(kind,pl,clones,G){
   const host=G||document.body,S=!G;
   const mk=(o,z)=>{const g=document.createElement('div');g.innerHTML=o.html;const e=g.firstChild;e.classList.remove('targetable','doomed');
-    e.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:${z||14};pointer-events:none`;host.appendChild(e);return e;};
+    e.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:${z||14};pointer-events:none`;host.appendChild(e);pinAt(e,o.r);return e;};
   const fx=(css,z)=>{const e=document.createElement('i');e.style.cssText='position:fixed;pointer-events:none;z-index:'+(z||57)+';'+css;host.appendChild(e);return e;};
   const die=(e,ms)=>setTimeout(()=>e.remove(),ms);
   const ctr=r=>({x:r.left+r.width/2,y:r.top+r.height/2});
@@ -3373,7 +3381,7 @@ function faceFx(prev,v,oldCards){
   const later=fn=>{const go=()=>{if($('duel')||$('pack')||$('pf')){setTimeout(go,150);return;}setTimeout(fn,T);};setTimeout(go,0);};
   fxUntil=Math.max(fxUntil,Date.now()+T+1300);
   const mk=(o,z)=>{const g=document.createElement('div');g.innerHTML=o.html;const e=g.firstChild;e.classList.remove('targetable','doomed');
-    e.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:${z||14};pointer-events:none`;document.body.appendChild(e);return e;};
+    e.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:${z||14};pointer-events:none`;document.body.appendChild(e);pinAt(e,o.r);return e;};
   const clones=removed.map(([id,o])=>({id,o,el:mk(o)}));
   // cards in the played card's own column lie under it: don't draw them over it (Blaze burns them out of sight)
   {const pc=[...v.me.field,...v.opp.field].find(c=>c.id===pl.c.id),mineSide=pl.side==='#myField';
@@ -3693,7 +3701,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
     const g=document.createElement('div');g.innerHTML=o.html;const el=g.firstChild;
     el.classList.remove('targetable');
     el.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:14;pointer-events:none`;
-    document.body.appendChild(el);
+    document.body.appendChild(el);pinAt(el,o.r);
     if(!el.animate){el.remove();continue;}
     el.animate([{transform:'none',opacity:1,filter:'none'},{transform:'translateY(-6px) scale(1.06)',opacity:1,offset:.25},{transform:'translateY(18px) scale(.7) rotate('+(Math.random()*30-15)+'deg)',opacity:0,filter:'brightness(.5)'}],{duration:520,easing:'ease-in'}).onfinish=()=>el.remove();
   }
