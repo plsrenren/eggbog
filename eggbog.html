@@ -110,7 +110,6 @@ header h2{margin:0;font-size:1.3rem}
 @keyframes ocpop{0%{opacity:0;scale:.5}100%{opacity:1;scale:1}}
 #oppGhost{position:fixed;width:62px;height:88px;margin:0;pointer-events:none;z-index:25;opacity:0;transition:opacity .15s,left .14s,top .14s;box-shadow:0 14px 22px #000a,0 0 18px 4px #f2c14e99;transform:rotate(-4deg)}
 #oppGhost.on{opacity:.92}
-#oppField .col.oppHover{background:#f2c14e22;border-radius:8px;box-shadow:inset 0 0 0 2px #f2c14e88}
 #oppTotal,#myTotal{display:inline-flex;align-items:baseline;justify-content:flex-end;gap:8px;height:2.3rem;min-width:8.5rem;overflow:visible}   /* fixed box: previewing a total never moves the layout */
 #oppTotal .tl,#myTotal .tl{font-size:.95rem;opacity:.8;text-transform:uppercase;letter-spacing:.08em}
 #oppTotal.prev b.was,#myTotal.prev b.was{opacity:.55;font-size:1.4rem}
@@ -608,11 +607,25 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
   .field .card{zoom:1.38}
   .col .card+.card,.col.top .card+.card{margin-top:-58px}
   .side{padding:10px}
+  @media(hover:hover){
+    #game:has(#hand .card[data-id$="C"]:hover:not(.dragging)) #myField .col[data-suit=C]::before,
+    #game:has(#hand .card[data-id$="S"]:hover:not(.dragging)) #myField .col[data-suit=S]::before,
+    #game:has(#hand .card[data-id$="H"]:hover:not(.dragging)) #myField .col[data-suit=H]::before,
+    #game:has(#hand .card[data-id$="D"]:hover:not(.dragging)) #myField .col[data-suit=D]::before{opacity:1;scale:1.15;text-shadow:0 0 10px currentColor,0 0 22px currentColor}
+  }
   .divider{min-height:18px;padding:2px}
   .divider span{display:none}
-  .col:empty::after{font-size:2.6rem;opacity:.13;margin:auto;color:#fff}
-  .col[data-suit=C]:empty::after{content:'♣'}.col[data-suit=S]:empty::after{content:'♠'}
-  .col[data-suit=H]:empty::after{content:'♥';color:#ff8a7a}.col[data-suit=D]:empty::after{content:'♦';color:#ff8a7a}
+  /* each column's suit sits faintly on the mat at its outer end, under the cards; it glows when the card you hover
+     or drag (or the one the opponent is aiming) belongs there */
+  .col{position:relative}
+  .col::before{position:absolute;left:50%;translate:-50% 0;font-size:2.6rem;line-height:1;opacity:.16;color:#fff;pointer-events:none;
+    transition:opacity .15s,text-shadow .15s,scale .15s}
+  #myField .col::before{bottom:6px}#oppField .col::before{top:6px}
+  .col[data-suit=C]::before{content:'♣'}.col[data-suit=S]::before{content:'♠'}
+  .col[data-suit=H]::before{content:'♥';color:#ff8a7a}.col[data-suit=D]::before{content:'♦';color:#ff8a7a}
+  #mySide[data-glow=C] .col[data-suit=C]::before,#mySide[data-glow=S] .col[data-suit=S]::before,
+  #mySide[data-glow=H] .col[data-suit=H]::before,#mySide[data-glow=D] .col[data-suit=D]::before,
+  #oppField .col.oppHover::before{opacity:1;scale:1.15;text-shadow:0 0 10px currentColor,0 0 22px currentColor}
   .meta{right:auto;left:12px;height:auto;flex-direction:column;align-items:flex-start;gap:10px}
   #oppSide .meta{top:auto;bottom:30px}#mySide .meta{top:30px}
   #oppTotal,#myTotal{flex-wrap:wrap;justify-content:flex-start;min-width:0;height:auto;width:96px;gap:4px;line-height:1}
@@ -1657,7 +1670,7 @@ function startDrag(ev,el,id,canPlay,onTap){
     if(onMat(px,py))document.querySelectorAll('#myField .col').forEach(c=>{const r=c.getBoundingClientRect(),d=Math.abs(r.left+r.width/2-px);if(d<best){best=d;z=c;}});
     suit=z?z.dataset.suit:null;return z;
   };
-  const clearZones=()=>side.classList.remove('dropzone','hover');
+  const clearZones=()=>{side.classList.remove('dropzone','hover');side.dataset.glow='';};
   // Jack / Queen / King: while the card is held over your side of the field, the cards it would remove glow red
   const rank=(view&&(c=>c?efx(c,view):'')(view.me.hand.find(c=>c.id===id)))||'';
   const setDoom=on=>{
@@ -1675,6 +1688,7 @@ function startDrag(ev,el,id,canPlay,onTap){
     setDoom((rank==='J'||rank==='Q'||rank==='K')&&ok&&inRect(side,x,y));
     const over=!!(ok&&z&&onMat(x,y));
     side.classList.toggle('dropzone',ok);side.classList.toggle('hover',over);
+    {const g=isJk?(over&&z?z.dataset.suit:''):suit;if(side.dataset.glow!==g)side.dataset.glow=g;}
     if(rank==='5')swapMark(view&&view.opp.field,suit,over&&!!view);
     if((previewId===id)!==over){previewId=over?id:null;paintDiff();}
     {const gk=over?suit:null;   // ghost action: shown once the card has been held over the column for a moment
