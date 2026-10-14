@@ -337,11 +337,15 @@ header h2{margin:0;font-size:1.3rem}
 /* the deck sits at the top right, on the same row as the opponent's hand */
 #oppRow{position:relative}
 #oppRow #deckBox{position:absolute;right:4px;top:2px;z-index:4}
-@keyframes concedeGlow{from{box-shadow:0 0 0 2px color-mix(in srgb,var(--cg,#ff6b5e) 55%,transparent),0 0 8px color-mix(in srgb,var(--cg,#ff6b5e) 40%,transparent)}to{box-shadow:0 0 0 3px var(--cg,#ff6b5e),0 0 22px var(--cg,#ff6b5e)}}
-#btnConcede.ls-mine{--cg:#5df2a6}#btnConcede.ls-theirs{--cg:#ff6b5e}#btnConcede.ls-even{--cg:#f2c14e}
+#btnConcede{--cg:#f2c14e}#btnConcede.ls-mine{--cg:#5df2a6}#btnConcede.ls-theirs{--cg:#ff6b5e}
 #concRow{display:flex;justify-content:flex-end;margin:0 0 4px}#concRow button{padding:5px 12px;font-size:.9rem}#concRow button[hidden]{display:none}
 #btnConcede{pointer-events:auto}#btnConcede[hidden]{display:none}
-#btnConcede.glow-concede:not(:disabled){animation:concedeGlow 1.1s ease-in-out infinite alternate}
+/* Concede is a bare flag (no button box); its glow follows the flag's shape: green = you have more Runes out, red = they do, yellow otherwise */
+#btnConcede,#btnConcede:hover:not(:disabled){font-size:0;padding:2px;width:auto;height:auto;background:none;border-radius:0;line-height:1;filter:none}
+#btnConcede::before{content:'🏳️';display:block;font-size:2rem;transition:transform .15s}
+#btnConcede:hover:not(:disabled)::before{transform:scale(1.1)}
+#btnConcede.glow-concede:not(:disabled)::before{animation:concedeFlag 1.1s ease-in-out infinite alternate}
+@keyframes concedeFlag{from{filter:drop-shadow(0 0 1px var(--cg)) drop-shadow(0 0 3px var(--cg))}to{filter:drop-shadow(0 0 3px var(--cg)) drop-shadow(0 0 13px var(--cg))}}
 #deckBox{display:flex;flex-direction:column;align-items:center;gap:6px}
 #deck{position:relative;width:52px;height:66px}
 #deck .card.back{width:40px;height:56px;border-width:2px}
@@ -628,7 +632,6 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
   #oppSide .meta{top:auto;bottom:30px}#mySide .meta{top:30px}
   #oppTotal,#myTotal{flex-wrap:wrap;justify-content:flex-start;min-width:0;height:auto;width:96px;gap:4px;line-height:1}
   #oppTotal::before,#myTotal::before{content:attr(data-n);flex-basis:100%;margin-bottom:4px;font-size:.8rem;font-weight:700;letter-spacing:.08em;opacity:.7;color:#fff;text-transform:uppercase}
-  #btnConcede{pointer-events:auto;padding:5px 10px;font-size:.85rem}#btnConcede[hidden]{display:none}
   .divider #diff{left:12px;transform:translateY(-50%);min-width:96px;padding:0;box-sizing:border-box}
   .divider #diff.prev{font-size:1.9rem}   /* same size while previewing, so the pill never shifts */
   #oppRow{z-index:20}
@@ -641,7 +644,7 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
   #hand .card{box-shadow:0 6px 14px #000a}
   #actions{position:absolute;right:16px;bottom:22px;margin:0}
 }
-@media(orientation:landscape) and (max-height:500px){#btnConcede{font-size:0;padding:2px 6px}#btnConcede::before{content:'🏳️';font-size:1rem}#mySide .meta{gap:6px}}
+@media(orientation:landscape) and (max-height:500px){#btnConcede::before{font-size:1.4rem}#mySide .meta{gap:6px}}
 @media (min-width:700px) and (min-height:501px){
   #fieldsCol,#lowrow{max-width:700px;margin-left:auto;margin-right:auto}
   #hand{padding-left:90px;padding-right:90px}
@@ -657,7 +660,7 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
   #oppTotal::before,#myTotal::before{content:attr(data-s)}
   .meta{left:4px}
   .divider #diff,.divider #diff.prev{left:4px;min-width:58px;font-size:1.4rem}
-  #btnConcede{font-size:0;padding:4px 0;width:56px}#btnConcede::before{content:'🏳️';font-size:1.3rem}
+  #btnConcede::before{font-size:1.8rem}
   #oppSide{margin-top:-30px;padding-top:40px}#mySide{padding-bottom:40px}
   #lowrow{margin-top:-84px}
   #actions{right:8px;bottom:12px}#actions button{padding:6px 8px}
@@ -3592,7 +3595,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   $('deckHint').textContent=dEl.className==='live'?'Click or drag':'';
   if(v.me.stuck&&stuckAsked!==v.gameId+':'+v.round){stuckAsked=v.gameId+':'+v.round;setTimeout(askStuck,700);}
   {const cb=$('btnConcede');cb.hidden=v.phase!=='play'||v.round>=3||v.me.conceded;cb.disabled=!myTurn;const lsM=v.me.field.filter(c=>F(c)==='L').length,lsO=v.opp.field.filter(c=>F(c)==='L').length,ls=v.phase==='play'&&(lsM||lsO);
-  cb.classList.toggle('glow-concede',v.phase==='play'&&(ls||(mT-oT<=-8&&v.opp.wins<1)));cb.classList.toggle('ls-mine',ls&&lsM>lsO);cb.classList.toggle('ls-theirs',ls&&lsO>lsM);cb.classList.toggle('ls-even',ls&&lsM===lsO);}
+  cb.classList.toggle('glow-concede',v.phase==='play');cb.classList.toggle('ls-mine',ls&&lsM>lsO);cb.classList.toggle('ls-theirs',ls&&lsO>lsM);}
   const toTray=false;
   dEl.onpointerdown=ev=>{
     if(!view)return;
