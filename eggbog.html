@@ -517,7 +517,7 @@ header h2{margin:0;font-size:1.3rem}
 #shf{position:fixed;inset:0;z-index:43;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:16px;pointer-events:none}
 #shfStage{position:relative;width:130px;height:110px;zoom:2;margin-top:24px}
 /* event screens blur the table behind them instead of hiding it */
-#disc,#drw,#stl,#pf,#shf,#jkr,#pack.booster{background:radial-gradient(ellipse at 50% 40%,color-mix(in srgb,var(--felt) 55%,transparent),color-mix(in srgb,var(--felt3) 72%,transparent) 85%);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px)}
+#disc,#drw,#stl,#pf,#shf,#jkr,#duel,#pack.booster{background:radial-gradient(ellipse at 50% 40%,color-mix(in srgb,var(--felt) 55%,transparent),color-mix(in srgb,var(--felt3) 72%,transparent) 85%);-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px)}
 #deckHint{display:none}
 #tray{display:flex;flex-direction:column;align-items:center;gap:4px;border-radius:10px;padding:4px}
 #tray:empty{display:none}
@@ -1876,13 +1876,16 @@ function showPack(second){
     anim(row,[{transform:'scale(.8)',opacity:.6},{transform:'scale(1)',opacity:1}],{duration:280,easing:'ease-out'});
     return minis;
   };
-  // ...and fly them down into your hand while this screen fades away
+  // ...and fly them down into your hand, still fanned out, while this screen fades away
   const toHand=(minis,done)=>{
     const h=$('hand'),hc=h&&h.querySelector('.card');let hr=h&&h.getBoundingClientRect();
     if(reduced()||!o.animate||!minis.length){done(true);return;}
     if(!hr||!hr.width)hr={left:innerWidth*.15,width:innerWidth*.7,top:innerHeight-130,height:120};
-    const cr=hc?hc.getBoundingClientRect():{width:80,height:114},n=minis.length,mid=(n-1)/2;
-    const gap=Math.min(cr.width*.92,hr.width/n),cx=hr.left+hr.width/2,cy=hr.top+hr.height/2;
+    const cr=hc?hc.getBoundingClientRect():{width:80,height:114},n=minis.length,DUR=650;
+    const cx=hr.left+hr.width/2,cy=hr.top+hr.height/2;
+    // the whole fan moves as one: its centre goes to the middle of your hand, shrunk to hand-card size
+    const rs=minis.map(m=>m.querySelector('.card').getBoundingClientRect());
+    const fx=(Math.min(...rs.map(r=>r.left))+Math.max(...rs.map(r=>r.right)))/2,fy=(Math.min(...rs.map(r=>r.top))+Math.max(...rs.map(r=>r.bottom)))/2;
     if(h)h.style.visibility='hidden';
     const flying=minis.map((m,i)=>{
       const ce=m.querySelector('.card'),r=ce.getBoundingClientRect(),z=parseFloat(getComputedStyle(m).zoom)||1,rot=getComputedStyle(m).rotate;
@@ -1891,13 +1894,22 @@ function showPack(second){
       g.style.cssText=`position:fixed;left:${x-w/2}px;top:${y-hh/2}px;width:${w}px;height:${hh}px;z-index:58;pointer-events:none`;
       const inner=document.createElement('div');inner.style.cssText=`width:${ce.offsetWidth}px;height:${ce.offsetHeight}px;zoom:${z}`;inner.innerHTML=ce.outerHTML;
       inner.firstChild.style.cssText='margin:0;transform:none';g.appendChild(inner);document.body.appendChild(g);m.style.visibility='hidden';
-      const k=cr.width/w,tx=cx+(i-mid)*gap-x,ty=cy-y,r0=rot==='none'?'0deg':rot;
-      g.animate([{transform:`rotate(${r0})`},{transform:`translate(${tx*.5}px,${ty*.35-30}px) rotate(${r0}) scale(${(1+k)/2})`,offset:.4},{transform:`translate(${tx}px,${ty}px) rotate(0deg) scale(${k})`}],
-        {duration:560,delay:i*60,easing:'cubic-bezier(.45,0,.3,1)',fill:'forwards'});
+      const r0=rot==='none'?'0deg':rot,id=ce.dataset.id,tgt=h&&id&&[...h.querySelectorAll('.card')].find(c=>c.dataset.id===id);
+      let k=cr.width/w,tx=cx+(x-fx)*k-x,ty=cy+(y-fy)*k-y,r1=r0;   // by default: same spot in the fan, the fan scaled down around the hand's centre
+      if(tgt){   // better: straight onto that card's place in your (fanned) hand
+        const tr=tgt.getBoundingClientRect();k=tgt.offsetWidth/ce.offsetWidth;tx=tr.left+tr.width/2-x;ty=tr.top+tr.height/2-y;
+        r1=(getComputedStyle(tgt).getPropertyValue('--r').trim()||'0deg');
+      }
+      g.animate([{transform:`rotate(${r0})`},{transform:`translate(${tx*.35}px,${ty*.35-24}px) rotate(${r0}) scale(${1-(1-k)*.35})`,offset:.35},{transform:`translate(${tx}px,${ty}px) rotate(${r1}) scale(${k})`}],
+        {duration:DUR,easing:'cubic-bezier(.45,0,.3,1)',fill:'forwards'});
       return g;
     });
-    o.animate([{opacity:1},{opacity:1,offset:.3},{opacity:0}],{duration:560+n*60,fill:'forwards'});
-    setTimeout(()=>{done(true);if(h)h.style.visibility='';flying.forEach(g=>g.remove());},560+n*60+30);
+    o.animate([{opacity:1},{opacity:1,offset:.3},{opacity:0}],{duration:DUR,fill:'forwards'});
+    setTimeout(()=>{   // landed: the fan melts into your real hand
+      if(h){h.style.visibility='';h.animate&&h.animate([{opacity:0},{opacity:1}],{duration:220});}
+      flying.forEach(g=>g.animate([{opacity:1},{opacity:0}],{duration:220,fill:'forwards'}).onfinish=()=>g.remove());
+      done(true);
+    },DUR+40);
   };
   const finish=flown=>{
     const go=()=>{o.remove();dealt[view?view.you:you]=true;dealFx=!flown&&!(view&&view.crazy&&!second&&view.me.newCards&&view.me.newCards.length);if(view)render(view);};
