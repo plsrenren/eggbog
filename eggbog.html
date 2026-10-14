@@ -36,6 +36,10 @@ input{font:inherit;padding:.6em .8em;border-radius:8px;border:0;width:100%}
 #game{max-width:920px;margin:0 auto;padding:10px 12px 40px}
 header{display:flex;justify-content:space-between;align-items:center;gap:8px}
 header h2{margin:0;font-size:1.3rem}
+#btnMore{display:none}
+#moreMenu{position:fixed;z-index:60;display:flex;flex-direction:column;gap:4px;padding:6px;border-radius:12px;background:var(--panel);box-shadow:0 8px 24px #000a;min-width:160px}
+#moreMenu[hidden]{display:none}
+#moreMenu button{text-align:left;padding:.55em .9em;font-size:.95rem}
 .score{font-weight:700}
 
 .score{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center}
@@ -528,10 +532,13 @@ button,summary,.clk{touch-action:manipulation}
   #lvl{flex-wrap:wrap;justify-content:center;gap:6px}
   .lvl button{padding:5px 11px}.lvl span{flex-basis:100%;text-align:center;margin:0}
   #game{padding:max(6px,env(safe-area-inset-top)) max(8px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left))}
-  header{gap:4px 6px;flex-wrap:wrap}
-  header .score{order:3;flex-basis:100%;justify-content:center}
-  header h2{flex:1}
-  header h2{font-size:.95rem;white-space:nowrap;min-width:0}
+  /* phones: one slim top row: round + score on the left, ☰ (sound, rules, effects) and 🏠 on the right */
+  header{gap:6px;flex-wrap:nowrap}
+  header h2{display:none}
+  header .score{order:-1;flex:1 1 auto;min-width:0;justify-content:flex-start;gap:8px;font-size:.8rem;white-space:nowrap;flex-wrap:nowrap}
+  header .score .pl{gap:4px}header .score .dot{width:11px;height:11px}
+  #hdrBtns>#btnSound,#hdrBtns>#btnRules,#hdrBtns>#btnFx{display:none}
+  #btnMore{display:inline-block}
   header button{padding:.4em .65em;font-size:.85rem}
   header .score{gap:8px;font-size:.8rem;flex-wrap:nowrap;white-space:nowrap;min-width:0}
   header .score .pl{gap:3px}
@@ -698,8 +705,9 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
   <header>
     <h2>🥚 Eggbog</h2>
     <div class="score" id="score"></div>
-    <div style="display:flex;gap:6px"><button class="secondary" id="btnSound" aria-label="Toggle sound">🔊</button><button class="secondary" id="btnRules">Rules</button><button class="secondary" id="btnFx" hidden title="This game's card effects">🌀</button><button class="secondary" id="btnMenu" title="Back to the title screen" aria-label="Main menu">🏠</button></div>
+    <div id="hdrBtns" style="display:flex;gap:6px"><button class="secondary" id="btnSound" aria-label="Toggle sound">🔊</button><button class="secondary" id="btnRules">Rules</button><button class="secondary" id="btnFx" hidden title="This game's card effects">🌀</button><button class="secondary" id="btnMore" title="More" aria-label="More options" aria-expanded="false">☰</button><button class="secondary" id="btnMenu" title="Back to the title screen" aria-label="Main menu">🏠</button></div>
   </header>
+  <div id="moreMenu" hidden></div>
   <div id="status"></div>
   <div id="board"><div id="fieldsCol">
   <div id="oppRow"><div id="oppHand" aria-label="Opponent's hand"></div><div id="deckBox" title="The deck"><div id="deck"></div><div id="deckHint"></div></div></div>
@@ -4006,6 +4014,18 @@ $('btnRules').onclick=showRules;
 $('btnConcede').onclick=askConcede;
 $('btnFx').onclick=showFx;
 $('btnMenu').onclick=askLeave;
+// phones: ☰ opens a small menu with the header buttons that don't fit on the slim top row
+$('btnMore').onclick=e=>{
+  e.stopPropagation();const m=$('moreMenu');
+  if(!m.hidden){m.hidden=true;$('btnMore').setAttribute('aria-expanded','false');return;}
+  const items=[[soundOn?'🔊 Sound: on':'🔇 Sound: off','btnSound'],['📖 Rules','btnRules']];
+  if(!$('btnFx').hidden)items.push(['🌀 Card effects','btnFx']);
+  m.innerHTML=items.map(([t,id])=>`<button class="secondary" data-for="${id}">${t}</button>`).join('');
+  m.querySelectorAll('button').forEach(b=>b.onclick=()=>{m.hidden=true;$('btnMore').setAttribute('aria-expanded','false');$(b.dataset.for).click();});
+  const r=$('btnMore').getBoundingClientRect();m.style.top=(r.bottom+6)+'px';m.style.right=Math.max(8,innerWidth-r.right)+'px';
+  m.hidden=false;$('btnMore').setAttribute('aria-expanded','true');
+};
+document.addEventListener('pointerdown',e=>{const m=$('moreMenu');if(!m.hidden&&!m.contains(e.target)&&e.target!==$('btnMore')){m.hidden=true;$('btnMore').setAttribute('aria-expanded','false');}});
 document.addEventListener('keydown',e=>{if(e.key!=='Escape'||$('game').hidden)return;const k=document.querySelector('#modalRoot .keep');if(k){$('modalRoot').innerHTML='';return;}if(!document.querySelector('#modalRoot .rules'))askLeave();});
 $('btnWaitBack').onclick=toTitle;
 (function(){
