@@ -607,16 +607,10 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
   .field .card{zoom:1.29}   /* same size as a hand card (80x114), never bigger */
   .col .card+.card,.col.top .card+.card{margin-top:-58px}
   .side{padding:10px}
-  @media(hover:hover){
-    #game:has(#hand .card[data-id$="C"]:hover:not(.dragging)) #myField .col[data-suit=C]::before,
-    #game:has(#hand .card[data-id$="S"]:hover:not(.dragging)) #myField .col[data-suit=S]::before,
-    #game:has(#hand .card[data-id$="H"]:hover:not(.dragging)) #myField .col[data-suit=H]::before,
-    #game:has(#hand .card[data-id$="D"]:hover:not(.dragging)) #myField .col[data-suit=D]::before{opacity:1;scale:1.15;text-shadow:0 0 10px currentColor,0 0 22px currentColor}
-  }
   .divider{min-height:18px;padding:2px}
   .divider span{display:none}
-  /* each column's suit sits faintly on the mat at its outer end, under the cards; it glows when the card you hover
-     or drag (or the one the opponent is aiming) belongs there */
+  /* each column's suit sits faintly on the mat at its outer end, under the cards; it glows when the card you drag is over
+     your mat (or the opponent is aiming there) */
   .col{position:relative}
   .col::before{position:absolute;left:50%;translate:-50% 0;font-size:2.6rem;line-height:1;opacity:.16;color:#fff;pointer-events:none;
     transition:opacity .15s,text-shadow .15s,scale .15s}
@@ -626,6 +620,11 @@ body.bh-me #hand .card,body.bh-opp #oppHand .oc{animation:warpwob 1.4s ease-in-o
   #mySide[data-glow=C] .col[data-suit=C]::before,#mySide[data-glow=S] .col[data-suit=S]::before,
   #mySide[data-glow=H] .col[data-suit=H]::before,#mySide[data-glow=D] .col[data-suit=D]::before,
   #oppField .col.oppHover::before{opacity:1;scale:1.15;text-shadow:0 0 10px currentColor,0 0 22px currentColor}
+  /* Surge held over the table: every suit on both mats pulses */
+  #game.surgeOver .col::before{animation:suitPulse .8s ease-in-out infinite alternate}
+  #game.surgeOver #mySide[data-glow=C] .col[data-suit=C]::before,#game.surgeOver #mySide[data-glow=S] .col[data-suit=S]::before,
+  #game.surgeOver #mySide[data-glow=H] .col[data-suit=H]::before,#game.surgeOver #mySide[data-glow=D] .col[data-suit=D]::before{animation:none}
+  @keyframes suitPulse{from{opacity:.3;scale:1;text-shadow:0 0 4px currentColor}to{opacity:1;scale:1.18;text-shadow:0 0 12px currentColor,0 0 26px currentColor}}
   .meta{right:auto;left:12px;height:auto;flex-direction:column;align-items:flex-start;gap:10px}
   #oppSide .meta{top:auto;bottom:30px}#mySide .meta{top:30px}
   #oppTotal,#myTotal{flex-wrap:wrap;justify-content:flex-start;min-width:0;height:auto;width:96px;gap:4px;line-height:1}
@@ -1671,7 +1670,7 @@ function startDrag(ev,el,id,canPlay,onTap){
     if(onMat(px,py))document.querySelectorAll('#myField .col').forEach(c=>{const r=c.getBoundingClientRect(),d=Math.abs(r.left+r.width/2-px);if(d<best){best=d;z=c;}});
     suit=z?z.dataset.suit:null;return z;
   };
-  const clearZones=()=>{side.classList.remove('dropzone','hover');side.dataset.glow='';};
+  const clearZones=()=>{side.classList.remove('dropzone','hover');side.dataset.glow='';$('game').classList.remove('surgeOver');};
   // Jack / Queen / King: while the card is held over your side of the field, the cards it would remove glow red
   const rank=(view&&(c=>c?efx(c,view):'')(view.me.hand.find(c=>c.id===id)))||'';
   const setDoom=on=>{
@@ -1685,11 +1684,11 @@ function startDrag(ev,el,id,canPlay,onTap){
   const place=(x,y)=>{
     ghost.style.left=(x-dx)+'px';ghost.style.top=(y-dy)+'px';px=x;py=y;
     const ok=playable(),z=zone();
-    if(isJk&&id!=='EGG')ghost.classList.toggle('boost',inRect(side,x,y)||inRect($('oppSide'),x,y));
+    if(isJk&&id!=='EGG'){const on=onMat(x,y)||inRect($('oppSide'),x,y);ghost.classList.toggle('boost',on);$('game').classList.toggle('surgeOver',on);}
     setDoom((rank==='J'||rank==='Q'||rank==='K')&&ok&&inRect(side,x,y));
     const over=!!(ok&&z&&onMat(x,y));
     side.classList.toggle('dropzone',ok);side.classList.toggle('hover',over);
-    {const g=isJk?(over&&z?z.dataset.suit:''):suit;if(side.dataset.glow!==g)side.dataset.glow=g;}
+    {const g=over?(isJk?z.dataset.suit:suit):'';if(side.dataset.glow!==g)side.dataset.glow=g;}   // only while over the mat
     if(rank==='5')swapMark(view&&view.opp.field,suit,over&&!!view);
     if((previewId===id)!==over){previewId=over?id:null;paintDiff();}
     {const gk=over?suit:null;   // ghost action: shown once the card has been held over the column for a moment
