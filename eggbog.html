@@ -321,6 +321,7 @@ header h2{margin:0;font-size:1.3rem}
 .stat-tile .v{font-size:1.5rem;font-weight:800;margin-top:2px}
 .stat-tile .v small{font-size:.8rem;opacity:.7;font-weight:600}
 .stat-tile .v .me{color:var(--gold)}
+.hl-grid{margin:4px 0 6px}.stat-tile.hl .hl-sub{font-size:.85rem;opacity:.8;margin-top:2px}.stat-tile.hl .hl-op{font-size:.8rem;opacity:.6;margin-top:6px}
 .stat-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
 .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.75rem;font-weight:800}
 .tag.w{background:#2e8b57}.tag.l{background:#a23b3b}
@@ -848,7 +849,7 @@ function newGame(rng,opts){
   if(crazy&&fxOn&&!fxOn.length)fxOn=null;
   const s={crazy,paced:!!(opts&&opts.paced),fm,reshuffles:0,phase:'mulligan',deck:shuffle(mkDeck(crazy,rng,fxOn),rng),discard:[],fx:fxOn||(crazy?CRAZY_DEFAULT:FX_KEYS).slice(),
     p:[{hand:[],field:[],wins:0,mull:false,pack:Math.floor(Math.random()*4)},{hand:[],field:[],wins:0,mull:false,pack:Math.floor(Math.random()*4)}],   // pack: the design of the pack each player opens (their side of the table matches it)
-    id:Math.random().toString(36).slice(2,9)+Date.now().toString(36),stats:{played:[0,0],cards:[0,0],lostN:[0,0],lostV:[0,0],rounds:[],mull:[[],[]],start:[[],[]],drawn:[[],[]],burned:[[],[]],unused:[[],[]],deckLeft:0,deckCards:[]},
+    id:Math.random().toString(36).slice(2,9)+Date.now().toString(36),stats:{played:[0,0],cards:[0,0],lostN:[0,0],lostV:[0,0],rounds:[],mull:[[],[]],start:[[],[]],drawn:[[],[]],burned:[[],[]],unused:[[],[]],deckLeft:0,deckCards:[],plays:[],cur:null},
     round:1,turn:null,chooser:null,pending:null,winner:null,over:null,first:true,drawQ:[],burnQ:[],startCards:[null,null],startReveal:null,log:[]};
   const HAND=crazy?CRAZY_HAND:10;   // Crazy mode starts with a smaller hand so games end sooner
   for(let k=0;k<HAND;k++){drawTo(s,0,1);drawTo(s,1,1);}
@@ -863,7 +864,7 @@ function queueDraw(s,who,reason){
 }
 // Out of cards with a Rune on your side and a concede left (not round 3): you may concede the round instead of losing the game
 function runeStuck(s,i){return s.phase==='play'&&s.turn===i&&!s.p[i].hand.length&&!s.startCards[i]&&s.round<3&&!s.p[i].conceded&&s.p[i].field.some(c=>F(c)==='L');}
-function outOfCards(s,me){log(s,me,'is out of cards');if(s.stats)s.stats.rounds.push({n:s.round,w:1-me,t:[total(s,0),total(s,1)],by:'cards'});gameOver(s,1-me,'cards');}
+function outOfCards(s,me){log(s,me,'is out of cards');if(s.stats){playTick(s);playEnd(s);}if(s.stats)s.stats.rounds.push({n:s.round,w:1-me,t:[total(s,0),total(s,1)],by:'cards'});gameOver(s,1-me,'cards');}
 function busy(s){return !!s.pending||s.drawQ.length>0||!!(s.jokerQ&&s.jokerQ.length);}
 function cp(c){const o={id:c.id,r:c.r,s:c.s,f:c.f};if(c.v!==undefined)o.v=c.v;return o;}
 function gameOver(s,winner,reason){
@@ -977,8 +978,13 @@ function jokerStep(s){
   resolve(s,e.who,e.c);
   if(s.pending&&(s.pending.t==='discover'||s.pending.t==='steal'))s.pending.jk=true;   // the Surge makes this choice (see jkpick)
 }
+// Each play's swing (stats screen): how much the point difference moved for its player from the moment it was
+// played until the next play (so a Surge counts everything its cards did, and a Steal or Scry includes the choice)
+function playTick(s){const c=s.stats&&s.stats.cur;if(c&&c.n===s.round)c.sw=total(s,c.w)-total(s,1-c.w)-c.d0;}
+function playEnd(s){const st=s.stats,c=st&&st.cur;if(!c)return;(st.plays||(st.plays=[])).push({w:c.w,f:c.f,r:c.r,s:c.s,v:c.v,n:c.n,sw:c.sw});st.cur=null;}
 function putCard(s,i,c){
-  if(s.stats){s.stats.played[i]+=cardVal(c);s.stats.cards[i]++;}
+  if(s.stats){s.stats.played[i]+=cardVal(c);s.stats.cards[i]++;
+    playTick(s);playEnd(s);s.stats.cur={w:i,f:c.r==='JK'?'X':F(c),r:c.r,s:c.s,v:cardVal(c),n:s.round,d0:total(s,i)-total(s,1-i),sw:cardVal(c)};}
   s.p[i].field.push(c);
   log(s,i,'played '+cardStr(c)+(ABILITY[F(c)]?' ('+ABILITY[F(c)]+')':''));
   resolve(s,i,c);
@@ -1050,7 +1056,7 @@ function afterDraw(s){
 }
 function endRound(s,loser){
   const w=1-loser;s.p[w].wins++;
-  if(s.stats)s.stats.rounds.push({n:s.round,w,t:[total(s,0),total(s,1)],by:'concede'});
+  if(s.stats){playTick(s);playEnd(s);s.stats.rounds.push({n:s.round,w,t:[total(s,0),total(s,1)],by:'concede'});}
   log(s,loser,'conceded the round');s.flag={n:((s.flag&&s.flag.n)||0)+1,who:loser};s.lastFx=null;
   for(const i of [0,1]){s.p[i].field.forEach(c=>{delete c.hu;unmorph(c);unmirror(c);});s.discard.push(...s.p[i].field);s.p[i].field=[];}
   if(s.p[w].wins>=2){gameOver(s,w,'rounds');return;}
@@ -1071,7 +1077,7 @@ function sampleTotals(s){ // remembers how both totals moved during each round (
   const a=total(s,0),b=total(s,1),l=arr[arr.length-1];
   if(!l||l[0]!==a||l[1]!==b)arr.push([a,b]);
 }
-function act(s,i,a){s.actN=(s.actN||0)+1;const e=act0(s,i,a);if(!e){fillDeck(s);if(s.stats)sampleTotals(s);}return e;}
+function act(s,i,a){s.actN=(s.actN||0)+1;const e=act0(s,i,a);if(!e){fillDeck(s);if(s.stats){sampleTotals(s);playTick(s);}}return e;}
 function act0(s,i,a){
   if(s.phase==='over')return 'The game is over';
   switch(a.t){
@@ -1141,7 +1147,7 @@ function act0(s,i,a){
         const gift=gi>=0?others[gi]:null,burnt=others.filter((_,k)=>k!==gi);
         s.pending=null;s.discard.push(...burnt);
         const keptOk=giveCard(s,pd.by,c),giftOk=gift?giveCard(s,1-pd.by,gift):false;
-        if(s.stats){if(keptOk)s.stats.drawn[pd.by].push(Object.assign(cp(c),{how:'discover'}));if(giftOk)s.stats.drawn[1-pd.by].push(Object.assign(cp(gift),{how:'discover'}));burnt.forEach(o=>s.stats.burned[pd.by].push(cp(o)));}
+        if(s.stats){if(keptOk)s.stats.drawn[pd.by].push(Object.assign(cp(c),{how:'discover'}));if(giftOk)s.stats.drawn[1-pd.by].push(Object.assign(cp(gift),{how:'scrygift'}));burnt.forEach(o=>s.stats.burned[pd.by].push(cp(o)));}
         log(s,i,'kept a card'+(gift?', a random one went to the opponent':'')+(burnt.length?' and the last burned':'')+' (Scry)');
         s.discFx={n:((s.discFx&&s.discFx.n)||0)+1,by:pd.by,kept:cp(c),gift:gift?cp(gift):null,burnt:burnt.map(cp)};
         afterDraw(s);return null;}
@@ -3961,11 +3967,12 @@ const HKEY='eggbog-history';
 function loadHistory(){try{const h=JSON.parse(localStorage.getItem(HKEY)||'[]');return Array.isArray(h)?h:[];}catch(e){return [];}}
 function saveHistory(h){try{localStorage.setItem(HKEY,JSON.stringify(h.slice(0,60)));}catch(e){}}
 function entryFromView(v){
-  const y=v.you,o=1-y,st=Object.assign({played:[0,0],cards:[0,0],lostN:[0,0],lostV:[0,0],rounds:[],mull:[[],[]],start:[[],[]],drawn:[[],[],],burned:[[],[]],unused:[[],[]],deckLeft:0,deckCards:[]},v.stats||{});
+  const y=v.you,o=1-y,st=Object.assign({played:[0,0],cards:[0,0],lostN:[0,0],lostV:[0,0],rounds:[],mull:[[],[]],start:[[],[]],drawn:[[],[],],burned:[[],[]],unused:[[],[]],deckLeft:0,deckCards:[],plays:[]},v.stats||{});
   return {id:v.gameId,t:Date.now(),mode:mode||'',win:v.winner===y,over:v.over,score:[v.me.wins,v.opp.wins],
     rounds:st.rounds.map(r=>({n:r.n,me:r.t[y],opp:r.t[o],won:r.w===y,by:r.by,pts:((st.ser&&st.ser[r.n])||[]).map(q=>[q[y],q[o]])})),
     played:[st.played[y],st.played[o]],cards:[st.cards[y],st.cards[o]],
     removed:[st.lostN[o],st.lostN[y]],removedV:[st.lostV[o],st.lostV[y]],   // [by me / from me]
+    plays:(st.plays||[]).map(p=>({me:p.w===y,f:p.f,r:p.r,s:p.s,v:p.v,n:p.n,sw:p.sw})),
     cardsView:{start:[st.start[y],st.start[o]],mull:[st.mull[y],st.mull[o]],drawn:[st.drawn[y],st.drawn[o]],burned:[st.burned[y],st.burned[o]],unused:[st.unused[y],st.unused[o]],deckLeft:st.deckLeft,deck:st.deckCards}};
 }
 function recordGame(v){
@@ -4002,6 +4009,29 @@ function roundCharts(rounds){
   return rounds.map(r=>{const df=r.me-r.opp;
     return `<div class="rc"><div class="rc-h"><b>Round ${r.n}</b><span class="tag ${r.won?'w':'l'}">${r.won?'Won':'Lost'}</span>${r.by==='cards'?`<span class="rc-n">${r.won?'opponent':'you'} ran out of cards</span>`:`<span class="rc-n">${r.won?'opponent':'you'} conceded</span>`}<span class="rc-s">${r.me} – ${r.opp} <em class="${df>0?'pos':df<0?'neg':''}">${fd(df)}</em></span></div>${(r.pts&&r.pts.length)?roundChart(r):'<p class="sub">No play-by-play was saved for this game.</p>'}</div>`;}).join('');
 }
+// Highlights: the biggest single swing, and the effect that earned each player the most (points it moved beyond
+// the card's own value, plus cards it put in hand; a card counts as 4 points when picking the MVP)
+const DRAW_FX={draw:'A',deathrattle:'2',discover:'3',greed:'G',greedturn:'G',laststand:'L',steal:'T'};
+function playName(p){return p.f&&ABILITY[p.f]?ABILITY[p.f]:p.r==='EG'?'Egg':p.r+(SYM[p.s]||'');}
+function mvpFor(e,me){
+  const fx={},add=(f,k,n)=>{if(!f||!ABILITY[f])return;const o=fx[f]||(fx[f]={f,pts:0,cards:0});o[k]+=n;};
+  (e.plays||[]).filter(p=>p.me===me).forEach(p=>add(p.f,'pts',p.f==='X'?p.sw:p.sw-p.v));
+  const dr=e.cardsView&&e.cardsView.drawn&&e.cardsView.drawn[me?0:1];
+  (dr||[]).forEach(c=>add(DRAW_FX[c.how],'cards',1));
+  return Object.values(fx).map(o=>Object.assign(o,{sc:o.pts+4*o.cards})).filter(o=>o.sc>0).sort((a,b)=>b.sc-a.sc)[0]||null;
+}
+function highlights(e){
+  if(!e.plays||!e.plays.length)return '';
+  const best=me=>e.plays.filter(p=>p.me===me).reduce((b,p)=>!b||p.sw>b.sw?p:b,null);
+  const swTxt=p=>p?`${playName(p)}, ${fd(p.sw)}`:'none';
+  const mvTxt=m=>m?ABILITY[m.f]:'none';
+  const mvSub=m=>m?[m.pts?`${fd(m.pts)} pts`:'',m.cards?`${m.cards} card${m.cards===1?'':'s'}`:''].filter(Boolean).join(' · '):'';
+  const bm=best(true),bo=best(false),mm=mvpFor(e,true),mo=mvpFor(e,false);
+  const hl=(k,big,sub,opp)=>`<div class="stat-tile hl"><div class="k">${k}</div><div class="v"><span class="me">${big}</span></div><div class="hl-sub">${sub}</div><div class="hl-op">Opponent: ${opp}</div></div>`;
+  return `<div class="stat-grid hl-grid">`+
+    hl('Biggest swing',swTxt(bm),bm?`Round ${bm.n}${bm.f&&ABILITY[bm.f]&&bm.r!=='JK'?' · played on '+bm.r+(SYM[bm.s]||''):''}`:'&nbsp;',swTxt(bo))+
+    hl('Effect MVP',mvTxt(mm),mvSub(mm)||'&nbsp;',mm||mo?`${mvTxt(mo)}${mo?' ('+mvSub(mo)+')':''}`:'none')+`</div>`;
+}
 function showStats(e){
   if(!e)return;
   const old=$('stats');if(old)old.remove();
@@ -4022,7 +4052,7 @@ function showStats(e){
   // card lists
   const cv=e.cardsView;
   const mini=(c,how,dim,burnt)=>`<span class="sc${dim?' dim2':''}${burnt?' burnt':''}">${cardEl(c,'').replace('data-id=','data-sid=')}${burnt?'<i class="char"></i>':''}${how?`<em>${how}</em>`:''}</span>`;
-  const HOW={start:'start',draw:'Ace',deathrattle:'2',discover:'Scry',greed:'Greed',greedturn:'Greed',laststand:'Rune',steal:'Steal'};
+  const HOW={start:'start',draw:'Ace',deathrattle:'Soul',discover:'Scry',scrygift:'Scry',greed:'Greed',greedturn:'Greed',laststand:'Rune',steal:'Steal',joker:'Surge'};
   // same order as the hand sort: A, 2-10, J, Q, K (then suit)
   const byValue=arr=>[...(arr||[])].sort((x,y)=>rk(x)-rk(y)||SUIT_RANK[x.s]-SUIT_RANK[y.s]);
   const none='<span class="none">none</span>';
@@ -4049,6 +4079,7 @@ function showStats(e){
   d.innerHTML=`<div class="stat-box">
     <div class="stat-head"><div><h3>${e.win?'🏆 Victory':'Defeat'} <span class="rdots" title="Round results">${[0,1,2].map(i=>{const r=e.rounds[i];return `<i class="rd ${r?(r.won?'g':'r'):'n'}"></i>`;}).join('')}</span></h3>
     <p class="sub">${MODE_NAME[e.mode]||''}${e.over==='cards'?(e.win?' · your opponent ran out of cards':' · you ran out of cards'):''}</p></div>${btns()}</div>
+    ${highlights(e)}
     <h4>How each round went</h4>
     <div class="rc-legend"><span><i class="lg me"></i>You</span><span><i class="lg op"></i>Opponent (below zero)</span><span><i class="lg df"></i>Difference</span><span class="rc-x">each point = one play</span></div>
     ${roundCharts(e.rounds)}
