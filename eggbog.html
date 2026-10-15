@@ -210,6 +210,7 @@ header h2{margin:0;font-size:1.3rem}
   #hand .card:hover::after,#stlHand .card:hover::after{content:'';position:absolute;left:-4px;right:-4px;top:100%;height:34px} /* keeps the hover from dropping when the lifted card moves off the pointer */
   .field .card:hover{transform:scale(1.2);z-index:40}
 }
+#hand.relay .card{transition:none!important}
 #hand .card.dragging,#stlHand .card.dragging{opacity:.3}
 .dropline{position:fixed;width:4px;border-radius:2px;background:var(--gold);z-index:25;pointer-events:none}
 #hand .card.mul,#stlHand .card.mul{transform:translateY(-10px);outline:3px solid #ff6b6b}
@@ -3675,6 +3676,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   if(mulling&&!wasMulling){handOrder=[];nextSort='suit';}
   wasMulling=mulling;
   burnSync(prev,v);
+  $('hand').classList.add('relay');   // the hand is rebuilt: no transform transition, or every card would slide into its fan spot again
   $('hand').innerHTML=orderedHand(v.me.hand).map(c=>cardEl(c,(mulling&&mullSel.has(c.id))?'mul':'')).join('');
   if(v.crazy&&v.opp.hand===1)$('hand').querySelectorAll('.card').forEach(el=>{const c=v.me.hand.find(x=>x.id===el.dataset.id);if(!c||efx(c,v)!=='T')return;   // Steal can't take a last card: dim it and lock it
     el.classList.add('st-lock');el.insertAdjacentHTML('beforeend','<svg class="lockb" viewBox="0 0 24 28"><path d="M6.5 13V8.5a5.5 5.5 0 0 1 11 0V13" fill="none" stroke="#2c1646" stroke-width="5" stroke-linecap="round"/><path d="M6.5 13V8.5a5.5 5.5 0 0 1 11 0V13" fill="none" stroke="#e8dcff" stroke-width="2.4" stroke-linecap="round"/><rect x="2.5" y="12" width="19" height="14" rx="3" fill="#8a5cd0" stroke="#2c1646" stroke-width="1.8"/><path d="M5 14.5h6" stroke="#c9b0ff" stroke-width="1.4" stroke-linecap="round"/><circle cx="12" cy="18.2" r="2.1" fill="#2c1646"/><path d="M12 19v3.6" stroke="#2c1646" stroke-width="2" stroke-linecap="round"/></svg>');el.title+=' Right now '+OPP+' has only one card left, so it is safe: this Steal would do nothing.';});
@@ -3683,6 +3685,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
     el.onpointerdown=ev=>startDrag(ev,el,id,myTurn,mulling?()=>toggleMull(id):null);
   });
   layoutHand();
+  void $('hand').offsetWidth;$('hand').classList.remove('relay');
 
   // status
   let st='';
