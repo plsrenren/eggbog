@@ -2109,6 +2109,11 @@ function duelSync(v,OPP){
       d.innerHTML=`<div class="du-title">Who goes first?</div><div class="du-help" id="duHelp"></div><div class="du-row">${side('duMe','You')}<div class="du-vs">vs</div>${side('duOpp',OPP)}</div><div class="du-result" id="duRes"></div>`;
       document.body.appendChild(d);
       d.dataset.t0=Date.now();
+      // the table shows through this screen: cards dealt from now on (the drawn card, the Egg) stay out of
+      // both hands until the flipped cards fly there
+      const keep=v.me.hand.map(c=>c.id),hide=document.createElement('style');hide.id='duHide';
+      hide.textContent=`#hand .card${keep.map(id=>`:not([data-id="${id}"])`).join('')}{visibility:hidden}#oppHand .oc:nth-child(n+${v.opp.hand+1}){visibility:hidden}`;
+      document.head.appendChild(hide);
       // both cards slide in face down, then wobble until they flip together
       if(!reduced()&&d.animate){
         d.querySelector('#duMe .du-card').animate([{transform:'translateX(-60px) rotate(-12deg)',opacity:0},{transform:'none',opacity:1}],{duration:450,easing:'cubic-bezier(.2,.9,.3,1.15)',fill:'backwards'});
@@ -2123,7 +2128,7 @@ function duelSync(v,OPP){
     return;
   }
   if(!d||d.dataset.fin)return;
-  if(!v.reveal){d.remove();return;}
+  if(!v.reveal){const x=$('duHide');if(x)x.remove();d.remove();return;}
   d.dataset.fin='1';
   const [c0,c1]=v.reveal.cards,mine=v.you===0?c0:c1,theirs=v.you===0?c1:c0,starter=v.reveal.starter;
   const flip=(sel,c,delay)=>setTimeout(()=>{const el=d.querySelector(sel+' .du-card');if(!c||el.classList.contains('flipped'))return;el.classList.remove('live');el.querySelector('.front').innerHTML=cardEl(c);el.classList.add('flipped');},delay);
@@ -2146,8 +2151,9 @@ function duelSync(v,OPP){
     }
   },wait+(quick?0:750));
   setTimeout(()=>{
+    const unhide=()=>{const x=$('duHide');if(x)x.remove();};
     const done=()=>{
-      d.remove();
+      unhide();d.remove();
     };
     if(quick||!d.animate){done();return;}
     // both cards (and the Egg) fly into their owners' hands while the screen fades away
@@ -2159,6 +2165,7 @@ function duelSync(v,OPP){
     const meFirst=d.querySelector('#duMe').classList.contains('win');
     fly(d.querySelector('#duMe'),true,0,d.querySelector('#duMe .du-card'));fly(d.querySelector('#duOpp'),false,0,d.querySelector('#duOpp .du-card'));fly(d.querySelector('.du-eggc'),meFirst,120);
     d.querySelectorAll('.du-title,.du-help,.du-result,.du-name,.du-vs').forEach(x=>x.animate([{opacity:1},{opacity:0}],{duration:300,fill:'forwards'}));
+    setTimeout(unhide,600);   // the cards land in the hands
     d.animate([{opacity:1},{opacity:1,offset:.45},{opacity:0}],{duration:800,fill:'forwards'}).onfinish=done;
   },wait+(quick?0:2100));
 }
@@ -4062,7 +4069,7 @@ function toTitle(){
   applyTheme(crazyOn);
   conn=null;peer=null;mode=null;state=null;view=null;lastV=null;hostId=null;handOrder=[];mullSel.clear();
   dealt={0:false,1:false};dealFx=false;newcShown=null;fxUntil=0;cpuHeldKey=null;clearTimeout(cpuHoverTimer);cpuSeqStop();cpuPre=null;oppK=-1;oppPtr={k:null,suit:null};paintOppPtr();oppN=0;oppGame=null;lastSentPtr='';mullPending=false;
-  ['pack','duel','pf','disc','drw','jkr','jkTray','hovTray','roundfx','victory','stats','newc','mwait','stl'].forEach(id=>{const e=$(id);if(e)e.remove();});
+  ['duHide','pack','duel','pf','disc','drw','jkr','jkTray','hovTray','roundfx','victory','stats','newc','mwait','stl'].forEach(id=>{const e=$(id);if(e)e.remove();});
   document.querySelectorAll('.card.ghost,.drag-ghost').forEach(e=>e.remove());
   $('modalRoot').innerHTML='';dmPending=null;document.documentElement.classList.remove('deathmatch');jokerFxSet(false,true);{const e=$('dm');if(e)e.remove();}
   try{history.replaceState(null,'',location.pathname+location.search);}catch(e){}
