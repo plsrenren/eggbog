@@ -815,7 +815,7 @@ const DEF_F={A:'A','2':'2','3':'3','4':'4','5':'5',J:'J',Q:'Q',K:'K'};
 const FX_KEYS=['A','2','3','4','5','J','Q','K'];
 const CRAZY_HAND=7;
 const CRAZY_KEYS=FX_KEYS.concat(['M','T','L','G','O','U','W']);   // the extra effects only exist in Crazy mode
-const CRAZY_DEFAULT=CRAZY_KEYS.filter(k=>k!=='A'&&k!=='5');   // Crazy mode starts without Draw and Swap (they can still be switched on in the effects menu)
+const CRAZY_DEFAULT=CRAZY_KEYS.filter(k=>k!=='A'&&k!=='5'&&k!=='3');   // Crazy mode starts without Draw, Swap and Scry (they can still be switched on in the effects menu)
 // crazy mode: every single card gets its own random effect (each card picks independently, so counts vary from game to game)
 function mkDeck(crazy,rng,enabled){
   const d=[];for(const s of SUITS)for(const r of RANKS)d.push({id:r+s,r,s,f:DEF_F[r]||''});
@@ -1417,8 +1417,9 @@ try{const j=JSON.parse(localStorage.getItem(FXKEY)||'null');
     if(!j.v4){fxCfg.crazy=fxCfg.crazy.filter(k=>k!=='5');saveFx();}   // one-time: Swap leaves the Crazy defaults
     if(!j.v5){if(!fxCfg.crazy.includes('U'))fxCfg.crazy.push('U');saveFx();}   // one-time: Hush joins the Crazy effects
     if(!j.v6){if(!fxCfg.crazy.includes('W'))fxCfg.crazy.push('W');saveFx();}   // one-time: Draft joins the Eggbog effects
+    if(!j.v7){fxCfg.crazy=fxCfg.crazy.filter(k=>k!=='3');saveFx();}   // one-time: Scry leaves the Eggbog defaults
     if(!fxCfg.crazy.length)fxCfg.crazy=CRAZY_DEFAULT.slice();}}catch(e){}
-function saveFx(){try{localStorage.setItem(FXKEY,JSON.stringify(Object.assign({v2:1,v3:1,v4:1,v5:1,v6:1},fxCfg)));}catch(e){}}
+function saveFx(){try{localStorage.setItem(FXKEY,JSON.stringify(Object.assign({v2:1,v3:1,v4:1,v5:1,v6:1,v7:1},fxCfg)));}catch(e){}}
 let crazyOn=true;   // Eggbog (the random-effects mode, internally 'crazy') is the default; Classic is the original rules
 try{crazyOn=localStorage.getItem('eggbog-mode')!=='classic';}catch(e){}
 function gameOpts(){return {paced:true,crazy:crazyOn,fx:(crazyOn?fxCfg.crazy:fxCfg.normal).slice()};}
