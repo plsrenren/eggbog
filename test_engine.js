@@ -690,4 +690,19 @@ t('Out of cards with a Rune and a concede left: may concede instead of losing',(
   for(const tw of tweaks){const o=mk();tw(o);act(o,0,{t:'play',id:'2C'});assert.equal(o.phase,'over');assert.equal(o.winner,1);}
 });
 
+t('Draft: both players draw one; the caster draws one more only with a smaller hand',()=>{
+  // smaller hand: after playing the Draft, player 0 holds 1 card against 3
+  const s=setup([X('3','H','W'),X('2','C','')],[X('5','S',''),X('10','C',''),X('4','D','')],[],[X('9','H','')],[C('9','D'),C('8','D'),C('7','D'),C('6','D')]);s.crazy=true;
+  assert.equal(act(s,0,{t:'play',id:'3H'}),null);
+  assert.deepEqual(s.drawQ.map(e=>e.who),[0,1,0]);
+  drawFor(s,1);drawFor(s,0);drawFor(s,0);
+  assert.equal(s.p[0].hand.length,3);assert.equal(s.p[1].hand.length,4);assert.equal(s.drawQ.length,0);
+  // equal (or bigger) hand: just one each
+  const e=setup([X('3','H','W'),X('2','C','')],[X('5','S','')],[],[X('9','H','')]);e.crazy=true;
+  act(e,0,{t:'play',id:'3H'});assert.deepEqual(e.drawQ.map(x=>x.who),[0,1]);
+  // a full hand burns its draw
+  const f=setup([X('3','H','W'),X('2','C','')],Array.from({length:10},(_,k)=>X(String(k+1==1?'A':k+1>10?'K':k+1),'S','')),[],[X('9','H','')]);f.crazy=true;
+  act(f,0,{t:'play',id:'3H'});drawFor(f,1);assert.equal(f.p[1].hand.length,10);assert.ok(f.burn&&f.burn.who===1);
+});
+
 console.log('\n'+n+' checks passed');
