@@ -420,6 +420,7 @@ header h2{margin:0;font-size:1.3rem}
 #pkNext .pkn{position:relative;width:170px;height:250px;zoom:.44;animation:bob 2.4s ease-in-out infinite;transition:scale .15s,filter .15s}
 #pkNext:hover .pkn,#pkNext:focus-visible .pkn{scale:1.06;filter:drop-shadow(0 0 22px #ffffff88)}
 #pkNext .pkn .pk-part{clip-path:none}
+#pkNext .pkn.d0 .pk-part{background:linear-gradient(160deg,#f6d36b,#e8873a 45%,#8a3a9e);color:#2a1305}
 #pkNext .pkn.d1 .pk-part{background:radial-gradient(circle at 30% 20%,#ffd36b,#ff6a1a 40%,#a3120f 80%);color:#fff4e0}
 #pkNext .pkn.d2 .pk-part{background:repeating-linear-gradient(0deg,#ffffff14 0 6px,#0000 6px 12px),linear-gradient(170deg,#7fe3ff,#1a8fd6 45%,#0a3f8f);color:#06284f}
 #pkNext .pkn.d3 .pk-part{background:radial-gradient(circle,#fff9 0 1.5px,#0000 2px) 0 0/22px 22px,radial-gradient(circle,#fff6 0 1px,#0000 1.5px) 11px 11px/22px 22px,linear-gradient(160deg,#4b2a8f,#1b1050 60%,#0a0630);color:#f1e8ff}
@@ -1882,7 +1883,7 @@ function showPack(second){
     const h=$('hand'),hc=h&&h.querySelector('.card');let hr=h&&h.getBoundingClientRect();
     if(reduced()||!o.animate||!minis.length){done(true);return;}
     if(!hr||!hr.width)hr={left:innerWidth*.15,width:innerWidth*.7,top:innerHeight-130,height:120};
-    const cr=hc?hc.getBoundingClientRect():{width:80,height:114},n=minis.length,DUR=650;
+    const cr=hc?{width:hc.offsetWidth}:{width:80},n=minis.length,DUR=650;
     const cx=hr.left+hr.width/2,cy=hr.top+hr.height/2;
     // the whole fan moves as one: its centre goes to the middle of your hand, shrunk to hand-card size
     const rs=minis.map(m=>m.querySelector('.card').getBoundingClientRect());
@@ -1898,7 +1899,7 @@ function showPack(second){
       const r0=rot==='none'?'0deg':rot,id=ce.dataset.id,tgt=h&&id&&[...h.querySelectorAll('.card')].find(c=>c.dataset.id===id);
       let k=cr.width/w,tx=cx+(x-fx)*k-x,ty=cy+(y-fy)*k-y,r1=r0;   // by default: same spot in the fan, the fan scaled down around the hand's centre
       if(tgt){   // better: straight onto that card's place in your (fanned) hand
-        const tr=tgt.getBoundingClientRect();k=tgt.offsetWidth/ce.offsetWidth;tx=tr.left+tr.width/2-x;ty=tr.top+tr.height/2-y;
+        const tr=tgt.getBoundingClientRect();k=tgt.offsetWidth/w;   // w already includes the fan's zoomtx=tr.left+tr.width/2-x;ty=tr.top+tr.height/2-y;
         r1=(getComputedStyle(tgt).getPropertyValue('--r').trim()||'0deg');
       }
       g.animate([{transform:`rotate(${r0})`},{transform:`translate(${tx*.35}px,${ty*.35-24}px) rotate(${r0}) scale(${1-(1-k)*.35})`,offset:.35},{transform:`translate(${tx}px,${ty}px) rotate(${r1}) scale(${k})`}],
