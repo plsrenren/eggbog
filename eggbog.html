@@ -210,7 +210,7 @@ header h2{margin:0;font-size:1.3rem}
   #hand .card:hover::after,#stlHand .card:hover::after{content:'';position:absolute;left:-4px;right:-4px;top:100%;height:34px} /* keeps the hover from dropping when the lifted card moves off the pointer */
   .field .card:hover{transform:scale(1.2);z-index:40}
 }
-#hand.relay .card{transition:none!important}
+#hand.relay .card,.field.relay .card{transition:none!important}
 #hand .card.dragging,#stlHand .card.dragging{opacity:.3}
 .dropline{position:fixed;width:4px;border-radius:2px;background:var(--gold);z-index:25;pointer-events:none}
 #hand .card.mul,#stlHand .card.mul{transform:translateY(-10px);outline:3px solid #ff6b6b}
@@ -3665,9 +3665,11 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
     }
   }
   const targets=mustTarget?new Set(pend.opts):null;
+  $('oppField').classList.add('relay');$('myField').classList.add('relay');   // rebuilt: a card under the pointer must not replay its hover zoom
   $('oppField').innerHTML=fieldHTML(v.opp.field,true,targets);
   $('myField').innerHTML=fieldHTML(v.me.field,false,null);
   fitCols();
+  void $('myField').offsetWidth;$('oppField').classList.remove('relay');$('myField').classList.remove('relay');
   hushFx(prev,v);
   morphFx(prev,v,oldCards);
   $('oppField').querySelectorAll('.targetable').forEach(el=>el.onclick=()=>dispatch({t:'pick',id:el.dataset.id}));
@@ -3939,6 +3941,18 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   const root=$('modalRoot');
   if(!root.querySelector('.rules,.keep'))root.innerHTML='';
   runDropFx();
+  syncLoops();
+}
+// The hand and the field are rebuilt on every update, which would restart their looping animations
+// (the Surge's rainbow, a silenced card's rune glow) from the beginning each time. Pin every loop to
+// the page clock instead, so a rebuilt card carries on exactly where the old one was.
+function syncLoops(){
+  if(!document.getAnimations)return;
+  for(const a of document.getAnimations()){
+    const t=a.effect&&a.effect.target;
+    if(!(a instanceof CSSAnimation)||!t||!t.closest||!t.closest('#hand,#myField,#oppField'))continue;
+    if(a.effect.getTiming().iterations===Infinity&&a.startTime!==0)a.startTime=0;
+  }
 }
 
 // ---- Stats screen and match history (history is kept in this browser only) ----
