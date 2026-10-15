@@ -224,6 +224,8 @@ header h2{margin:0;font-size:1.3rem}
 @keyframes hushStamp{from{transform:scale(2.2);opacity:0}to{transform:scale(1);opacity:1}}
 .card.hushed>*{transition:filter .4s,opacity .4s}
 .draft-streak{position:absolute;height:3px;border-radius:3px;pointer-events:none;z-index:45;background:linear-gradient(90deg,#e8fffb00,#e8fffbee 45%,#9ff0e4cc 70%,#9ff0e400);filter:drop-shadow(0 0 4px #8ff0e2)}
+.draft-streak.rtl{background:linear-gradient(270deg,#e8fffb00,#e8fffbee 45%,#9ff0e4cc 70%,#9ff0e400)}
+#hand .card.dr-hot{box-shadow:0 0 8px 3px #fff,0 0 20px 7px #ffffffa0,0 3px 8px #0008}
 .draft-leaf{position:absolute;pointer-events:none;z-index:45;width:14px;height:9px;border-radius:0 80% 0 80%;background:linear-gradient(135deg,#c8f4ee,#5fc2b2);border:1px solid #1f4f5a}
 .hush-wave{position:fixed;pointer-events:none;z-index:45;border-radius:50%;border:10px solid #fff;box-shadow:0 0 30px 12px #7fa8ffaa,inset 0 0 30px 12px #ffffff88;filter:blur(1.5px)}
 @media (prefers-reduced-motion:reduce){.card.hushed::after{animation:none}}
@@ -3064,7 +3066,7 @@ const ART={
   K:`<svg class="art" viewBox="0 0 40 40"><path d="M21 1.5c.6 4.6 5.2 8 7.4 13 .9-1.1 1.3-2.6 1.2-4.2 2.6 3.4 3.9 7.6 3.9 11.6 0 9-5.9 16.1-13.5 16.1S6.5 30.9 6.5 22c0-4.4 1.9-8.2 4.6-11 .1 2.1.8 3.8 2 4.8.4-6 4.4-10.4 7.9-14.3z" fill="#d8341a" stroke="#6e1408" stroke-width="1.6" stroke-linejoin="round"/><path d="M20.5 11.5c.7 3.6 4.3 6.2 5.6 10 .7-.8 1-1.9 1-3.1 1.6 2.3 2.4 5 2.4 7.4 0 6-4.1 10.6-9.5 10.6s-9.5-4.4-9.5-10c0-2.9 1.2-5.4 3-7.2.2 1.5.7 2.6 1.6 3.3.6-4.6 3-7.6 5.4-11z" fill="#ff8a1a"/><path d="M20 21c.8 2.4 3.4 4.2 4 6.8.5 2.8-1.4 6-4 6s-4.6-2.8-4.2-5.6c.3-2.4 2.4-4.2 4.2-7.2z" fill="#ffd84a"/></svg>`
 };
 // Draft: a gust of wind sweeps across both mats (from the caster's side of the screen), streaks and leaves ride it, and the draws follow
-function whoosh(){
+function whoosh(dir){dir=dir||1;
   if(!soundOn)return;
   try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();
     const A=audioCtx,t0=A.currentTime+.05,sr=A.sampleRate,L=.9,n=Math.floor(sr*L),b=A.createBuffer(1,n,sr),d=b.getChannelData(0);
@@ -3073,19 +3075,21 @@ function whoosh(){
     f.frequency.setValueAtTime(350,t0);f.frequency.exponentialRampToValueAtTime(1500,t0+.35);f.frequency.exponentialRampToValueAtTime(500,t0+L);
     g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(.5,t0+.3);g.gain.exponentialRampToValueAtTime(.0001,t0+L);
     src.connect(f);f.connect(g);
-    if(A.createStereoPanner){const p=A.createStereoPanner();p.pan.setValueAtTime(-.8,t0);p.pan.linearRampToValueAtTime(.8,t0+L);g.connect(p);p.connect(A.destination);}else g.connect(A.destination);
+    if(A.createStereoPanner){const p=A.createStereoPanner();p.pan.setValueAtTime(-.8*dir,t0);p.pan.linearRampToValueAtTime(.8*dir,t0+L);g.connect(p);p.connect(A.destination);}else g.connect(A.destination);
     src.start(t0);src.stop(t0+L);
   }catch(e){}
 }
 function draftFx(prev,v){
   if(!prev||!v.draft||prev.you!==v.you||v.draft.n<=((prev.draft&&prev.draft.n)||0))return;
-  whoosh();
-  if(reduced()||!document.body.animate)return;
+  if(reduced()||!document.body.animate){whoosh(-1);return;}
   fxUntil=Math.max(fxUntil,Date.now()+450);   // the draws fly in while the gust is still blowing
   const src=document.querySelector('#myField .card[data-id="'+v.draft.src+'"],#oppField .card[data-id="'+v.draft.src+'"]');
   if(src&&src.animate)src.animate([{transform:'none'},{transform:'rotate(-7deg) translateX(-3px)',offset:.25},{transform:'rotate(5deg) translateX(3px)',offset:.55},{transform:'none'}],{duration:620,easing:'ease-in-out'});
   const dk=$('deck');if(dk&&dk.animate)dk.animate([{transform:'none'},{transform:'translateX(4px) rotate(3deg)',offset:.3},{transform:'translateX(-3px) rotate(-2deg)',offset:.6},{transform:'none'}],{duration:500,delay:150});
-  const dir=1;   // the wind always blows left to right, like reading
+  // the gust blows out of the deck: from whichever side of the table the deck is on, towards the other
+  const dkr=dk&&dk.getBoundingClientRect(),tbl=$('mySide')&&$('mySide').getBoundingClientRect();
+  const dir=dkr&&tbl&&dkr.left+dkr.width/2<tbl.left+tbl.width/2?1:-1;
+  whoosh(dir);
   ['mySide','oppSide'].forEach(sid=>{
     const side=$(sid);if(!side)return;const r0=side.getBoundingClientRect();
     const clip=document.createElement('div');clip.style.cssText=`position:fixed;left:${r0.left}px;top:${r0.top}px;width:${r0.width}px;height:${r0.height}px;overflow:hidden;pointer-events:none;z-index:45;border-radius:12px`;
@@ -3093,15 +3097,16 @@ function draftFx(prev,v){
     const r={left:0,top:0,width:r0.width,height:r0.height};   // streaks and leaves stay inside the mat
     for(let k=0;k<9;k++){
       const e=document.createElement('div');e.className='draft-streak';const w=r.width*(.25+Math.random()*.25),y=r.top+r.height*(.08+Math.random()*.84);
-      e.style.cssText+=`left:${r.left-w}px;top:${y}px;width:${w}px;opacity:${.5+Math.random()*.5}`;clip.appendChild(e);
+      if(dir<0)e.classList.add('rtl');
+      e.style.cssText+=`left:${dir>0?r.left-w:r.left+r.width}px;top:${y}px;width:${w}px;opacity:${.5+Math.random()*.5}`;clip.appendChild(e);
       const wav=(Math.random()-.5)*24;
       e.animate([{transform:'translate(0,0)'},{transform:`translate(${(r.width+w)*.5*dir}px,${wav}px)`,offset:.5},{transform:`translate(${(r.width+w*1.2)*dir}px,0)`}],{duration:650+Math.random()*250,delay:k*55+Math.random()*80,easing:'cubic-bezier(.35,.1,.5,1)',fill:'backwards'}).onfinish=()=>e.remove();
     }
     for(let k=0;k<3;k++){
       const l=document.createElement('div');l.className='draft-leaf';const y=r.top+r.height*(.2+Math.random()*.6);
-      l.style.cssText+=`left:${r.left-16}px;top:${y}px`;clip.appendChild(l);
+      l.style.cssText+=`left:${dir>0?r.left-16:r.left+r.width+2}px;top:${y}px`;clip.appendChild(l);
       const sp=540+Math.random()*360;
-      l.animate([{transform:'translate(0,0) rotate(0)'},{transform:`translate(${r.width*.35}px,${-24-Math.random()*20}px) rotate(${sp*.4}deg)`,offset:.35},{transform:`translate(${r.width*.7}px,${10+Math.random()*16}px) rotate(${sp*.75}deg)`,offset:.7},{transform:`translate(${r.width+20}px,-8px) rotate(${sp}deg)`}],{duration:1000+Math.random()*200,delay:120+k*130,easing:'ease-in-out',fill:'backwards'}).onfinish=()=>l.remove();
+      l.animate([{transform:'translate(0,0) rotate(0)'},{transform:`translate(${dir*r.width*.35}px,${-24-Math.random()*20}px) rotate(${dir*sp*.4}deg)`,offset:.35},{transform:`translate(${dir*r.width*.7}px,${10+Math.random()*16}px) rotate(${dir*sp*.75}deg)`,offset:.7},{transform:`translate(${dir*(r.width+20)}px,-8px) rotate(${dir*sp}deg)`}],{duration:1000+Math.random()*200,delay:120+k*130,easing:'ease-in-out',fill:'backwards'}).onfinish=()=>l.remove();
     }
   });
 }
@@ -3745,6 +3750,8 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   $('hand').innerHTML=orderedHand(v.me.hand).map(c=>cardEl(c,(mulling&&mullSel.has(c.id))?'mul':'')).join('');
   if(v.crazy&&v.opp.hand===1)$('hand').querySelectorAll('.card').forEach(el=>{const c=v.me.hand.find(x=>x.id===el.dataset.id);if(!c||efx(c,v)!=='T')return;   // Steal can't take a last card: dim it and lock it
     el.classList.add('st-lock');el.insertAdjacentHTML('beforeend','<svg class="lockb" viewBox="0 0 24 28"><path d="M6.5 13V8.5a5.5 5.5 0 0 1 11 0V13" fill="none" stroke="#2c1646" stroke-width="5" stroke-linecap="round"/><path d="M6.5 13V8.5a5.5 5.5 0 0 1 11 0V13" fill="none" stroke="#e8dcff" stroke-width="2.4" stroke-linecap="round"/><rect x="2.5" y="12" width="19" height="14" rx="3" fill="#8a5cd0" stroke="#2c1646" stroke-width="1.8"/><path d="M5 14.5h6" stroke="#c9b0ff" stroke-width="1.4" stroke-linecap="round"/><circle cx="12" cy="18.2" r="2.1" fill="#2c1646"/><path d="M12 19v3.6" stroke="#2c1646" stroke-width="2" stroke-linecap="round"/></svg>');el.title+=' Right now '+OPP+' has only one card left, so it is safe: this Steal would do nothing.';});
+  if(v.crazy&&v.me.hand.length-1<v.opp.hand)$('hand').querySelectorAll('.card').forEach(el=>{const c=v.me.hand.find(x=>x.id===el.dataset.id);if(!c||efx(c,v)!=='W')return;   // Draft would draw you 2 right now: it glows white
+    el.classList.add('dr-hot');el.title+=' Right now your hand is smaller, so this Draft draws you 2 cards.';});
   $('hand').querySelectorAll('.card').forEach(el=>{
     const id=el.dataset.id;
     el.onpointerdown=ev=>startDrag(ev,el,id,myTurn,mulling?()=>toggleMull(id):null);
