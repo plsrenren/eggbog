@@ -2180,12 +2180,27 @@ function duelSync(v,OPP){
     const ocs=[...document.querySelectorAll('#oppHand .oc')].filter(e=>getComputedStyle(e).visibility==='hidden');
     const mine2=mine&&document.querySelector('#hand .card[data-id="'+mine.id+'"]'),egg=v.reveal.egg;
     const eggTgt=egg&&(meFirst?document.querySelector('#hand .card[data-id="'+egg.id+'"]'):ocs[1]);
-    flyTo(vis(myCard),mine,mine2,false,0);flyTo(vis(oppCard),theirs,ocs[0],true,0);
-    if(eggEl)flyTo(vis(eggEl),egg,eggTgt,!meFirst,120);
+    // your cards: like a normal draw, the real hand card itself flies in from the duel card (nothing to swap at the end)
+    const flyReal=(el,from,delay)=>{
+      if(!el||!from)return false;
+      const h=el.offsetHeight,base=el.dataset.base||getComputedStyle(el).transform,keep=el.style.transform;
+      el.style.transform='none';const r=el.getBoundingClientRect();el.style.transform=keep;
+      const dx=from.x-(r.left+r.width/2),dy=from.y-(r.top+r.height/2),k=from.s*62/el.offsetWidth;
+      const end=`translate(0px,${1.1*h}px) ${base==='none'?'':base} translate(0px,${-1.1*h}px)`;   // the hand card turns around 50% 160%; here around its centre
+      el.style.transformOrigin='50% 50%';el.style.zIndex=20;
+      const a=el.animate([{transform:`translate(${dx}px,${dy}px) rotate(${from.a}deg) scale(${k})`},{transform:`translate(${dx*.45}px,${dy*.45-30}px) rotate(${from.a/2}deg) scale(${(k+1)/2})`,offset:.45},{transform:end}],
+        {duration:DUR,delay,easing:'cubic-bezier(.45,0,.3,1)',fill:'backwards'});
+      a.onfinish=a.oncancel=()=>{el.style.transformOrigin='';el.style.zIndex='';};
+      return true;
+    };
+    const hs=$('duHide');if(hs)hs.textContent=`#oppHand .oc:nth-child(n+${document.querySelectorAll('#oppHand .oc').length-ocs.length+1}){visibility:hidden}`;   // your cards show now (they fly in themselves)
+    if(!flyReal(mine2,vis(myCard),0))flyTo(vis(myCard),mine,mine2,false,0);
+    flyTo(vis(oppCard),theirs,ocs[0],true,0);
+    if(eggEl){if(meFirst){if(!flyReal(eggTgt,vis(eggEl),120))flyTo(vis(eggEl),egg,eggTgt,false,120);}else flyTo(vis(eggEl),egg,eggTgt,true,120);}
     [myCard,oppCard,eggEl].forEach(e=>{if(e)e.style.visibility='hidden';});
     d.querySelectorAll('.du-title,.du-help,.du-result,.du-name,.du-vs').forEach(x=>x.animate([{opacity:1},{opacity:0}],{duration:300,fill:'forwards'}));
     setTimeout(unhide,DUR+60);   // the cards land in the hands
-    d.animate([{opacity:1},{opacity:1,offset:.45},{opacity:0}],{duration:DUR,fill:'forwards'});setTimeout(done,DUR+220);
+    d.animate([{opacity:1},{opacity:0}],{duration:300,fill:'forwards'});setTimeout(done,DUR+220);   // clear the blur fast: your cards fly in under it
   },wait+(quick?0:2100));
 }
 // ---- Who starts the next round: the loser chooses, as its own event over the middle of the screen ----
