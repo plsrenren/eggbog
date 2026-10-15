@@ -2156,17 +2156,36 @@ function duelSync(v,OPP){
       unhide();d.remove();
     };
     if(quick||!d.animate){done();return;}
-    // both cards (and the Egg) fly into their owners' hands while the screen fades away
-    // (the sides are moved, not the zoomed cards, so the distances stay in screen pixels)
-    const fly=(el,toMe,delay,ref)=>{if(!el)return;const r=(ref||el).getBoundingClientRect(),h=$(toMe?'hand':'oppHand'),hr=h&&h.getBoundingClientRect();
-      const tx=hr&&hr.width?hr.left+hr.width/2:window.innerWidth/2,ty=hr&&hr.height?hr.top+hr.height/2:(toMe?window.innerHeight:0);
-      const cur=getComputedStyle(el).transform,base=cur==='none'?'':cur+' ';
-      el.animate([{transform:cur==='none'?'none':cur},{transform:`translate(${tx-r.left-r.width/2}px,${ty-r.top-r.height/2}px) ${base}scale(.5)`,opacity:.2}],{duration:650,delay,easing:'cubic-bezier(.5,0,.7,1)',fill:'forwards'});};
-    const meFirst=d.querySelector('#duMe').classList.contains('win');
-    fly(d.querySelector('#duMe'),true,0,d.querySelector('#duMe .du-card'));fly(d.querySelector('#duOpp'),false,0,d.querySelector('#duOpp .du-card'));fly(d.querySelector('.du-eggc'),meFirst,120);
+    // both cards (and the Egg) fly onto their own spots in their owners' hands while the screen fades away:
+    // copies of them glide there, turn and shrink to fit, and the real hand cards take over as they land
+    const DUR=700,angle=el=>{const t=getComputedStyle(el).transform;if(!t||t==='none')return 0;const m=new DOMMatrix(t);return Math.atan2(m.b,m.a)*180/Math.PI;};
+    const vis=el=>{if(!el)return null;const r=el.getBoundingClientRect(),t=getComputedStyle(el).transform,m=t&&t!=='none'?new DOMMatrix(t):null;
+      return {x:r.left+r.width/2,y:r.top+r.height/2,a:angle(el),s:m?Math.hypot(m.a,m.b):r.width/62};};   // the Egg is scaled by transform, the duel cards by zoom
+    const flyTo=(from,c,tgt,toBack,delay)=>{
+      if(!from||!c)return;
+      const g=document.createElement('div');
+      g.className='du-fly';g.style.cssText=`position:fixed;left:${from.x-31}px;top:${from.y-44}px;width:62px;height:88px;z-index:60;pointer-events:none;transform:rotate(${from.a}deg) scale(${from.s})`;
+      g.innerHTML=cardEl(c,'')+(toBack?'<div class="card back" style="position:absolute;inset:0;margin:0;opacity:0"></div>':'');
+      g.firstChild.style.margin='0';document.body.appendChild(g);
+      let to={x:innerWidth/2,y:toBack?0:innerHeight,a:0,s:.7};
+      if(tgt){const r=tgt.getBoundingClientRect();to={x:r.left+r.width/2,y:r.top+r.height/2,a:tgt.closest('#hand')?parseFloat(getComputedStyle(tgt).getPropertyValue('--r'))||0:angle(tgt),s:tgt.offsetWidth/62};}
+      const dx=to.x-from.x,dy=to.y-from.y,lift=toBack?20:-30;
+      g.animate([{transform:`rotate(${from.a}deg) scale(${from.s})`},{transform:`translate(${dx*.45}px,${dy*.45+lift}px) rotate(${(from.a+to.a)/2}deg) scale(${(from.s+to.s)/2})`,offset:.45},{transform:`translate(${dx}px,${dy}px) rotate(${to.a}deg) scale(${to.s})`}],
+        {duration:DUR,delay,easing:'cubic-bezier(.45,0,.3,1)',fill:'both'});
+      if(toBack)g.lastChild.animate([{opacity:0},{opacity:0,offset:.3},{opacity:1,offset:.7},{opacity:1}],{duration:DUR,delay,fill:'both'});
+      setTimeout(()=>g.animate([{opacity:1},{opacity:0}],{duration:140,fill:'forwards'}).onfinish=()=>g.remove(),delay+DUR);
+    };
+    const meFirst=d.querySelector('#duMe').classList.contains('win'),eggEl=d.querySelector('.du-eggc');
+    const myCard=d.querySelector('#duMe .du-card'),oppCard=d.querySelector('#duOpp .du-card');
+    const ocs=[...document.querySelectorAll('#oppHand .oc')].filter(e=>getComputedStyle(e).visibility==='hidden');
+    const mine2=mine&&document.querySelector('#hand .card[data-id="'+mine.id+'"]'),egg=v.reveal.egg;
+    const eggTgt=egg&&(meFirst?document.querySelector('#hand .card[data-id="'+egg.id+'"]'):ocs[1]);
+    flyTo(vis(myCard),mine,mine2,false,0);flyTo(vis(oppCard),theirs,ocs[0],true,0);
+    if(eggEl)flyTo(vis(eggEl),egg,eggTgt,!meFirst,120);
+    [myCard,oppCard,eggEl].forEach(e=>{if(e)e.style.visibility='hidden';});
     d.querySelectorAll('.du-title,.du-help,.du-result,.du-name,.du-vs').forEach(x=>x.animate([{opacity:1},{opacity:0}],{duration:300,fill:'forwards'}));
-    setTimeout(unhide,600);   // the cards land in the hands
-    d.animate([{opacity:1},{opacity:1,offset:.45},{opacity:0}],{duration:800,fill:'forwards'}).onfinish=done;
+    setTimeout(unhide,DUR+60);   // the cards land in the hands
+    d.animate([{opacity:1},{opacity:1,offset:.45},{opacity:0}],{duration:DUR,fill:'forwards'});setTimeout(done,DUR+220);
   },wait+(quick?0:2100));
 }
 // ---- Who starts the next round: the loser chooses, as its own event over the middle of the screen ----
