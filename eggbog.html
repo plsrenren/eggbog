@@ -3746,6 +3746,7 @@ function removalAnim(kind,pl,clones,G){
     }
   }else if(kind==='Q'){
     // Bolt: lightning shoots out of the played card into each removed card; it flashes, chars black and crumbles to ash
+    if(!clones.length)return;   // nothing to hit: no strike, the Bolt just holds a charge
     {
       S&&noiseBurst(.55,'bandpass',2200,300,.55);S&&boomLow(.06);
       const src=srcR();castGlow('#9ad8ffcc');
@@ -3770,7 +3771,6 @@ function removalAnim(kind,pl,clones,G){
       };
       if(S){const fl=fx('inset:0;background:#dff1ff;mix-blend-mode:screen',59);fl.animate([{opacity:0},{opacity:.35,offset:.1},{opacity:0,offset:.3},{opacity:.2,offset:.45},{opacity:0}],{duration:420,fill:'forwards'});die(fl,460);
         const bd=$('board');if(bd)bd.animate([{transform:'none'},{transform:'translate(-5px,3px)'},{transform:'translate(4px,-3px)'},{transform:'none'}],{duration:260,delay:40});}
-      if(!clones.length){const col=document.querySelector((pl.side==='#myField'?'#oppField':'#myField')+' .col[data-suit="'+pl.c.s+'"]');if(col){const r=col.getBoundingClientRect();strike({left:r.left+r.width/2-31,top:r.top+r.height/2-44,width:62,height:88},0);}}
       clones.forEach((k,i)=>{
         const r=k.el.getBoundingClientRect(),d=i*110;
         strike(r,d);
