@@ -147,6 +147,7 @@ t('concede -> loser chooses starter; fields cleared; only one concede per player
   assert.equal(act(s,0,{t:'concede'}),null);
   assert.equal(s.p[1].wins,1);assert.equal(s.phase,'choose');assert.equal(s.chooser,0);
   assert.equal(s.p[0].field.length+s.p[1].field.length,0);
+  drawFor(s,1);
   assert.equal(act(s,0,{t:'choose',who:1}),null);assert.equal(s.turn,1);assert.equal(s.phase,'play');
   s.p[1].hand.push(C('7','S'));
   assert.equal(act(s,1,{t:'play',id:'7S'}),null);
@@ -203,7 +204,7 @@ t('2000 random games: terminate, conserve 52 unique cards',()=>{
       else if(s.phase==='choose')a={t:'choose',who:Math.random()<.5?0:1};
       else if(s.pending&&s.pending.jk)a={t:'jkpick'};
       else if(s.pending){const o=s.pending.opts;const x=o[Math.floor(Math.random()*o.length)];a={t:'pick',id:typeof x==='string'?x:x.id};}
-      else{const h=s.p[who].hand;if(s.round<3&&!s.p[who].conceded&&(h.length===0||Math.random()<.04))a={t:'concede'};else{const c=h[Math.floor(Math.random()*h.length)];a={t:'play',id:c.id};if(c.r==='EG')a.suit='CSHD'[Math.floor(Math.random()*4)];}}
+      else{const h=s.p[who].hand;if(s.round<3&&!s.p[who].conceded&&!s.firstTurn&&(h.length===0||Math.random()<.04))a={t:'concede'};else{const c=h[Math.floor(Math.random()*h.length)];a={t:'play',id:c.id};if(c.r==='EG')a.suit='CSHD'[Math.floor(Math.random()*4)];}}
       const err=act(s,who,a);
       if(err)throw new Error('unexpected error '+err+' '+JSON.stringify(a)+' phase '+s.phase);
       const ids=zones(s);
@@ -306,14 +307,14 @@ t('Rune: each one on the field draws two cards on concede',()=>{
   const s=setup([C('2','C')],[C('3','S')],[X('5','H','L'),X('6','D','L')],[C('9','H')],[C('9','H'),C('8','H'),C('7','H'),C('6','H'),C('5','H')]);
   s.crazy=true;
   assert.equal(act(s,0,{t:'concede'}),null);
-  assert.equal(s.drawQ.length,4);assert.ok(s.drawQ.every(e=>e.who===0&&e.reason==='laststand'));
+  assert.equal(s.drawQ.length,5);assert.equal(s.drawQ.filter(e=>e.who===0&&e.reason==='laststand').length,4);assert.equal(s.drawQ[4].who,1);assert.equal(s.drawQ[4].reason,'concede');
   assert.ok(act(s,0,{t:'choose',who:0}),'must draw before choosing');
-  drawFor(s,0);drawFor(s,0);drawFor(s,0);drawFor(s,0);assert.equal(s.p[0].hand.length,5);
+  drawFor(s,0);drawFor(s,0);drawFor(s,0);drawFor(s,0);assert.equal(s.p[0].hand.length,5);drawFor(s,1);
   const s1=setup([C('2','C')],[C('3','S')],[X('5','H','L'),X('6','D','L')],[C('9','H')],[C('7','H')]);
-  s1.crazy=true;act(s1,0,{t:'concede'});assert.equal(s1.drawQ.length,1,'deck of one card: only one draw queued');
+  s1.crazy=true;act(s1,0,{t:'concede'});assert.equal(s1.drawQ.length,1,'deck of one card: only one draw queued');assert.equal(s1.drawQ[0].reason,'laststand');
   assert.equal(act(s,0,{t:'choose',who:1}),null);
   const s2=setup([C('2','C')],[C('3','S')],[C('5','H')],[C('9','H')]);
-  act(s2,0,{t:'concede'});assert.equal(s2.drawQ.length,0,'no Rune, no draw');
+  act(s2,0,{t:'concede'});assert.equal(s2.drawQ.filter(e=>e.reason==='laststand').length,0,'no Rune, no Rune draw');
 });
 t('Greed: while on your field, draw a card whenever the turn passes to you',()=>{
   const s=setup([C('6','C')],[C('10','S'),C('3','H')],[X('4','S','G')],[C('2','D')],[C('9','D'),C('8','D'),C('7','D'),C('6','D'),C('5','D')]);
@@ -423,7 +424,7 @@ t('Joker: 400 random crazy games conserve 54 cards (players choose a suit)',()=>
       else if(s.phase==='choose')a={t:'choose',who:Math.random()<.5?0:1};
       else if(s.pending&&s.pending.jk)a={t:'jkpick'};
       else if(s.pending){const o=s.pending.t==='steal'?s.p[who].hand:s.pending.opts;const x=o[Math.floor(Math.random()*o.length)];a={t:'pick',id:typeof x==='string'?x:x.id};}
-      else{const h=s.p[who].hand;if(s.round<3&&!s.p[who].conceded&&(h.length===0||Math.random()<.04))a={t:'concede'};else{const c=h[Math.floor(Math.random()*h.length)];a={t:'play',id:c.id};if(c.r==='JK'||c.r==='EG')a.suit='CSHD'[Math.floor(Math.random()*4)];}}
+      else{const h=s.p[who].hand;if(s.round<3&&!s.p[who].conceded&&!s.firstTurn&&(h.length===0||Math.random()<.04))a={t:'concede'};else{const c=h[Math.floor(Math.random()*h.length)];a={t:'play',id:c.id};if(c.r==='JK'||c.r==='EG')a.suit='CSHD'[Math.floor(Math.random()*4)];}}
       const err=act(s,who,a);
       if(err)throw new Error('unexpected error '+err+' '+JSON.stringify(a));
       const ids=zones(s);
@@ -506,14 +507,36 @@ t('Joker: cards are played in turns, starting with the Joker owner (highest card
   act(o,1,{t:'play',id:'JK2',suit:'S'});assert.equal(o.jokerQ[0].who,1,'the opponent as Joker owner goes first');
 });
 
+t('concede: the other player draws a card (burned if their hand is full)',()=>{
+  const s=setup([C('2','C')],[C('3','S')],[C('5','C')],[C('9','H')]);
+  assert.equal(act(s,0,{t:'concede'}),null);
+  assert.equal(s.drawQ.length,1);assert.equal(s.drawQ[0].who,1);assert.equal(s.drawQ[0].reason,'concede');
+  assert.ok(act(s,0,{t:'choose',who:0}),'the draw comes before choosing');
+  drawFor(s,1);assert.equal(s.p[1].hand.length,2);
+  const f=setup([C('2','C')],Array.from({length:10},(_,k)=>C(String(k+1),'S')),[C('5','C')],[C('9','H')]);
+  act(f,0,{t:'concede'});drawFor(f,1);assert.equal(f.p[1].hand.length,10,'full hand: the card burns');assert.equal(f.discard.filter(c=>c.id==='6D').length,1);
+  const e=setup([C('2','C')],[C('3','S')],[C('5','C')],[C('9','H')],[]);
+  act(e,0,{t:'concede'});assert.equal(e.drawQ.length,0,'empty deck: no draw');assert.equal(e.phase,'choose');
+});
+t('concede is not allowed on the very first turn',()=>{
+  const s=newGame();
+  for(const i of [0,1])assert.equal(act(s,i,{t:'mulligan',ids:[]}),null);
+  while(s.phase==='start'){const w=s.drawQ[0].who;drawFor(s,w);}
+  const st=s.turn;assert.equal(s.phase,'play');assert.equal(s.firstTurn,true);
+  assert.ok(act(s,st,{t:'concede'}),'refused on the first turn');
+  assert.equal(viewFor(s,st).me.firstTurn,true);
+  for(const lvl of ['easy','normal','hard','expert'])for(let k=0;k<20;k++)assert.notEqual(mod.exports.cpuChoose(s,st,lvl).t,'concede',lvl+' conceded on the first turn');
+  let g=0;while(s.turn===st&&s.phase==='play'&&g++<50){const a=mod.exports.cpuChoose(s,st,'hard');assert.equal(act(s,st,a),null);while(s.drawQ.length)drawFor(s,s.drawQ[0].who);}
+  assert.equal(s.firstTurn,false,'lock ends when the turn passes');
+});
 t('Rune also works when the opponent concedes',()=>{
   const mk=()=>{const s=setup([C('2','C')],[C('3','S')],[X('5','H','L')],[C('9','H')],[C('9','H'),C('8','H'),C('7','H')]);s.crazy=true;s.turn=1;return s;};
   const s=mk();assert.equal(act(s,1,{t:'concede'}),null);
-  assert.equal(s.drawQ.length,2);assert.equal(s.drawQ[0].who,0);assert.equal(s.drawQ[0].reason,'laststand');
+  assert.equal(s.drawQ.length,3);assert.equal(s.drawQ[0].who,0);assert.equal(s.drawQ[0].reason,'laststand');assert.equal(s.drawQ[2].reason,'concede');
   assert.equal(s.p[0].wins,1);
   const b=setup([C('2','C')],[C('3','S')],[X('5','H','L')],[X('6','D','L'),X('7','C','L')],[C('9','H'),C('8','H'),C('7','H'),C('6','H'),C('5','H'),C('4','H'),C('3','H'),C('2','H')]);b.crazy=true;b.turn=1;
   act(b,1,{t:'concede'});
-  assert.equal(b.drawQ.filter(e=>e.who===1).length,4,'the conceder draws two for each of theirs');assert.equal(b.drawQ.filter(e=>e.who===0).length,2,'the winner draws for theirs too');
+  assert.equal(b.drawQ.filter(e=>e.who===1).length,4,'the conceder draws two for each of theirs');assert.equal(b.drawQ.filter(e=>e.who===0&&e.reason==='laststand').length,2,'the winner draws for theirs too');
   const g=setup([C('2','C')],[C('3','S')],[X('5','H','L')],[C('9','H')],[C('9','H'),C('8','H')]);g.crazy=true;g.turn=1;g.p[0].wins=1;
   act(g,1,{t:'concede'});assert.equal(g.phase,'over');assert.equal(g.drawQ.length,0,'no draws once the game is over');
 });
@@ -680,7 +703,7 @@ t('Out of cards with a Rune and a concede left: may concede instead of losing',(
   assert.equal(s.phase,'play','not over yet');assert.equal(s.turn,0);assert.ok(viewFor(s,0).me.stuck);
   assert.ok(act(s,0,{t:'play',id:'3S'}),'nothing to play');
   assert.equal(act(s,0,{t:'concede'}),null);
-  assert.equal(s.p[1].wins,1);assert.equal(s.drawQ.length,2,'the Rune draws two');
+  assert.equal(s.p[1].wins,1);assert.equal(s.drawQ.filter(e=>e.reason==='laststand').length,2,'the Rune draws two');
   const g=mk();act(g,0,{t:'play',id:'2C'});
   assert.equal(act(g,0,{t:'giveup'}),null);assert.equal(g.phase,'over');assert.equal(g.winner,1);assert.equal(g.over,'cards');
   assert.ok(act(mk(),0,{t:'giveup'}),'cannot give up with cards in hand');

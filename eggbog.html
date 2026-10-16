@@ -896,7 +896,9 @@ function queueDraw(s,who,reason){
   s.drawQ.push({who,reason});
 }
 // Out of cards with a Rune on your side and a concede left (not round 3): you may concede the round instead of losing the game
-function runeStuck(s,i){return s.phase==='play'&&s.turn===i&&!s.p[i].hand.length&&!s.startCards[i]&&s.round<3&&!s.p[i].conceded&&s.p[i].field.some(c=>F(c)==='L');}
+// Concede: never in round 3, once per game, and not on the very first turn of the game
+function canConcede(s,i){return s.round<3&&!s.p[i].conceded&&!s.firstTurn;}
+function runeStuck(s,i){return s.phase==='play'&&s.turn===i&&!s.p[i].hand.length&&!s.startCards[i]&&canConcede(s,i)&&s.p[i].field.some(c=>F(c)==='L');}
 function outOfCards(s,me){log(s,me,'is out of cards');if(s.stats){playTick(s);playEnd(s);}if(s.stats)s.stats.rounds.push({n:s.round,w:1-me,t:[total(s,0),total(s,1)],by:'cards'});gameOver(s,1-me,'cards');}
 function busy(s){return !!s.pending||s.drawQ.length>0||!!(s.jokerQ&&s.jokerQ.length);}
 function cp(c){const o={id:c.id,r:c.r,s:c.s,f:c.f};if(c.v!==undefined)o.v=c.v;return o;}
@@ -1068,7 +1070,7 @@ function settle(s){
   for(let k=0;k<2;k++){
     const me=s.turn,op=1-me;
     if(total(s,me)>total(s,op)){
-      s.turn=op;
+      s.turn=op;s.firstTurn=false;
       const gr=s.p[op].field.filter(c=>F(c)==='G').length; // Greed on the field: draw when the turn switches to you
       if(gr){s.greedFx={n:((s.greedFx&&s.greedFx.n)||0)+1,who:op,ids:s.p[op].field.filter(c=>F(c)==='G').map(c=>c.id)};log(s,op,'Greed: draws '+gr+' card'+(gr>1?'s':'')+' as the turn passes');for(let g=0;g<gr;g++)queueDraw(s,op,'greedturn');if(s.drawQ.length)return;}
       continue;}
@@ -1095,7 +1097,7 @@ function resolveStart(s){
   // the Egg: the starter gets a plain card worth a few points (also exempt from the hand limit); it never goes back into the deck
   const egg={id:'EGG',r:'EG',s:'*',f:'',v:s.crazy?EGG_VAL.crazy:EGG_VAL.normal};   // suit-less like a Surge: it takes the suit of the column it is played on
   s.p[starter].hand.push(egg);s.startReveal.egg=cp(egg);log(s,starter,'gets the Egg ('+egg.v+' point'+(egg.v>1?'s':'')+')');
-  s.phase='play';s.turn=starter;
+  s.phase='play';s.turn=starter;s.firstTurn=true;   // the starter cannot concede on this very first turn
   settle(s);
 }
 // Called whenever a draw or choice finishes: skips draws the deck can no longer supply, then
@@ -1242,6 +1244,7 @@ function act0(s,i,a){
       if(s.phase!=='play'||s.turn!==i)return 'You can only concede on your turn';
       if(s.round>=3)return 'You cannot concede in round 3';
       if(s.p[i].conceded)return 'You can only concede once per game';   // a second concede would throw away the whole game
+      if(s.firstTurn)return 'You cannot concede on the very first turn';
       if(busy(s))return 'Finish the current draw or choice first';
       if(s.startCards[i])return 'Play your drawn card first';
       // Rune: whoever has one on their side when the round ends by a concede draws a card for it, whether they conceded or their opponent did
@@ -1252,6 +1255,8 @@ function act0(s,i,a){
         if(!ls[w])continue;
         log(s,w,'Rune: draws '+(ls[w]*2)+' cards');
         for(let k=0;k<ls[w]*2&&s.deck.length>s.drawQ.length;k++)queueDraw(s,w,'laststand');}
+      // the player who did not concede draws a card (a full hand burns it)
+      if(s.phase!=='over'&&s.deck.length>s.drawQ.length){log(s,1-i,'draws a card for the concede');queueDraw(s,1-i,'concede');}
       return null;}
     case 'giveup':{   // out of cards with a Rune, choosing not to concede: the game is lost
       if(!runeStuck(s,i)||busy(s))return 'You can only give up when you are out of cards';
@@ -1289,7 +1294,7 @@ function viewFor(s,i){
     }
   }
   return {you:i,logN:s.logN||0,flag:s.flag||null,pack:s.pack?{n:s.pack.n,who:s.pack.who,cards:s.pack.who===i?s.pack.cards:s.pack.cards.map(()=>null)}:null,oppReasons:s.drawQ.filter(e=>e.who!==i).map(e=>e.reason),burn:s.burn?{n:s.burn.n,who:s.burn.who,full:!!s.burn.full,cards:s.burn.who===i?s.burn.cards:s.burn.cards.map(()=>null)}:null,fxOn:s.fx||null,crazy:!!s.crazy,fm:s.fm||null,mirror:s.mirror||null,morph:s.morph||null,hush:s.hush||null,draft:s.draft||null,rewind:s.rewind||null,boltCharge:s.boltCharge||null,boltZap:s.boltZap||null,lastFx:s.lastFx||null,stolen:s.stolen||null,discover:s.discFx?{n:s.discFx.n,by:s.discFx.by,kept:s.discFx.by===i?s.discFx.kept:null,gift:s.discFx.gift,burnt:s.discFx.by===i?s.discFx.burnt:s.discFx.burnt.map(()=>null)}:null,greed:s.greedFx||null,stealSafe:s.stealSafe||null,joker:s.joker||null,jq:(s.jokerQ||[]).length,reshuffles:s.reshuffles||0,shuffled:s.lastShuffle||0,phase:s.phase,round:s.round,turn:s.turn,chooser:s.chooser,deck:s.deck.length,discard:s.discard.length,
-    me:{hand:me.hand,field:me.field,wins:me.wins,mull:me.mull,pack:me.pack,conceded:!!me.conceded,stuck:runeStuck(s,i)&&!busy(s),newCards:(s.stats&&s.stats.mullIn&&s.stats.mullIn[i])||[],oldCards:(s.stats&&s.stats.mull&&s.stats.mull[i])||[]},
+    me:{hand:me.hand,field:me.field,wins:me.wins,mull:me.mull,pack:me.pack,conceded:!!me.conceded,firstTurn:!!s.firstTurn,stuck:runeStuck(s,i)&&!busy(s),newCards:(s.stats&&s.stats.mullIn&&s.stats.mullIn[i])||[],oldCards:(s.stats&&s.stats.mull&&s.stats.mull[i])||[]},
     opp:{hand:op.hand.length,field:op.field,wins:op.wins,mull:op.mull,pack:op.pack},
     draws:s.drawQ.filter(e=>e.who===i).map(e=>e.reason),drawsOpp:s.drawQ.filter(e=>e.who!==i).length,
     startMe:s.startCards[i],reveal:s.startReveal,
@@ -1356,7 +1361,7 @@ function cpuOptions(s,who){
   }
   const o=[],seen=new Set();
   for(const c of s.p[who].hand){const k=c.r+c.s;if(seen.has(k))continue;seen.add(k);o.push(playAct(c,'C'));}
-  if(EXPERT_CFG.concede&&s.round<3&&!s.p[who].conceded)o.push({t:'concede'});   // no conceding in round 3
+  if(EXPERT_CFG.concede&&canConcede(s,who))o.push({t:'concede'});   // no conceding in round 3
   return o;
 }
 function cpuExpert(s,who,opts){
@@ -1427,10 +1432,10 @@ function cpuChoose(s,who,level){
   }
   if(runeStuck(s,who)&&!s.pending)return {t:'concede'};   // out of cards: conceding with the Rune beats losing the game
   if(!smart){
-    if(s.round<3&&!s.p[who].conceded&&total(s,who)+8<=total(s,1-who)&&Math.random()<.2)return {t:'concede'};
+    if(canConcede(s,who)&&total(s,who)+8<=total(s,1-who)&&Math.random()<.2)return {t:'concede'};
     return playAct(h[Math.floor(Math.random()*h.length)]);
   }
-  if(CPU_CFG.concedeMode!==2&&s.round<3&&!s.p[who].conceded&&cpuWantsConcede(s,who,CPU_CFG.concedeMode===1?'normal':level))return {t:'concede'};   // concedeMode: 0 normal behaviour, 1 only when hopeless, 2 never (testing)
+  if(CPU_CFG.concedeMode!==2&&canConcede(s,who)&&cpuWantsConcede(s,who,CPU_CFG.concedeMode===1?'normal':level))return {t:'concede'};   // concedeMode: 0 normal behaviour, 1 only when hopeless, 2 never (testing)
   let best=null,bs=-Infinity,bsu;const seen=new Set();
   for(const c of h){
     const key=c.r+':'+(c.s);if(seen.has(key))continue;seen.add(key);
@@ -2807,12 +2812,12 @@ function drawSync(v,OPP,prev){
   }
   if(mine)d.dataset.mine='1';else delete d.dataset.mine;
   const dc=d.querySelector('.du-card'),back=d.querySelector('.card.back'),zone=$('dwZone');
-  const kind=mine?(reasons[0]==='deathrattle'?'Soul':(reasons[0]==='greed'||reasons[0]==='greedturn')?'Greed':reasons[0]==='laststand'?'Rune':(reasons[0]==='draft'||reasons[0]==='draftgift')?'Draft':'Draw'):'Draw';
+  const kind=mine?(reasons[0]==='deathrattle'?'Soul':(reasons[0]==='greed'||reasons[0]==='greedturn')?'Greed':reasons[0]==='laststand'?'Rune':reasons[0]==='concede'?'Concede':(reasons[0]==='draft'||reasons[0]==='draftgift')?'Draft':'Draw'):'Draw';
   $('dwTitle').textContent=mine?kind:(reasons&&reasons.length?OPP+' draws':OPP+' draws');
   zone.hidden=!mine;
   if(mine){
     zone.textContent='Drag the card into your hand';
-    $('dwHelp').textContent=(reasons[0]==='deathrattle'?'Your 2 was removed — ':(reasons[0]==='greed'||reasons[0]==='greedturn')?'Greed: ':reasons[0]==='laststand'?'Rune: ':'')+(reasons.length>1?'you have '+reasons.length+' cards to draw. ':'')+'Drag the card to your hand (or tap it).';
+    $('dwHelp').textContent=(reasons[0]==='deathrattle'?'Your 2 was removed — ':(reasons[0]==='greed'||reasons[0]==='greedturn')?'Greed: ':reasons[0]==='laststand'?'Rune: ':reasons[0]==='concede'?'Your opponent conceded: ':'')+(reasons.length>1?'you have '+reasons.length+' cards to draw. ':'')+'Drag the card to your hand (or tap it).';
     dc.classList.add('live');
     const sl=d.querySelector('.dc-slot');
     sl.style.cursor='grab';sl.style.touchAction='none';
@@ -3996,7 +4001,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
     st=v.me.mull?'Waiting for your opponent to finish their mulligan…':'Select up to 5 cards to mulligan (or keep your hand).';
   }else if(v.draws.length){
     const r=v.draws[0];
-    st=(r==='start'?'Round 1: draw your card — ':r==='deathrattle'?'Soul: ':r==='round'?'New round: ':(r==='greed'||r==='greedturn')?'Greed: ':r==='laststand'?'Rune: ':(r==='draft'||r==='draftgift')?'Draft: ':'Draw: ')+'click the deck or drag the top card '+'into your hand.';
+    st=(r==='start'?'Round 1: draw your card — ':r==='deathrattle'?'Soul: ':r==='round'?'New round: ':(r==='greed'||r==='greedturn')?'Greed: ':r==='laststand'?'Rune: ':r==='concede'?'Concede: ':(r==='draft'||r==='draftgift')?'Draft: ':'Draw: ')+'click the deck or drag the top card '+'into your hand.';
   }else if(v.drawsOpp&&!pend){
     st=v.phase==='start'&&v.startMe?'You drew '+cardStr(v.startMe)+'. Waiting for your opponent to draw…':'Waiting for '+OPP.toLowerCase()+' to draw from the deck…';
   }else if(v.phase==='choose'){
@@ -4062,7 +4067,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   dEl.innerHTML=(st6?layers:'<div class="empty"></div>')+`<div class="pill"><b>${v.deck}</b></div>`;
   $('deckHint').textContent=dEl.className==='live'?'Click or drag':'';
   if(v.me.stuck&&stuckAsked!==v.gameId+':'+v.round){stuckAsked=v.gameId+':'+v.round;setTimeout(askStuck,700);}
-  {const cb=$('btnConcede');cb.hidden=v.phase!=='play'||v.round>=3||v.me.conceded;cb.disabled=!myTurn;const lsM=v.me.field.filter(c=>F(c)==='L').length,lsO=v.opp.field.filter(c=>F(c)==='L').length,ls=v.phase==='play'&&(lsM||lsO);
+  {const cb=$('btnConcede');cb.hidden=v.phase!=='play'||v.round>=3||v.me.conceded||v.me.firstTurn;cb.disabled=!myTurn;const lsM=v.me.field.filter(c=>F(c)==='L').length,lsO=v.opp.field.filter(c=>F(c)==='L').length,ls=v.phase==='play'&&(lsM||lsO);
   cb.classList.toggle('glow-concede',v.phase==='play');cb.classList.toggle('ls-mine',ls&&lsM>lsO);cb.classList.toggle('ls-theirs',ls&&lsO>lsM);}
   const toTray=false;
   dEl.onpointerdown=ev=>{
@@ -4487,12 +4492,12 @@ function showRules(){
     :FX_KEYS.filter(k=>on.includes(k)).map(k=>'<li><b>'+RANK[k]+' — '+ABILITY[k]+':</b> '+ABILITY_TEXT[k].replace(/^[^:]*:\s*/,'')+'</li>').join('');
   const off=cz?'':FX_KEYS.filter(k=>!on.includes(k)).map(k=>RANK[k]).join(', ');
   $('modalRoot').innerHTML=`<div class="modal" id="rulesModal"><div class="box rules"><h3>Eggbog — ${cz?'Rules':'Classic rules'}</h3>
-  <h4>Goal</h4><p>2 players, a standard 52-card deck${cz?' plus 2 Surges':''}. You win the game when your opponent runs out of cards and cannot beat your total. That can happen in any round. A round also ends when someone concedes: their opponent wins that round, and the game goes on to the next one. Each player can concede once per game, so there are at most 3 rounds, and round 3 (the final duel) is always played until someone runs out.</p>
+  <h4>Goal</h4><p>2 players, a standard 52-card deck${cz?' plus 2 Surges':''}. You win the game when your opponent runs out of cards and cannot beat your total. That can happen in any round. A round also ends when someone concedes: their opponent wins that round and draws a card, and the game goes on to the next one. Each player can concede once per game, so there are at most 3 rounds, and round 3 (the final duel) is always played until someone runs out.</p>
   <h4>Card values</h4><p>Ace = 1, 2–10 = face value, Jack/Queen/King = ${cz?'10':'1'}. Suits low to high: ♣ ♠ ♥ ♦.</p>
   ${cz?`<h4>Setup</h4><p>Each player opens a starter pack of 7 cards. You either keep it or open a different pack of 7 new cards from the deck (your first pack is discarded and counts as mulliganed in the stats). There is no other mulligan.</p>`
       :`<h4>Setup</h4><p>Each player is dealt 10 cards and may mulligan up to 5 of them.</p>`}
   <h4>Starting a round</h4><p>Each player is dealt one card from the deck, face down, and both flip at once. Both cards go into their owners' hands, and the player whose card is lowest goes first (equal values: lower suit goes first). To make up for moving first, that player also gets the 🥚 Egg: a plain card with no effect, worth ${cz?'1 point':'5 points'}. Like a Surge it has no suit, so it can be played on any of your columns. It is never shuffled back into the deck. In later rounds, the loser of the previous round chooses who starts.</p>
-  <h4>Turns</h4><p>Play a card by dragging it from your hand onto its own suit column on your side of the field (the column lights up). Drag cards within your hand to arrange them however you like. Once your total is strictly greater than your opponent's, your turn ends. You cannot play while your total is already strictly greater. You may concede on any turn with the 🏳️ Concede button above your hand, only once per game (so you can never concede the whole match away), and never in round 3: the final duel, which has to be played out.</p>
+  <h4>Turns</h4><p>Play a card by dragging it from your hand onto its own suit column on your side of the field (the column lights up). Drag cards within your hand to arrange them however you like. Once your total is strictly greater than your opponent's, your turn ends. You cannot play while your total is already strictly greater. You may concede on your turn with the 🏳️ Concede button by your score, only once per game (so you can never concede the whole match away), never on the very first turn of the game, and never in round 3: the final duel, which has to be played out. When you concede, your opponent wins the round and draws a card from the deck (if their hand is full, 10 cards, it burns).</p>
   <h4>The field</h4><p>Each player has a side, organized in suit columns (♣ ♠ ♥ ♦) that face the matching column on the opponent's side.</p>
   ${cz?`<h4>Card effects</h4><p>Every single card gets one of the effects below at random, so two Aces (or two 7s) can do different things. The effect is written on each card, and the 🌀 button shows the effects in this game. Effects trigger when the card is played.</p><ul>${fxList}</ul>`
       :`<h4>Special cards (trigger when played)</h4><ul>${fxList}</ul>${off?`<p>Switched off in this game: ${off}. They play with no effect.</p>`:''}`}
