@@ -2929,8 +2929,9 @@ function oppTarget(){   // where a card flying to the opponent should land: thei
   const r=(cs.length?cs[cs.length-1]:(el||$('oppSide'))).getBoundingClientRect();
   return {left:r.left,top:r.top,width:r.width,height:r.height};
 }
-function ocPlace(el,i,n,lift){
-  const W=($('oppHand')||{clientWidth:700}).clientWidth||700,mid=(n-1)/2,step=Math.max(10,Math.min(32,(W-120)/Math.max(n,1))),d=i-mid;
+function ocW(){return ($('oppHand')||{clientWidth:700}).clientWidth||700;}
+function ocPlace(el,i,n,lift,W){
+  W=W||ocW();const mid=(n-1)/2,step=Math.max(10,Math.min(32,(W-120)/Math.max(n,1))),d=i-mid;
   el.style.transform=`translate(${d*step}px,${(lift?16:0)-Math.max(0,5-d*d*.35)+6}px) rotate(${d*2.6}deg)`;
   el.style.zIndex=lift?3:1;
 }
@@ -2938,7 +2939,7 @@ function ocReveal(el){if(!el||!el.classList.contains('pending'))return;el.classL
 function ocLayout(){
   const root=$('oppHand');if(!root)return;
   const cs=[...root.querySelectorAll('.oc')];
-  cs.forEach((el,i)=>{const lift=oppPtr.k===i;el.classList.toggle('lift',lift);ocPlace(el,i,cs.length,lift);});
+  const W=ocW();cs.forEach((el,i)=>{const lift=oppPtr.k===i;el.classList.toggle('lift',lift);ocPlace(el,i,cs.length,lift,W);});
 }
 function paintOppHand(v){
   const root=$('oppHand');if(!root)return;
@@ -2963,7 +2964,7 @@ function paintOppHand(v){
   ocLayout();paintOppPtr();
 }
 function paintOppPtr(){
-    const root=$('oppHand');if(root){const cs=root.querySelectorAll('.oc');cs.forEach((el,i)=>{const lift=oppPtr.k===i;el.classList.toggle('lift',lift);ocPlace(el,i,cs.length,lift);});}
+    const root=$('oppHand');if(root){const cs=root.querySelectorAll('.oc'),W=ocW();cs.forEach((el,i)=>{const lift=oppPtr.k===i;el.classList.toggle('lift',lift);ocPlace(el,i,cs.length,lift,W);});}
   document.querySelectorAll('#oppField .col.oppHover').forEach(c=>c.classList.remove('oppHover'));
   let g=$('oppGhost');
   const col=oppPtr.suit?document.querySelector('#oppField .col[data-suit="'+oppPtr.suit+'"]'):null;
@@ -3210,8 +3211,7 @@ function rewindFx(prev,v,oldCards){
 function whoosh(dir){dir=dir||1;
   if(!soundOn)return;
   try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();
-    const A=audioCtx,t0=A.currentTime+.05,sr=A.sampleRate,L=.9,n=Math.floor(sr*L),b=A.createBuffer(1,n,sr),d=b.getChannelData(0);
-    let last=0;for(let i=0;i<n;i++){last=(last+.06*(Math.random()*2-1))/1.06;d[i]=last*3.5;}   // soft, airy (brown-ish) noise
+    const A=audioCtx,t0=A.currentTime+.05,sr=A.sampleRate,L=.9,b=noiseBuf('brown',Math.floor(sr*L),(d,n)=>{let last=0;for(let i=0;i<n;i++){last=(last+.06*(Math.random()*2-1))/1.06;d[i]=last*3.5;}});   // soft, airy (brown-ish) noise
     const src=A.createBufferSource(),f=A.createBiquadFilter(),g=A.createGain();src.buffer=b;f.type='bandpass';f.Q.value=.9;
     f.frequency.setValueAtTime(350,t0);f.frequency.exponentialRampToValueAtTime(1500,t0+.35);f.frequency.exponentialRampToValueAtTime(500,t0+L);
     g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(.5,t0+.3);g.gain.exponentialRampToValueAtTime(.0001,t0+L);
@@ -3258,7 +3258,7 @@ function hushSound(){
   if(!soundOn)return;
   try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();
     const A=audioCtx,t0=A.currentTime+.45,sr=A.sampleRate;
-    const noise=dur=>{const n=Math.floor(sr*dur),b=A.createBuffer(1,n,sr),d=b.getChannelData(0);for(let i=0;i<n;i++)d[i]=Math.random()*2-1;const s=A.createBufferSource();s.buffer=b;return s;};
+    const noise=dur=>{const s=A.createBufferSource();s.buffer=noiseBuf('white',Math.floor(sr*dur),(d,n)=>{for(let i=0;i<n;i++)d[i]=Math.random()*2-1;});return s;};
     const out=(node,pan)=>{if(A.createStereoPanner){const p=A.createStereoPanner();p.pan.value=pan;node.connect(p);p.connect(A.destination);}else node.connect(A.destination);};
     // the shhh: high band-passed noise that swells and fades
     {const s=noise(1.6),f=A.createBiquadFilter(),g=A.createGain();f.type='bandpass';f.Q.value=1.2;
@@ -3411,18 +3411,17 @@ function cardEl(c,cls){
     (ABILITY[f]?`<div class="ab">${ABILITY[f]}</div>`:egg?`<div class="ab">Egg</div>`:'')+`</div>`;
 }
 // A tall stack of cards squeezes tighter instead of making the table taller
-function fitCols(){
-  document.querySelectorAll('#myField .col,#oppField .col').forEach(col=>{
-    const cards=[...col.children].filter(e=>e.classList.contains('card'));
-    cards.forEach(e=>e.style.marginTop='');
-    if(cards.length<2)return;
+function fitCols(){   // all writes, then all reads, then all writes: one layout, not one per column
+  const cols=[...document.querySelectorAll('#myField .col,#oppField .col')].map(col=>({col,cards:[...col.children].filter(e=>e.classList.contains('card'))}));
+  cols.forEach(({cards})=>cards.forEach(e=>e.style.marginTop=''));
+  cols.map(({col,cards})=>{
+    if(cards.length<2)return null;
     const h=cards[0].offsetHeight,cs=getComputedStyle(col),minH=parseFloat(cs.minHeight)||0;
     const avail=minH>0?minH:col.parentElement.clientHeight;
     const natural=h+parseFloat(getComputedStyle(cards[1]).marginTop);   // the usual gap between stacked cards
-    if(!avail||h+natural*(cards.length-1)<=avail)return;
-    const step=Math.max(6,(avail-h)/(cards.length-1));
-    cards.slice(1).forEach(e=>e.style.marginTop=(step-h)+'px');
-  });
+    if(!avail||h+natural*(cards.length-1)<=avail)return null;
+    return {cards,h,step:Math.max(6,(avail-h)/(cards.length-1))};
+  }).forEach(f=>{if(f)f.cards.slice(1).forEach(e=>e.style.marginTop=(f.step-f.h)+'px');});
 }
 // ---- Stack preview: a stack of 2+ cards slides open sideways where it sits (hover with a mouse, press and hold on touch) ----
 let peekCol=null,peekTimer=null,peekKey=null;
@@ -3500,6 +3499,7 @@ function sortByEffect(h){
 function sortHand(h){return h.slice().sort((a,b)=>cardVal(a)-cardVal(b)||rk(a)-rk(b)||SUIT_RANK[a.s]-SUIT_RANK[b.s]);} // true value (normal: A/J/Q/K = 1 first; Crazy: J/Q/K = 10)
 
 let lastV=null;
+const domSnap={};   // what render() last put in each side of the field and the hand, to skip rebuilding what hasn't changed
 // The centre badge: current lead, or (while a card is hovered / held on your turn) what the lead would become.
 let previewId=null,dragPreview=false;
 // what a card actually does right now: a Mimic does whatever the card before it did
@@ -3649,11 +3649,16 @@ function roundFx(prev,v){
   fxUntil=Math.max(fxUntil,Date.now()+1500);
 }
 // ---- Jack (frost), Queen (lightning bolt), King (explosion on both sides) ----
+const noiseBufs=new Map();let noiseRot=0;
+function noiseBuf(key,n,fill){   // a cached noise AudioBuffer: the random samples are filled once, not on every play (3 takes each, so overlapping bursts don't sound identical)
+  const A=audioCtx,k=key+':'+n+':'+A.sampleRate+':'+(noiseRot++%3);let b=noiseBufs.get(k);
+  if(!b){b=A.createBuffer(1,n,A.sampleRate);fill(b.getChannelData(0),n);noiseBufs.set(k,b);}
+  return b;
+}
 function noiseBurst(dur,type,f0,f1,gain,delay){
   if(!soundOn)return;
   try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();
-    const t=audioCtx.currentTime+(delay||0),n=Math.floor(audioCtx.sampleRate*dur),buf=audioCtx.createBuffer(1,n,audioCtx.sampleRate),d=buf.getChannelData(0);
-    for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2);
+    const t=audioCtx.currentTime+(delay||0),n=Math.floor(audioCtx.sampleRate*dur),buf=noiseBuf('burst',n,(d,n)=>{for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/n,2);});
     const src=audioCtx.createBufferSource(),f=audioCtx.createBiquadFilter(),g=audioCtx.createGain();
     src.buffer=buf;f.type=type;f.frequency.setValueAtTime(f0,t);f.frequency.exponentialRampToValueAtTime(Math.max(20,f1),t+dur);
     g.gain.value=gain;src.connect(f);f.connect(g);g.connect(audioCtx.destination);src.start(t);
@@ -3670,12 +3675,15 @@ function boomLow(delay){
 // the Frost / Bolt / Blaze animation; G is the ghost layer for a ghost preview (silent, see-through), or null for the real thing
 // A field card copied out of the field (for a removal or move animation) loses the field's zoom; scale the copy
 // back up so it keeps the exact size and spot of the card it stands in for.
-function pinAt(e,r){
-  const b=e.getBoundingClientRect();if(!b.width||Math.abs(b.width-r.width)<1)return;
-  e.style.zoom=r.width/b.width;
-  const c=e.getBoundingClientRect(),z=r.width/b.width;
-  e.style.left=(parseFloat(e.style.left)+(r.left-c.left)/z)+'px';e.style.top=(parseFloat(e.style.top)+(r.top-c.top)/z)+'px';
+let pinQ=null;
+function pinAt(e,r){if(pinQ)pinQ.push([e,r]);else pinAll([[e,r]]);}
+function pinAll(list){   // reads and writes in separate passes, so a batch of copies costs two layouts, not two each
+  const z=list.map(([e,r])=>{const b=e.getBoundingClientRect();return !b.width||Math.abs(b.width-r.width)<1?0:r.width/b.width;});
+  list.forEach(([e],i)=>{if(z[i])e.style.zoom=z[i];});
+  const c=list.map(([e],i)=>z[i]?e.getBoundingClientRect():null);
+  list.forEach(([e,r],i)=>{if(!z[i])return;e.style.left=(parseFloat(e.style.left)+(r.left-c[i].left)/z[i])+'px';e.style.top=(parseFloat(e.style.top)+(r.top-c[i].top)/z[i])+'px';});
 }
+function pinBatch(fn){if(pinQ)return fn();pinQ=[];try{return fn();}finally{const q=pinQ;pinQ=null;if(q.length)pinAll(q);}}
 function removalAnim(kind,pl,clones,G){
   const host=G||document.body,S=!G;
   const mk=(o,z)=>{const g=document.createElement('div');g.innerHTML=o.html;const e=g.firstChild;e.classList.remove('targetable','doomed');
@@ -3734,13 +3742,13 @@ function removalAnim(kind,pl,clones,G){
           S&&noiseBurst(.22,'highpass',3000,9000,.55);S&&noiseBurst(.12,'bandpass',5000,2000,.35,.03);
           const cx=40+Math.random()*20,cy=40+Math.random()*20,j=()=>30+Math.random()*40;
           const P=[[0,0],[j(),0],[100,0],[100,j()],[100,100],[j(),100],[0,100],[0,j()]];
-          P.forEach((p,n)=>{
+          pinBatch(()=>P.forEach((p,n)=>{
             const q=P[(n+1)%P.length],sh=mk(k.o,15);
             sh.style.clipPath=`polygon(${cx}% ${cy}%,${p[0]}% ${p[1]}%,${q[0]}% ${q[1]}%)`;
             sh.style.filter='saturate(.3) brightness(1.15)';sh.style.boxShadow='inset 0 0 0 200px #bfe6ff55';
             const mx=((cx+p[0]+q[0])/3-cx)*r.width/100,my=((cy+p[1]+q[1])/3-cy)*r.height/100,s=1.4+Math.random()*.8,rot=(Math.random()-.5)*160;
             sh.animate([{transform:'none',opacity:1},{transform:`translate(${mx*s*.5}px,${my*s*.5}px) rotate(${rot*.3}deg)`,opacity:1,offset:.25},{transform:`translate(${mx*s}px,${my*s+60+Math.random()*30}px) rotate(${rot}deg)`,opacity:0}],{duration:700,easing:'cubic-bezier(.2,.6,.5,1)',fill:'both'}).onfinish=()=>sh.remove();
-          });
+          }));
           for(let n=0;n<14;n++){   // glittering ice chips
             const a=Math.random()*Math.PI*2,d=30+Math.random()*60,sz=2+Math.random()*4,c=ctr(r);
             const chip=fx(`left:${c.x}px;top:${c.y}px;width:${sz}px;height:${sz}px;background:#f2fbff;box-shadow:0 0 6px #9fd8ff;transform:rotate(45deg)`,58);
@@ -3853,10 +3861,10 @@ function faceFx(prev,v,oldCards){
   fxUntil=Math.max(fxUntil,Date.now()+T+1300+(zap?ZT+900:0));
   const mk=(o,z)=>{const g=document.createElement('div');g.innerHTML=o.html;const e=g.firstChild;e.classList.remove('targetable','doomed');
     e.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:${z||14};pointer-events:none`;document.body.appendChild(e);pinAt(e,o.r);return e;};
-  const clones=removed.filter(([id])=>!zIds.has(id)).map(([id,o])=>({id,o,el:mk(o)}));
+  const clones=pinBatch(()=>removed.filter(([id])=>!zIds.has(id)).map(([id,o])=>({id,o,el:mk(o)})));
   let zClones=[];
   if(zap){
-    zClones=removed.filter(([id])=>zIds.has(id)).map(([id,o])=>({id,o,el:mk(o)}));
+    zClones=pinBatch(()=>removed.filter(([id])=>zIds.has(id)).map(([id,o])=>({id,o,el:mk(o)})));
     // the card that set the charge off never reached the table: it drops onto its column, then gets struck
     const col=document.querySelector(zSide+' .col[data-suit="'+zap.suit+'"]'),any=document.querySelector(zSide+' .card');
     const w=any?any.getBoundingClientRect().width:62,h=any?any.getBoundingClientRect().height:88;
@@ -3908,6 +3916,8 @@ function soulWisp(r){
   orb.style.transform=`translate(${x0}px,${y0}px) scale(0)`;
   requestAnimationFrame(step);
 }
+// commit pending style changes (e.g. the 'relay' no-transition class) without also forcing a layout
+function flushStyle(el){void getComputedStyle(el).opacity;}
 function applyTheme(on){document.documentElement.classList.toggle('theme-crazy',!!on);}
 function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.toggle('deathmatch',!!(v&&v.round>=3&&dmPending!==v.gameId));jokerFxSet(!!(v&&(v.jq>0||(v.pending&&v.pending.jk))&&v.phase!=='over'));
   const prev=lastV;lastV=JSON.parse(JSON.stringify(v)); // a copy: in host/practice mode the view shares arrays with the live game state
@@ -3962,12 +3972,15 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
     }
   }
   const targets=mustTarget?new Set(pend.opts):null;
-  $('oppField').classList.add('relay');$('myField').classList.add('relay');   // rebuilt: a card under the pointer must not replay its hover zoom
-  $('oppField').innerHTML=fieldHTML(v.opp.field,true,targets);
-  $('myField').innerHTML=fieldHTML(v.me.field,false,null);
+  // a side is rebuilt only when it would come out different, or something has touched it since the last update
+  // (rebuilding both sides and the hand on every update was the main cost of each play)
+  const fNew={oppField:fieldHTML(v.opp.field,true,targets),myField:fieldHTML(v.me.field,false,null)};
+  const fRe=['oppField','myField'].filter(id=>!(domSnap[id]&&domSnap[id].gen===fNew[id]&&domSnap[id].dom===$(id).innerHTML));
+  fRe.forEach(id=>{$(id).classList.add('relay');$(id).innerHTML=fNew[id];});   // rebuilt: a card under the pointer must not replay its hover zoom
   fitCols();
   peekRefresh();
-  void $('myField').offsetWidth;$('oppField').classList.remove('relay');$('myField').classList.remove('relay');
+  if(fRe.length){flushStyle($('myField'));fRe.forEach(id=>$(id).classList.remove('relay'));}
+  for(const id of ['oppField','myField'])domSnap[id]={gen:fNew[id],dom:$(id).innerHTML};
   hushFx(prev,v);
   draftFx(prev,v);
   morphFx(prev,v,oldCards);
@@ -3977,19 +3990,27 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   if(mulling&&!wasMulling){handOrder=[];nextSort='suit';}
   wasMulling=mulling;
   burnSync(prev,v);
+  const hGen=orderedHand(v.me.hand).map(c=>cardEl(c,(mulling&&mullSel.has(c.id))?'mul':'')).join('');
+  const hLock=v.crazy&&v.opp.hand===1?v.me.hand.filter(c=>efx(c,v)==='T').map(c=>c.id):[];   // Steal can't take a last card
+  const hHot=v.crazy&&v.me.hand.length-1<v.opp.hand?v.me.hand.filter(c=>efx(c,v)==='W').map(c=>c.id):[];   // Draft would draw you 2
+  const hKey=hGen+'|'+hLock+'|'+hHot;
+  const hRe=!(domSnap.hand&&domSnap.hand.gen===hKey&&domSnap.hand.dom===$('hand').innerHTML&&!rewindHold.size);
+  if(hRe){
   $('hand').classList.add('relay');   // the hand is rebuilt: no transform transition, or every card would slide into its fan spot again
-  $('hand').innerHTML=orderedHand(v.me.hand).map(c=>cardEl(c,(mulling&&mullSel.has(c.id))?'mul':'')).join('');
-  if(v.crazy&&v.opp.hand===1)$('hand').querySelectorAll('.card').forEach(el=>{const c=v.me.hand.find(x=>x.id===el.dataset.id);if(!c||efx(c,v)!=='T')return;   // Steal can't take a last card: dim it and lock it
+  $('hand').innerHTML=hGen;
+  if(hLock.length)$('hand').querySelectorAll('.card').forEach(el=>{if(!hLock.includes(el.dataset.id))return;   // Steal can't take a last card: dim it and lock it
     el.classList.add('st-lock');el.insertAdjacentHTML('beforeend','<svg class="lockb" viewBox="0 0 24 28"><path d="M6.5 13V8.5a5.5 5.5 0 0 1 11 0V13" fill="none" stroke="#2c1646" stroke-width="5" stroke-linecap="round"/><path d="M6.5 13V8.5a5.5 5.5 0 0 1 11 0V13" fill="none" stroke="#e8dcff" stroke-width="2.4" stroke-linecap="round"/><rect x="2.5" y="12" width="19" height="14" rx="3" fill="#8a5cd0" stroke="#2c1646" stroke-width="1.8"/><path d="M5 14.5h6" stroke="#c9b0ff" stroke-width="1.4" stroke-linecap="round"/><circle cx="12" cy="18.2" r="2.1" fill="#2c1646"/><path d="M12 19v3.6" stroke="#2c1646" stroke-width="2" stroke-linecap="round"/></svg>');el.title+=' Right now '+OPP+' has only one card left, so it is safe: this Steal would do nothing.';});
-  if(v.crazy&&v.me.hand.length-1<v.opp.hand)$('hand').querySelectorAll('.card').forEach(el=>{const c=v.me.hand.find(x=>x.id===el.dataset.id);if(!c||efx(c,v)!=='W')return;   // Draft would draw you 2 right now: it glows white
+  if(hHot.length)$('hand').querySelectorAll('.card').forEach(el=>{if(!hHot.includes(el.dataset.id))return;   // Draft would draw you 2 right now: it glows white
     el.classList.add('dr-hot');el.title+=' Right now your hand is smaller, so this Draft draws you 2 cards.';});
+  }
   $('hand').querySelectorAll('.card').forEach(el=>{
     const id=el.dataset.id;
     el.onpointerdown=ev=>startDrag(ev,el,id,myTurn,mulling?()=>toggleMull(id):null);
   });
   rewindHold.forEach(id=>{const e=$('hand').querySelector('.card[data-id="'+id+'"]');if(e)e.style.visibility='hidden';});
   layoutHand();
-  void $('hand').offsetWidth;$('hand').classList.remove('relay');
+  if(hRe){flushStyle($('hand'));$('hand').classList.remove('relay');}
+  domSnap.hand={gen:hKey,dom:$('hand').innerHTML};
 
   // status
   let st='';
@@ -4192,7 +4213,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   // cards that left the field (removed, wiped, round over) crumple away where they lay
   const faceHandled=reduced()?new Set():faceFx(prev,v,oldCards);
   const rewHandled=rewindFx(prev,v,oldCards);
-  if(!reduced())for(const [id,o] of oldCards){
+  if(!reduced())pinBatch(()=>{for(const [id,o] of oldCards){
     if(faceHandled.has(id)||rewHandled.has(id))continue;
     if(document.querySelector('#oppField .card[data-id="'+id+'"],#myField .card[data-id="'+id+'"]'))continue;
     const g=document.createElement('div');g.innerHTML=o.html;const el=g.firstChild;
@@ -4201,7 +4222,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
     document.body.appendChild(el);pinAt(el,o.r);
     if(!el.animate){el.remove();continue;}
     el.animate([{transform:'none',opacity:1,filter:'none'},{transform:'translateY(-6px) scale(1.06)',opacity:1,offset:.25},{transform:'translateY(18px) scale(.7) rotate('+(Math.random()*30-15)+'deg)',opacity:0,filter:'brightness(.5)'}],{duration:520,easing:'ease-in'}).onfinish=()=>el.remove();
-  }
+  }});
   if(prev&&!reduced()&&!$('duel')&&prev.you===v.you&&v.phase!=='mulligan'&&prev.phase!=='mulligan'){
     const old=new Set([...prev.opp.field,...prev.me.field].map(c=>c.id).concat([...swapSkip]));
     const os=$('oppSide').getBoundingClientRect();
@@ -4251,11 +4272,11 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
 // the page clock instead, so a rebuilt card carries on exactly where the old one was.
 function syncLoops(){
   if(!document.getAnimations)return;
-  for(const a of document.getAnimations()){
+  // read every animation first, then move them: setting a start time in between reads would force a style update each time
+  document.getAnimations().filter(a=>{
     const t=a.effect&&a.effect.target;
-    if(!(a instanceof CSSAnimation)||!t||!t.closest||!t.closest('#hand,#myField,#oppField'))continue;
-    if(a.effect.getTiming().iterations===Infinity&&a.startTime!==0)a.startTime=0;
-  }
+    return a instanceof CSSAnimation&&t&&t.closest&&t.closest('#hand,#myField,#oppField')&&a.effect.getTiming().iterations===Infinity&&a.startTime!==0;
+  }).forEach(a=>a.startTime=0);
 }
 
 // ---- Stats screen and match history (history is kept in this browser only) ----
