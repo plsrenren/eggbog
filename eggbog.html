@@ -325,7 +325,15 @@ header h2{margin:0;font-size:1.3rem}
 .stat-tile .v{font-size:1.5rem;font-weight:800;margin-top:2px}
 .stat-tile .v small{font-size:.8rem;opacity:.7;font-weight:600}
 .stat-tile .v .me{color:var(--gold)}
-.hl-grid{margin:4px 0 6px}.stat-tile.hl .hl-sub{font-size:.85rem;opacity:.8;margin-top:2px}.stat-tile.hl .hl-op{font-size:.8rem;opacity:.6;margin-top:6px}
+.hl-grid{margin:4px 0 6px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.stat-tile.hl .hl-row{display:flex;align-items:center;gap:12px;margin-top:6px}
+.stat-tile.hl .hl-txt{flex:1;min-width:0}
+.stat-tile.hl .hl-sub{font-size:.85rem;opacity:.8;margin-top:2px}
+.hl-card{display:inline-block;flex:none;pointer-events:none}.hl-card .card{margin:0}
+.hl-card.me .card{zoom:.85}.hl-card.op .card{zoom:.5}
+.stat-tile.hl .hl-op{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:.78rem;opacity:.75}
+.stat-tile.hl .hl-ok{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;opacity:.8}
+.stat-tile.hl .hl-none{font-size:.85rem;opacity:.5}
 .stat-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap}
 .tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.75rem;font-weight:800}
 .tag.w{background:#2e8b57}.tag.l{background:#a23b3b}
@@ -4086,15 +4094,18 @@ function mvpFor(e,me){
 }
 function highlights(e){
   if(!e.plays||!e.plays.length)return '';
-  const best=me=>e.plays.filter(p=>p.me===me).reduce((b,p)=>!b||p.sw>b.sw?p:b,null);
-  const swTxt=p=>p?`${playName(p)}, ${fd(p.sw)}`:'none';
-  const mvTxt=m=>m?ABILITY[m.f]:'none';
+  const mine=me=>e.plays.filter(p=>p.me===me);
+  const best=me=>mine(me).reduce((b,p)=>!b||p.sw>b.sw?p:b,null);
+  // the card itself, as it was played (with its effect)
+  const card=(p,cls)=>p?`<span class="hl-card ${cls}">${cardEl({id:'hl',r:p.r,s:p.s,f:p.f},'').replace('data-id=','data-sid=')}</span>`:'';
+  // for the MVP: the card with that effect that swung the most (or a plain card with the effect, for one only drawn from)
+  const mvCard=(m,me)=>m?(mine(me).filter(p=>p.f===m.f).reduce((b,p)=>!b||p.sw>b.sw?p:b,null)||{r:'A',s:'S',f:m.f}):null;
   const mvSub=m=>m?[m.pts?`${fd(m.pts)} pts`:'',m.cards?`${m.cards} card${m.cards===1?'':'s'}`:''].filter(Boolean).join(' · '):'';
   const bm=best(true),bo=best(false),mm=mvpFor(e,true),mo=mvpFor(e,false);
-  const hl=(k,big,sub,opp)=>`<div class="stat-tile hl"><div class="k">${k}</div><div class="v"><span class="me">${big}</span></div><div class="hl-sub">${sub}</div><div class="hl-op">Opponent: ${opp}</div></div>`;
+  const hl=(k,cm,big,sub,co,opp)=>`<div class="stat-tile hl"><div class="k">${k}</div><div class="hl-row">${cm||'<span class="hl-none">none</span>'}<div class="hl-txt"><div class="v"><span class="me">${big}</span></div><div class="hl-sub">${sub}</div></div><div class="hl-op"><div class="hl-ok">Opponent</div>${co||'<span class="hl-none">none</span>'}<div class="hl-ov">${opp}</div></div></div></div>`;
   return `<div class="stat-grid hl-grid">`+
-    hl('Biggest swing',swTxt(bm),bm?`Round ${bm.n}${bm.f&&ABILITY[bm.f]&&bm.r!=='JK'?' · played on '+bm.r+(SYM[bm.s]||''):''}`:'&nbsp;',swTxt(bo))+
-    hl('Effect MVP',mvTxt(mm),mvSub(mm)||'&nbsp;',mm||mo?`${mvTxt(mo)}${mo?' ('+mvSub(mo)+')':''}`:'none')+`</div>`;
+    hl('Biggest swing',card(bm,'me'),bm?fd(bm.sw):'',bm?`Round ${bm.n}${bm.f&&ABILITY[bm.f]?' · '+ABILITY[bm.f]:''}`:'',card(bo,'op'),bo?fd(bo.sw):'')+
+    hl('Effect MVP',card(mvCard(mm,true),'me'),mm?(mm.pts&&mm.pts>=4*mm.cards?`${fd(mm.pts)}`:`${mm.cards} card${mm.cards===1?'':'s'}`):'',mm?`${ABILITY[mm.f]}${mm.pts&&mm.cards?' · '+mvSub(mm):''}`:'',card(mvCard(mo,false),'op'),mo?mvSub(mo):'')+`</div>`;
 }
 function showStats(e){
   if(!e)return;
