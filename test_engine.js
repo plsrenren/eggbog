@@ -742,4 +742,35 @@ t('Mimic preview (client efx): a Mimic back in hand previews the current last ef
   v.lastFx='Q';v.me.field=[m];v.me.hand=[];assert.equal(efx(m,v),null);
 });
 
+t('Bolt with nothing to hit holds a charge; it strikes after the opponent\'s next card of that suit',()=>{
+  const s=setup([X('9','S','Q'),X('2','C','')],[X('3','S','A'),X('4','S','')],[C('5','C')],[C('10','H')]);s.crazy=true;
+  assert.equal(act(s,0,{t:'play',id:'9S'}),null);
+  assert.equal(s.p[0].field.find(c=>c.id==='9S').ch,1,'charged');assert.equal(s.turn,1);assert.equal(viewFor(s,1).boltCharge.id,'9S');
+  assert.equal(act(s,1,{t:'play',id:'3S'}),null);
+  assert.ok(!s.p[1].field.some(c=>c.id==='3S'),'the new card is struck');assert.ok(s.discard.some(c=>c.id==='3S'));
+  assert.equal(s.drawQ.length,1,'its own effect (Draw) still happened');
+  assert.ok(!s.p[0].field.find(c=>c.id==='9S').ch,'the charge is used up');assert.deepEqual(viewFor(s,0).boltZap.ids,['3S']);
+  drawFor(s,1);act(s,1,{t:'play',id:'4S'});assert.ok(s.p[1].field.some(c=>c.id==='4S'),'only one strike');
+  // a Bolt that hits something does not charge
+  const h=setup([X('9','S','Q')],[C('3','C')],[],[C('5','S'),C('10','H')]);h.crazy=true;act(h,0,{t:'play',id:'9S'});
+  assert.ok(!h.p[0].field[0].ch);assert.ok(!h.boltCharge);
+  // only a Sturdy to hit: it charges, and another Sturdy can't set it off (the charge stays)
+  const st=setup([X('9','S','Q'),X('2','C','')],[X('3','S','4')],[C('5','C')],[X('6','S','4')]);st.crazy=true;
+  act(st,0,{t:'play',id:'9S'});assert.equal(st.p[0].field.find(c=>c.id==='9S').ch,1);
+  act(st,1,{t:'play',id:'3S'});assert.equal(st.p[1].field.length,2);assert.equal(st.p[0].field.find(c=>c.id==='9S').ch,1);
+});
+
+t('Charged Bolt: waits for a Steal choice; Hush silences it; a Blaze burns it before it fires',()=>{
+  const charged=()=>Object.assign(X('9','S','Q'),{ch:1});
+  const s=setup([C('2','C'),C('3','C'),C('4','C')],[X('3','S','T'),C('8','D')],[C('5','C'),charged()],[]);s.crazy=true;s.turn=1;
+  assert.equal(act(s,1,{t:'play',id:'3S'}),null);
+  assert.equal(s.pending.t,'steal');assert.ok(s.p[1].field.some(c=>c.id==='3S'),'not yet: the Steal choice comes first');
+  act(s,0,{t:'pick',id:'2C'});
+  assert.ok(!s.p[1].field.some(c=>c.id==='3S'),'struck after the Steal');assert.ok(s.p[1].hand.some(c=>c.id==='2C'));
+  const hu=setup([C('2','C')],[X('3','S',''),C('8','D')],[C('5','C'),Object.assign(charged(),{hu:2})],[]);hu.crazy=true;hu.turn=1;
+  act(hu,1,{t:'play',id:'3S'});assert.ok(hu.p[1].field.some(c=>c.id==='3S'),'a Hushed Bolt is silent');
+  const bl=setup([C('2','C')],[X('3','S','K'),C('8','D')],[C('5','C'),charged()],[]);bl.crazy=true;bl.turn=1;
+  act(bl,1,{t:'play',id:'3S'});assert.ok(bl.p[1].field.some(c=>c.id==='3S'));assert.ok(bl.discard.some(c=>c.id==='9S'&&!c.ch),'burned, charge gone');
+});
+
 console.log('\n'+n+' checks passed');
