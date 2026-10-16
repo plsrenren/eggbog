@@ -705,4 +705,30 @@ t('Draft: both players draw one; the caster draws one more only with a smaller h
   act(f,0,{t:'play',id:'3H'});drawFor(f,1);assert.equal(f.p[1].hand.length,10);assert.ok(f.burn&&f.burn.who===1);
 });
 
+t('Rewind: your other cards of its suit go back to your hand, as they were; the Rewind stays',()=>{
+  const morphed={id:'7H',r:'EG',s:'H',f:'',v:1,mo:{r:'7',f:'Q'}};
+  const f0=[X('5','H','2'),morphed,X('9','C',''),{id:'EGG',r:'EG',s:'H',f:'',v:1},Object.assign(X('8','H','4'),{hu:2})];
+  const s=setup([X('3','H','R'),X('2','C','')],[C('4','S')],f0,[C('10','S'),C('10','D'),C('9','S')]);s.crazy=true;
+  assert.equal(act(s,0,{t:'play',id:'3H'}),null);
+  assert.deepEqual(s.p[0].field.map(c=>c.id),['9C','3H'],'only the Rewind and other suits stay');
+  assert.deepEqual(s.p[0].hand.map(c=>c.id).sort(),['2C','5H','7H','8H','EGG'].sort());
+  const h=id=>s.p[0].hand.find(c=>c.id===id);
+  assert.equal(h('7H').r,'7');assert.equal(h('7H').f,'Q');assert.ok(!h('7H').mo,'a Morphed card is itself again');
+  assert.equal(h('EGG').s,'*','the Egg loses its suit');assert.ok(!h('8H').hu,'no longer silenced');
+  assert.equal(s.drawQ.length,0,'a Soul taken back does not draw');assert.equal(s.turn,0,'still behind: keep playing');
+  assert.equal(viewFor(s,0).rewind.ids.length,4);
+  // nothing to take back
+  const e=setup([X('3','H','R'),X('2','C','')],[C('4','S')],[X('9','C','')],[C('10','S')]);e.crazy=true;
+  act(e,0,{t:'play',id:'3H'});assert.equal(e.p[0].hand.length,1);assert.equal(e.rewind.ids.length,0);
+  // other Rewinds (a Mimic copying one too) stay, so they can't bounce each other forever; a silenced one comes back
+  const r=setup([X('3','H','R'),X('2','C','')],[C('4','S')],[X('4','H','R'),Object.assign(X('6','H','R'),{f:'R',was:'M'}),Object.assign(X('7','H','R'),{hu:2}),X('8','H','')],[C('10','S'),C('10','D'),C('9','S')]);r.crazy=true;
+  act(r,0,{t:'play',id:'3H'});
+  assert.deepEqual(r.p[0].field.map(c=>c.id),['4H','6H','3H']);assert.deepEqual(r.p[0].hand.map(c=>c.id).sort(),['2C','7H','8H']);
+  // a full hand burns the rest
+  const full=Array.from({length:9},(_,k)=>X(String(k+2),'S',''));
+  const b=setup([X('3','H','R')].concat(full),[C('4','S')],[X('5','H',''),X('6','H','')],[C('10','S'),C('10','D')]);b.crazy=true;
+  act(b,0,{t:'play',id:'3H'});
+  assert.equal(b.p[0].hand.length,10);assert.ok(b.p[0].hand.some(c=>c.id==='6H'),'newest first');assert.ok(b.discard.some(c=>c.id==='5H'));assert.ok(b.burn&&b.burn.who===0);
+});
+
 console.log('\n'+n+' checks passed');
