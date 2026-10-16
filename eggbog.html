@@ -187,8 +187,8 @@ header h2{margin:0;font-size:1.3rem}
 .card.r2:not(.hushed) .cr,.card.r2:not(.hushed) .ab{opacity:.8}
 .card .ab{white-space:nowrap}
 /* Greed on the field: gilded frame with a soft gold glow */
-#myField .card.rG:not(.hushed),#oppField .card.rG:not(.hushed){border:3px solid transparent;background:linear-gradient(160deg,#eef4ff,#d5e2fa) padding-box,linear-gradient(135deg,#fff3b0 0%,#e8b730 22%,#a8741a 45%,#f6d66a 62%,#b9831f 80%,#fff0a0 100%) border-box;box-shadow:0 0 10px 2px #f2c14e99,0 1px 3px #0006}
-#myField .card.rG.red:not(.hushed),#oppField .card.rG.red:not(.hushed){background:linear-gradient(160deg,#fff1f1,#fbd9d9) padding-box,linear-gradient(135deg,#fff3b0 0%,#e8b730 22%,#a8741a 45%,#f6d66a 62%,#b9831f 80%,#fff0a0 100%) border-box}
+#myField .card.rG:not(.hushed),#oppField .card.rG:not(.hushed),#peek .card.rG:not(.hushed){border:3px solid transparent;background:linear-gradient(160deg,#eef4ff,#d5e2fa) padding-box,linear-gradient(135deg,#fff3b0 0%,#e8b730 22%,#a8741a 45%,#f6d66a 62%,#b9831f 80%,#fff0a0 100%) border-box;box-shadow:0 0 10px 2px #f2c14e99,0 1px 3px #0006}
+#myField .card.rG.red:not(.hushed),#oppField .card.rG.red:not(.hushed),#peek .card.rG.red:not(.hushed){background:linear-gradient(160deg,#fff1f1,#fbd9d9) padding-box,linear-gradient(135deg,#fff3b0 0%,#e8b730 22%,#a8741a 45%,#f6d66a 62%,#b9831f 80%,#fff0a0 100%) border-box}
 .card.rL:not(.hushed){box-shadow:0 0 6px #5fd6ff,0 0 14px #5fd6ffaa,0 1px 3px #0006}
 .card.r4,.card.sturdy.r4{background:var(--card);border:2px solid #8e98a2;box-shadow:inset 0 0 0 1px #ffffffcc,inset 0 0 4px #5b646c66,0 1px 3px #0006}
 .card.r4::before{content:'';position:absolute;inset:0;border-radius:6px;background:radial-gradient(circle at 6px 6px,#fff 0 1px,#6c757d 1.6px,#0000 2.4px),radial-gradient(circle at calc(100% - 6px) 6px,#fff 0 1px,#6c757d 1.6px,#0000 2.4px),radial-gradient(circle at 6px calc(100% - 6px),#fff 0 1px,#6c757d 1.6px,#0000 2.4px),radial-gradient(circle at calc(100% - 6px) calc(100% - 6px),#fff 0 1px,#6c757d 1.6px,#0000 2.4px);pointer-events:none}
@@ -212,7 +212,15 @@ header h2{margin:0;font-size:1.3rem}
   #hand .card:hover,#stlHand .card:hover{transform:translateY(-10px) rotate(0deg) scale(1.15);transform-origin:50% 100%;z-index:50}
   #hand .card:hover::after,#stlHand .card:hover::after{content:'';position:absolute;left:-4px;right:-4px;top:100%;height:34px} /* keeps the hover from dropping when the lifted card moves off the pointer */
   .field .card:hover{transform:scale(1.2);z-index:40}
+  .field .col.many .card:hover{transform:none}   /* a stack opens sideways instead (#peek) */
 }
+/* Stack preview: hover (mouse) or press and hold (touch) a stack of 2+ cards and it slides open sideways, oldest first, top card outlined in gold */
+#peek{position:fixed;z-index:46;display:flex;padding:6px;border-radius:12px;background:linear-gradient(#0c1f4af2,#050f2af2);box-shadow:0 0 0 2px #f2c14e66,0 8px 30px #000b;pointer-events:none}
+#peek .card{position:relative;margin:0;flex:none;box-shadow:0 2px 6px #0008}
+#peek .card+.card{margin-left:-8px}
+#peek .card:last-child{box-shadow:0 0 0 2px var(--gold),0 4px 12px #000a}
+#peek .pk-tot{position:absolute;top:-11px;right:-8px;background:var(--gold);color:#1d1d1d;font-weight:700;font-size:.75rem;border-radius:999px;padding:2px 9px;box-shadow:0 2px 8px #0008;white-space:nowrap}
+.field .col.many{-webkit-touch-callout:none}
 #hand.relay .card,.field.relay .card{transition:none!important}
 #hand .card.dragging,#stlHand .card.dragging{opacity:.3}
 .dropline{position:fixed;width:4px;border-radius:2px;background:var(--gold);z-index:25;pointer-events:none}
@@ -3383,8 +3391,70 @@ function fitCols(){
     cards.slice(1).forEach(e=>e.style.marginTop=(step-h)+'px');
   });
 }
+// ---- Stack preview: a stack of 2+ cards slides open sideways where it sits (hover with a mouse, press and hold on touch) ----
+let peekCol=null,peekTimer=null,peekKey=null;
+function peekHide(){clearTimeout(peekTimer);peekTimer=null;peekCol=null;const p=$('peek');if(p)p.remove();document.removeEventListener('pointermove',peekTrack);}
+function peekTrack(e){   // mouse: stay open while the pointer is over the stack or the open row
+  const p=$('peek');if(!p||!peekCol)return;
+  const inR=r=>e.clientX>=r.left-4&&e.clientX<=r.right+4&&e.clientY>=r.top-4&&e.clientY<=r.bottom+4;
+  if(!inR(peekCol.getBoundingClientRect())&&!inR(p.getBoundingClientRect()))peekHide();
+}
+function peekShow(col,quiet){
+  peekHide();
+  if(!view||!col.isConnected||document.querySelector('.card.dragging,.ghost'))return;
+  const mine=col.parentElement.id==='myField',suit=col.dataset.suit;
+  const cards=(mine?view.me.field:view.opp.field).filter(c=>c.s===suit);
+  if(cards.length<2)return;
+  peekCol=col;peekKey=(mine?'#myField':'#oppField')+' .col[data-suit="'+suit+'"]';
+  const p=document.createElement('div');p.id='peek';
+  p.innerHTML=cards.map(c=>cardEl(c,'')).join('')+`<span class="pk-tot">${SYM[suit]} ${cards.reduce((n,c)=>n+cardVal(c),0)}</span>`;
+  document.body.appendChild(p);
+  const els=[...p.querySelectorAll('.card')],base=els[0].offsetWidth,fieldW=col.querySelector('.card').offsetWidth;
+  const W=innerWidth,phone=W<600;
+  let z=Math.max(fieldW*1.15,phone?54:0)/base;   // a little bigger than the field cards
+  els.forEach(e=>e.style.zoom=z);
+  let b=p.getBoundingClientRect();
+  if(b.width>W-16){z*=(W-16)/b.width;els.forEach(e=>e.style.zoom=z);b=p.getBoundingClientRect();}
+  const r=col.getBoundingClientRect();
+  const left=Math.max(8,Math.min(W-b.width-8,r.left+r.width/2-b.width/2));
+  const top=Math.max(8,Math.min(innerHeight-b.height-8,r.top+(r.height-b.height)/2));
+  p.style.left=left+'px';p.style.top=top+'px';
+  const tot=p.querySelector('.pk-tot'),tr=tot.getBoundingClientRect();
+  if(tr.right>W-4)tot.style.right=(tr.right-W+4-8)+'px';
+  if(!reduced()&&!quiet){   // the cards fan out from where the stack sits
+    const cx=r.left+r.width/2;
+    els.forEach((e,i)=>{const er=e.getBoundingClientRect();e.animate([{transform:`translateX(${(cx-er.left-er.width/2)/z}px)`,opacity:.4},{transform:'none',opacity:1}],{duration:180,easing:'cubic-bezier(.2,.8,.3,1)',delay:i*12,fill:'backwards'});});
+    p.animate([{opacity:0},{opacity:1}],{duration:120});
+  }
+  if(!coarse())document.addEventListener('pointermove',peekTrack);
+}
+function peekRefresh(){   // the field was rebuilt: re-bind, and keep an open preview open on the same stack
+  const was=peekCol&&$('peek')?peekKey:null;
+  peekHide();peekBind();
+  const col=was&&document.querySelector(was);
+  if(col&&col.classList.contains('many')&&!col.querySelector('.targetable'))peekShow(col,true);
+}
+function coarse(){return matchMedia('(hover:none)').matches;}
+function peekBind(){
+  document.querySelectorAll('#myField .col,#oppField .col').forEach(col=>{
+    col.onpointerenter=e=>{
+      if(e.pointerType!=='mouse'||!col.classList.contains('many')||col.querySelector('.targetable'))return;
+      clearTimeout(peekTimer);peekTimer=setTimeout(()=>peekShow(col),220);
+    };
+    col.onpointerleave=e=>{if(e.pointerType==='mouse'&&!$('peek')){clearTimeout(peekTimer);peekTimer=null;}};
+    col.onpointerdown=e=>{
+      if(e.pointerType==='mouse'||!col.classList.contains('many')||col.querySelector('.targetable'))return;
+      const sx=e.clientX,sy=e.clientY;
+      clearTimeout(peekTimer);peekTimer=setTimeout(()=>peekShow(col),320);
+      const move=ev=>{if(Math.hypot(ev.clientX-sx,ev.clientY-sy)>10)end();};
+      const end=()=>{peekHide();document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',end);document.removeEventListener('pointercancel',end);};
+      document.addEventListener('pointermove',move);document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
+    };
+    col.oncontextmenu=e=>{if(col.classList.contains('many'))e.preventDefault();};
+  });
+}
 function fieldHTML(cards,top,targets){
-  return SUITS.map(s=>`<div class="col${top?' top':''}" data-suit="${s}">`+
+  return SUITS.map(s=>`<div class="col${top?' top':''}${cards.filter(c=>c.s===s).length>1?' many':''}" data-suit="${s}">`+
     cards.filter(c=>c.s===s).map(c=>cardEl(c,targets&&targets.has(c.id)?'targetable':'')).join('')+`</div>`).join('');
 }
 const SORT_ARROWS='<svg viewBox="0 0 22 22" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18V4M3 8l4-4 4 4"/><path d="M15 4v14M11 14l4 4 4-4"/></svg>';
@@ -3837,6 +3907,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   $('oppField').innerHTML=fieldHTML(v.opp.field,true,targets);
   $('myField').innerHTML=fieldHTML(v.me.field,false,null);
   fitCols();
+  peekRefresh();
   void $('myField').offsetWidth;$('oppField').classList.remove('relay');$('myField').classList.remove('relay');
   hushFx(prev,v);
   draftFx(prev,v);
