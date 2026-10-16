@@ -731,4 +731,15 @@ t('Rewind: your other cards of its suit go back to your hand, as they were; the 
   assert.equal(b.p[0].hand.length,10);assert.ok(b.p[0].hand.some(c=>c.id==='6H'),'newest first');assert.ok(b.discard.some(c=>c.id==='5H'));assert.ok(b.burn&&b.burn.who===0);
 });
 
+t('Mimic preview (client efx): a Mimic back in hand previews the current last effect, not what it copied before',()=>{
+  const src=html.match(/function efx\(c,v\)\{[\s\S]*?\n\}/)[0];const efx=new Function(src+'\nreturn efx;')();
+  const m={id:'7D',r:'7',s:'D',f:'M'};
+  // it copied Draft earlier, then Rewind brought it back to the hand; the last card played since was a Bolt
+  const v={me:{hand:[m],field:[]},opp:{field:[]},mirror:{n:1,id:'7D',fx:'W'},lastFx:'Q'};
+  assert.equal(efx(m,v),'Q');
+  v.lastFx=null;assert.equal(efx(m,v),null,'nothing played yet: nothing to copy');
+  // on the table a Mimic still showing its Mimic face copied nothing
+  v.lastFx='Q';v.me.field=[m];v.me.hand=[];assert.equal(efx(m,v),null);
+});
+
 console.log('\n'+n+' checks passed');

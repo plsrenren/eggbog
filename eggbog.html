@@ -3472,7 +3472,9 @@ let previewId=null,dragPreview=false;
 // what a card actually does right now: a Mimic does whatever the card before it did
 function efx(c,v){
   if(c.f!=='M')return c.f;
-  if(v.mirror&&v.mirror.id===c.id)return v.mirror.fx;                 // a Mimic already on the table
+  // a Mimic still showing 'M' on the table copied nothing (one that copied something carries that effect itself).
+  // Don't go by v.mirror: it remembers the last Mimic played, and that same card can be back in a hand (Rewind, reshuffle)
+  if(v.me.field.some(x=>x.id===c.id)||v.opp.field.some(x=>x.id===c.id))return null;
   return v.lastFx&&v.lastFx!=='M'?v.lastFx:null;                      // a Mimic in your hand: what it would copy
 }
 function projectTotals(v,c){
