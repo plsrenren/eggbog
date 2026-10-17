@@ -786,10 +786,13 @@ t('Bolt with nothing to hit holds a charge; it strikes after the opponent\'s nex
   // a Bolt that hits something does not charge
   const h=setup([X('9','S','Q')],[C('3','C')],[],[C('5','S'),C('10','H')]);h.crazy=true;act(h,0,{t:'play',id:'9S'});
   assert.ok(!h.p[0].field[0].ch);assert.ok(!h.boltCharge);
-  // only a Sturdy to hit: it charges, and another Sturdy can't set it off (the charge stays)
+  // only a Sturdy to hit: the Bolt still strikes (the Sturdy survives) and holds no charge
   const st=setup([X('9','S','Q'),X('2','C','')],[X('3','S','4')],[C('5','C')],[X('6','S','4')]);st.crazy=true;
-  act(st,0,{t:'play',id:'9S'});assert.equal(st.p[0].field.find(c=>c.id==='9S').ch,1);
-  act(st,1,{t:'play',id:'3S'});assert.equal(st.p[1].field.length,2);assert.equal(st.p[0].field.find(c=>c.id==='9S').ch,1);
+  act(st,0,{t:'play',id:'9S'});assert.ok(!st.p[0].field.find(c=>c.id==='9S').ch,'no charge');assert.ok(!st.boltCharge);
+  assert.ok(st.p[1].field.some(c=>c.id==='6S'),'Sturdy survives');
+  // a charged Bolt: another Sturdy can't set it off (the charge stays)
+  const sc=setup([C('2','C')],[X('3','S','4')],[C('5','C'),Object.assign(X('9','S','Q'),{ch:1})],[X('6','S','4')]);sc.crazy=true;sc.turn=1;
+  act(sc,1,{t:'play',id:'3S'});assert.equal(sc.p[1].field.length,2);assert.equal(sc.p[0].field.find(c=>c.id==='9S').ch,1);
 });
 
 t('Charged Bolt: waits for a Steal choice; Hush silences it; a Blaze burns it before it fires',()=>{

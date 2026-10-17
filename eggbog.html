@@ -803,7 +803,7 @@ const ABILITY_TEXT={
   '4':'Sturdy: this card cannot be removed from the field by any means.',
   '5':'Swap: this card moves to your opponent\'s side. If they have a card of the same suit, the most recently played one swaps sides with it.',
   J:'Frost: freeze and shatter the top (most recently played) card of its suit and of the other suit of the same colour (♥/♦ or ♣/♠) on your opponent\'s side. A Sturdy card on top blocks it for that suit.',
-  Q:'Bolt: lightning destroys all cards of the same suit on your opponent\'s side. If there is nothing to hit, it holds a charge: the next time your opponent plays a card of that suit, the charge strikes after that card\'s own effect and destroys all their cards of that suit, the new one included.',
+  Q:'Bolt: lightning destroys all cards of the same suit on your opponent\'s side (a Sturdy card is struck but survives). If they have no card of that suit, it holds a charge: the next time your opponent plays a card of that suit, the charge strikes after that card\'s own effect and destroys all their cards of that suit, the new one included.',
   K:'Blaze: burn away all removable cards from both sides, excluding the King itself.',
   M:'Mimic: when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Soul, Sturdy and Rune included). If nothing was played before it, it does nothing.',
   T:'Steal: your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned. Their last card can\'t be stolen.',
@@ -823,7 +823,7 @@ const ABILITY_TIP={   // short hover tooltips; the Rules and effects screens use
   '4':'Sturdy: can\'t be removed.',
   '5':'Swap: moves to the opponent\'s side and swaps with their top card of this suit.',
   J:'Frost: shatters the opponent\'s top card of this suit and of its same-colour suit.',
-  Q:'Bolt: destroys all the opponent\'s cards of this suit. Nothing to hit: it holds a charge for their next card of this suit.',
+  Q:'Bolt: destroys all the opponent\'s cards of this suit (Sturdy survives). None of that suit: it holds a charge for their next card of this suit.',
   K:'Blaze: burns all removable cards on both sides.',
   M:'Mimic: copies the card played just before it.',
   T:'Steal: take a card of their choice from the opponent; one of yours burns.',
@@ -975,8 +975,9 @@ function resolve(s,i,c){
       hit.sort((x,y)=>f.indexOf(x)-f.indexOf(y)).forEach(x=>removeCard(s,opp,x));   // oldest first, so a Raise brings back the one played last
       break;}
     case 'Q':{
-      const tg=s.p[opp].field.filter(x=>x.s===c.s&&F(x)!=='4');
-      if(tg.length)tg.forEach(x=>removeCard(s,opp,x));
+      // it strikes whenever they have a card of this suit (a Sturdy card shrugs it off); it only holds a charge when they have none
+      const col=s.p[opp].field.filter(x=>x.s===c.s),tg=col.filter(x=>F(x)!=='4');
+      if(col.length){tg.forEach(x=>removeCard(s,opp,x));if(!tg.length)log(s,i,'Bolt: the Sturdy card shrugs it off');}
       else{c.ch=1;s.boltCharge={n:((s.boltCharge&&s.boltCharge.n)||0)+1,by:i,id:c.id};log(s,i,'Bolt: nothing to hit, so it holds a charge');}   // fires when the opponent next plays a card of this suit (see boltCheck)
       break;}
     case 'T':{ // the opponent chooses which card of theirs to give
@@ -1725,7 +1726,7 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
     if(n[0])lines.push('💥 Removes '+n[0]+' of your card'+(n[0]>1?'s':''));
     if(dr[0])lines.push('👻 You draw '+dr[0]+' (Soul)');
     if(dr[1])lines.push('👻 '+OPP+' draws '+dr[1]+' (Soul)');
-  }else if(cf==='Q')lines.push('⚡ Nothing to hit: it holds a charge');
+  }else if(cf==='Q')lines.push(v.opp.field.some(x=>x.s===c.s)?'🛡️ Bolt strikes, but Sturdy shrugs it off':'⚡ Nothing to hit: it holds a charge');
   else if(cf==='J'||cf==='K')lines.push('💨 Nothing to remove');
   if(boltWaiting(v.opp.field.filter(x=>!gone.some(g=>g.c.id===x.id)),c,v))lines.push('⚡ '+OPP+'\'s charged Bolt strikes your '+SYM[c.s]+' cards');
   const t=projectTotals(v,c),d=t.me-t.opp;
@@ -3833,7 +3834,10 @@ function removalAnim(kind,pl,clones,G){
     }
   }else if(kind==='Q'){
     // Bolt: lightning shoots out of the played card into each removed card; it flashes, chars black and crumbles to ash
-    if(!clones.length)return;   // nothing to hit: no strike, the Bolt just holds a charge
+    // a Sturdy card of this suit is struck too, but it shrugs the lightning off and stays
+    const tv=view,ward=tv?(pl.side==='#myField'?tv.opp.field:tv.me.field).filter(x=>x.s===pl.c.s&&efx(x,tv)==='4'):[];
+    const wardEls=ward.map(x=>document.querySelector((pl.side==='#myField'?'#oppField':'#myField')+' .card[data-id="'+x.id+'"]')).filter(Boolean);
+    if(!clones.length&&!wardEls.length)return;   // nothing to hit: no strike, the Bolt just holds a charge
     {
       S&&noiseBurst(.55,'bandpass',2200,300,.55);S&&boomLow(.06);
       const src=srcR();castGlow('#9ad8ffcc');
@@ -3868,6 +3872,14 @@ function removalAnim(kind,pl,clones,G){
           const ash=fx(`left:${x}px;top:${y}px;width:${sz}px;height:${sz}px;border-radius:50%;background:${Math.random()<.3?'#ff9a3c':'#3a3a3a'}`,58);
           ash.animate([{transform:'none',opacity:0},{opacity:.9,offset:.2},{transform:`translate(${(Math.random()-.5)*40}px,${-30-Math.random()*50}px)`,opacity:0}],{duration:800+Math.random()*400,delay:d+400+Math.random()*250,easing:'ease-out',fill:'both'});die(ash,d+1500);
         }
+        S&&setTimeout(()=>thud(),d+120);
+      });
+      wardEls.forEach((el,i)=>{   // Sturdy: struck, it flashes and jolts, a blue ward ring flares, and it stays
+        const r=el.getBoundingClientRect(),d=(clones.length+i)*110,c=ctr(r);
+        strike(r,d);
+        el.animate([{filter:'none',transform:'none'},{filter:'brightness(2.2) drop-shadow(0 0 10px #9ad8ff)',transform:'translateX(-3px)',offset:.12},{filter:'brightness(1.4) drop-shadow(0 0 6px #9ad8ff)',transform:'translateX(3px)',offset:.3},{filter:'none',transform:'none'}],{duration:700,delay:d,easing:'ease-out'});
+        const ring=fx(`left:${c.x-r.width*.7}px;top:${c.y-r.width*.7}px;width:${r.width*1.4}px;height:${r.width*1.4}px;border-radius:50%;border:3px solid #cfeaff;box-shadow:0 0 14px #9ad8ff,inset 0 0 14px #9ad8ff`,58);
+        ring.animate([{transform:'scale(.6)',opacity:0},{transform:'scale(1)',opacity:1,offset:.25},{transform:'scale(1.35)',opacity:0}],{duration:620,delay:d+60,easing:'ease-out',fill:'both'});die(ring,d+720);
         S&&setTimeout(()=>thud(),d+120);
       });
     }
