@@ -805,4 +805,29 @@ t('Charged Bolt: waits for a Steal choice; Hush silences it; a Blaze burns it be
   act(bl,1,{t:'play',id:'3S'});assert.ok(bl.p[1].field.some(c=>c.id==='3S'));assert.ok(bl.discard.some(c=>c.id==='9S'&&!c.ch),'burned, charge gone');
 });
 
+t('Raise: your most recently destroyed card comes back onto your side, without its effect',()=>{
+  const s=setup([X('3','C','Z'),X('4','D','Z'),X('2','D','')],[X('9','H','Q'),C('4','S')],[X('5','H','2'),X('6','H',''),X('8','C','')],[C('10','S')]);s.crazy=true;s.turn=1;
+  assert.equal(act(s,1,{t:'play',id:'9H'}),null);   // Bolt: 5H (a Soul) then 6H are destroyed
+  drawFor(s,0);
+  assert.equal(viewFor(s,0).me.raise.id,'6H','the one played last');assert.equal(viewFor(s,1).opp.raise.id,'6H');
+  assert.equal(act(s,0,{t:'play',id:'3C'}),null);
+  assert.deepEqual(s.p[0].field.map(c=>c.id),['8C','3C','6H']);assert.ok(!s.discard.some(c=>c.id==='6H'));
+  assert.equal(s.raise.id,'6H');assert.equal(s.turn,0,'17 vs 19: keep playing');
+  assert.equal(act(s,0,{t:'play',id:'4D'}),null);
+  assert.ok(s.p[0].field.some(c=>c.id==='5H'),'the next one back');assert.equal(s.drawQ.length,0,'a raised Soul does not draw');
+  assert.equal(s.turn,1);
+  // nothing destroyed yet: nothing happens
+  const e=setup([X('3','C','Z'),X('2','C','')],[C('4','S')],[],[C('10','S')]);e.crazy=true;
+  act(e,0,{t:'play',id:'3C'});assert.deepEqual(e.p[0].field.map(c=>c.id),['3C']);assert.equal(e.raise.id,null);assert.equal(viewFor(e,0).me.raise,null);
+  // a destroyed card that was shuffled back into the deck can't come back
+  e.p[0].lost=['9C'];assert.equal(viewFor(e,0).me.raise,null);
+});
+
+t('Frost destroys oldest first, so Raise brings back the card played last',()=>{
+  const s=setup([X('3','D','Z'),X('2','C','')],[X('J','H','J'),C('4','S')],[X('5','D',''),X('6','H',''),X('8','C','')],[C('10','S'),C('9','S')]);s.crazy=true;s.turn=1;
+  act(s,1,{t:'play',id:'JH'});   // hits the top heart (6H) and the top diamond (5D); 6H was played after 5D
+  assert.ok(!s.p[0].field.some(c=>c.id==='5D'||c.id==='6H'));
+  assert.equal(viewFor(s,0).me.raise.id,'6H');
+});
+
 console.log('\n'+n+' checks passed');
