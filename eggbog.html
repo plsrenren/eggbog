@@ -573,6 +573,10 @@ header h2{margin:0;font-size:1.3rem}
 /* ---- phones ---- */
 html{-webkit-text-size-adjust:100%;background:var(--felt3);overscroll-behavior:none}
 body{overflow-x:hidden;overscroll-behavior-y:none;-webkit-tap-highlight-color:transparent}
+/* no text highlighting or long-press callouts anywhere in the game; typing fields and the share link stay selectable */
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
+.linkbox{-webkit-user-select:all;user-select:all}
 button,summary,.clk{touch-action:manipulation}
 @media(max-width:640px){
   #lobby{margin:0 auto;padding:max(10px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-left)) 10px}
