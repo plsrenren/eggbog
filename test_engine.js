@@ -1,7 +1,7 @@
 const fs=require('fs');
 const html=fs.readFileSync('eggbog.html','utf8');
 const m=html.match(/\/\/ ==ENGINE==([\s\S]*?)\/\/ ==END ENGINE==/);
-const src=m[1]+'\nmodule.exports={newGame,act,viewFor,actor,total,cardVal,mkDeck,startRound,settle,cpuChoose,fillDeck,F};';
+const src=m[1]+'\nmodule.exports={newGame,act,viewFor,actor,total,cardVal,mkDeck,startRound,settle,cpuChoose,fillDeck,F,resolveStart};';
 const mod={exports:{}};new Function('module',src)(mod);
 const {newGame,act,viewFor,actor,total,cardVal,mkDeck}=mod.exports;
 const assert=require('assert');
@@ -693,6 +693,15 @@ t('Crazy: the starter gets a 1-point Egg, and it is never shuffled back into the
   s.p[st].hand.splice(s.p[st].hand.indexOf(egg),1);s.discard.push(egg,{id:'9C',r:'9',s:'C',f:''});s.deck=[];
   fillDeck(s);
   assert.equal(s.deck.length,1);assert.ok(!s.deck.some(c=>c.r==='EG'),'the Egg left the game');
+});
+
+t('who goes first: a Surge counts as higher than every other card',()=>{
+  const {resolveStart}=mod.exports;
+  const go=(c0,c1)=>{const s=newGame(null,{crazy:true});s.phase='start';s.startCards=[c0,c1];resolveStart(s);return s.startReveal.starter;};
+  const sg=id=>({id,r:'JK',s:'*',f:'X'});
+  assert.equal(go(sg('JK1'),C('K','D')),1,'Surge vs King: the King goes first');
+  assert.equal(go(C('A','C'),sg('JK2')),0,'Ace vs Surge: the Ace goes first');
+  assert.equal(go(C('10','D'),C('A','C')),1,'plain cards still compare by value');
 });
 
 t('Out of cards with a Rune and a concede left: may concede instead of losing',()=>{

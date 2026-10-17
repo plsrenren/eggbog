@@ -873,7 +873,8 @@ function giveCard(s,i,c){
   else s.burn={n:(b?b.n:0)+1,who:i,cards:[cp(c)],full:true,act:s.actN};
   return false;
 }
-function lower(a,b){ // true if card a is lower than card b (value, then suit)
+function lower(a,b){ // true if card a is lower than card b (value, then suit); a Surge beats every other card
+  const ja=a.r==='JK',jb=b.r==='JK';if(ja!==jb)return jb;
   const d=cardVal(a)-cardVal(b);if(d)return d<0;return SUIT_RANK[a.s]<SUIT_RANK[b.s];
 }
 function newGame(rng,opts){
@@ -4518,7 +4519,7 @@ function showRules(){
   <h4>Card values</h4><p>Ace = 1, 2–10 = face value, Jack/Queen/King = ${cz?'10':'1'}. Suits low to high: ♣ ♠ ♥ ♦.</p>
   ${cz?`<h4>Setup</h4><p>Each player opens a starter pack of 7 cards. You either keep it or open a different pack of 7 new cards from the deck (your first pack is discarded and counts as mulliganed in the stats). There is no other mulligan.</p>`
       :`<h4>Setup</h4><p>Each player is dealt 10 cards and may mulligan up to 5 of them.</p>`}
-  <h4>Starting a round</h4><p>Each player is dealt one card from the deck, face down, and both flip at once. Both cards go into their owners' hands, and the player whose card is lowest goes first (equal values: lower suit goes first). To make up for moving first, that player also gets the 🥚 Egg: a plain card with no effect, worth ${cz?'1 point':'5 points'}. Like a Surge it has no suit, so it can be played on any of your columns. It is never shuffled back into the deck. In later rounds, the loser of the previous round chooses who starts.</p>
+  <h4>Starting a round</h4><p>Each player is dealt one card from the deck, face down, and both flip at once. Both cards go into their owners' hands, and the player whose card is lowest goes first (equal values: lower suit goes first)${cz?'. A Surge counts as higher than every other card here':''}. To make up for moving first, that player also gets the 🥚 Egg: a plain card with no effect, worth ${cz?'1 point':'5 points'}. Like a Surge it has no suit, so it can be played on any of your columns. It is never shuffled back into the deck. In later rounds, the loser of the previous round chooses who starts.</p>
   <h4>Turns</h4><p>Play a card by dragging it from your hand onto its own suit column on your side of the field (the column lights up). Drag cards within your hand to arrange them however you like. Once your total is strictly greater than your opponent's, your turn ends. You cannot play while your total is already strictly greater. You may concede on your turn with the 🏳️ Concede button by your score, only once per game (so you can never concede the whole match away), never on the very first turn of the game, and never in round 3: the final duel, which has to be played out. When you concede, your opponent wins the round and draws a card from the deck (if their hand is full, 10 cards, it burns).</p>
   <h4>The field</h4><p>Each player has a side, organized in suit columns (♣ ♠ ♥ ♦) that face the matching column on the opponent's side.</p>
   ${cz?`<h4>Card effects</h4><p>Every single card gets one of the effects below at random, so two Aces (or two 7s) can do different things. The effect is written on each card, and the 🌀 button shows the effects in this game. Effects trigger when the card is played.</p><ul>${fxList}</ul>`
