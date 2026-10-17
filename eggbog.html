@@ -189,7 +189,7 @@ header h2{margin:0;font-size:1.3rem}
 /* Greed on the field: gilded frame with a soft gold glow */
 #myField .card.rG:not(.hushed),#oppField .card.rG:not(.hushed),#peek .card.rG:not(.hushed){border:3px solid transparent;background:linear-gradient(160deg,#eef4ff,#d5e2fa) padding-box,linear-gradient(135deg,#fff3b0 0%,#e8b730 22%,#a8741a 45%,#f6d66a 62%,#b9831f 80%,#fff0a0 100%) border-box;box-shadow:0 0 10px 2px #f2c14e99,0 1px 3px #0006}
 #myField .card.rG.red:not(.hushed),#oppField .card.rG.red:not(.hushed),#peek .card.rG.red:not(.hushed){background:linear-gradient(160deg,#fff1f1,#fbd9d9) padding-box,linear-gradient(135deg,#fff3b0 0%,#e8b730 22%,#a8741a 45%,#f6d66a 62%,#b9831f 80%,#fff0a0 100%) border-box}
-.card.rL:not(.hushed){box-shadow:0 0 6px #5fd6ff,0 0 14px #5fd6ffaa,0 1px 3px #0006}
+:where(:root:not(.final-round)) .card.rL:not(.hushed){box-shadow:0 0 6px #5fd6ff,0 0 14px #5fd6ffaa,0 1px 3px #0006}
 /* a charged Bolt (it had nothing to hit): an electric border that flickers like a live wire */
 .card.bch{border-color:#bfe4ff!important;animation:bchFlick 1.9s steps(1,end) infinite}
 .card.bch::before{content:"";position:absolute;inset:-3px;border-radius:inherit;pointer-events:none;border:2px solid #9ad8ff;box-shadow:0 0 8px #9ad8ff,0 0 16px #5aa8ff99,inset 0 0 8px #9ad8ff88;animation:bchPulse 1.1s ease-in-out infinite alternate}
@@ -3919,7 +3919,7 @@ function soulWisp(r){
 // commit pending style changes (e.g. the 'relay' no-transition class) without also forcing a layout
 function flushStyle(el){void getComputedStyle(el).opacity;}
 function applyTheme(on){document.documentElement.classList.toggle('theme-crazy',!!on);}
-function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.toggle('deathmatch',!!(v&&v.round>=3&&dmPending!==v.gameId));jokerFxSet(!!(v&&(v.jq>0||(v.pending&&v.pending.jk))&&v.phase!=='over'));
+function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.toggle('final-round',!!(v&&v.round>=3));document.documentElement.classList.toggle('deathmatch',!!(v&&v.round>=3&&dmPending!==v.gameId));jokerFxSet(!!(v&&(v.jq>0||(v.pending&&v.pending.jk))&&v.phase!=='over'));
   const prev=lastV;lastV=JSON.parse(JSON.stringify(v)); // a copy: in host/practice mode the view shares arrays with the live game state
   view=v;
   const oldCards=new Map();
