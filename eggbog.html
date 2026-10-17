@@ -1989,10 +1989,11 @@ function showPack(second){
       const r0=rot==='none'?'0deg':rot,id=ce.dataset.id,tgt=h&&id&&[...h.querySelectorAll('.card')].find(c=>c.dataset.id===id);
       let k=cr.width/w,tx=cx+(x-fx)*k-x,ty=cy+(y-fy)*k-y,r1=r0;   // by default: same spot in the fan, the fan scaled down around the hand's centre
       if(tgt){   // better: straight onto that card's place in your (fanned) hand
-        const tr=tgt.getBoundingClientRect();k=tgt.offsetWidth/w;   // w already includes the fan's zoomtx=tr.left+tr.width/2-x;ty=tr.top+tr.height/2-y;
+        const tr=tgt.getBoundingClientRect();k=tgt.offsetWidth/w;   // w already includes the fan's zoom
+        tx=tr.left+tr.width/2-x;ty=tr.top+tr.height/2-y;
         r1=(getComputedStyle(tgt).getPropertyValue('--r').trim()||'0deg');
       }
-      g.animate([{transform:`rotate(${r0})`},{transform:`translate(${tx*.35}px,${ty*.35-24}px) rotate(${r0}) scale(${1-(1-k)*.35})`,offset:.35},{transform:`translate(${tx}px,${ty}px) rotate(${r1}) scale(${k})`}],
+      g.animate([{transform:`rotate(${r0})`},{transform:`translate(${tx*.35}px,${ty*.35-24}px) rotate(${r0}) scale(${1-(1-k)*.35})`,offset:.35},{transform:`translate(${tx}px,${ty}px) rotate(${r1}) scale(${k}) perspective(1000px) rotateX(10deg)`}],
         {duration:DUR,easing:'cubic-bezier(.45,0,.3,1)',fill:'forwards'});
       return g;
     });
