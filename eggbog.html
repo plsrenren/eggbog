@@ -3265,6 +3265,8 @@ function raiseRise(el,r,dur,delay,op){
     {transform:'none',clipPath:'inset(0 -40px 0 -40px)',filter:'brightness(1.25) drop-shadow(0 0 12px #4fe08a)',opacity:op,offset:.8},
     {transform:'none',clipPath:'inset(0 -40px 0 -40px)',filter:'none',opacity:op}],{duration:dur,delay,easing:'cubic-bezier(.25,.7,.35,1)',fill:'both'});
 }
+// the card a Raise just brought back (it is new on the table, but its own effect must not play)
+function raisedNow(prev,v){return prev&&v.raise&&v.raise.id&&v.raise.n>((prev.raise&&prev.raise.n)||0)?v.raise.id:null;}
 function raiseFx(prev,v){
   if(!prev||!v.raise||prev.you!==v.you||v.raise.n<=((prev.raise&&prev.raise.n)||0))return;
   raiseSound(!!v.raise.id);
@@ -3934,7 +3936,7 @@ function removalAnim(kind,pl,clones,G){
 function faceFx(prev,v,oldCards){
   const handled=new Set();
   if(!prev||prev.you!==v.you||!document.body.animate)return handled;
-  const had=id=>prev.me.field.some(c=>c.id===id)||prev.opp.field.some(c=>c.id===id);
+  const rz=raisedNow(prev,v),had=id=>id===rz||prev.me.field.some(c=>c.id===id)||prev.opp.field.some(c=>c.id===id);
   // a charged Bolt struck: the card that set it off may already be gone, so it is drawn from the Bolt's own record
   const zap=v.boltZap&&v.boltZap.n>((prev.boltZap&&prev.boltZap.n)||0)?v.boltZap:null;
   const zSide=zap?(zap.by===v.you?'#oppField':'#myField'):null,zIds=new Set(zap?zap.ids:[]);
@@ -4236,7 +4238,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   // 5 (Swap): lands on the side it was played, then slides across and trades places with the card there (or arrives alone)
   const swapSkip=new Set();
   if(prev&&!reduced()&&!$('duel')&&prev.you===v.you&&v.phase!=='mulligan'&&prev.phase!=='mulligan'){
-    const had=id=>prev.me.field.some(c=>c.id===id)||prev.opp.field.some(c=>c.id===id);
+    const rz=raisedNow(prev,v),had=id=>id===rz||prev.me.field.some(c=>c.id===id)||prev.opp.field.some(c=>c.id===id);
     const mineFive=v.opp.field.find(c=>efx(c,v)==='5'&&!had(c.id)); // I played it: it ends up on their side
     const theirFive=!mineFive&&v.me.field.find(c=>efx(c,v)==='5'&&!had(c.id));
     const five=mineFive||theirFive;
