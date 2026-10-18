@@ -833,4 +833,25 @@ t('Frost destroys oldest first, so Raise brings back the card played last',()=>{
   assert.equal(viewFor(s,0).me.raise.id,'6H');
 });
 
+t('Aegis: your cards of its suit survive removal until the turn comes back to you twice',()=>{
+  const s=setup([X('3','H','Y'),X('10','C',''),C('4','C')],[X('9','H','Q'),X('K','D','K'),C('8','D'),C('2','S')],[C('5','H'),C('8','C')],[C('10','S')]);s.crazy=true;
+  assert.equal(act(s,0,{t:'play',id:'3H'}),null);
+  const ag=()=>s.p[0].field.find(c=>c.id==='3H');
+  assert.equal(ag().ag,2);assert.equal(s.turn,1);assert.equal(viewFor(s,1).aegis.suit,'H');
+  assert.equal(act(s,1,{t:'play',id:'9H'}),null);   // Bolt on hearts: the shield holds
+  assert.deepEqual(s.p[0].field.map(c=>c.id),['5H','8C','3H']);assert.ok(!ag().ch);
+  assert.equal(s.turn,0);assert.equal(ag().ag,1,'one turn less');
+  assert.equal(act(s,0,{t:'play',id:'10C'}),null);assert.equal(s.turn,1);
+  assert.equal(act(s,1,{t:'play',id:'KD'}),null);   // Blaze: only the hearts survive
+  assert.deepEqual(s.p[0].field.map(c=>c.id),['5H','3H']);
+  assert.equal(act(s,1,{t:'play',id:'8D'}),null);assert.equal(s.turn,0);
+  assert.equal(ag().ag,undefined,'the light fades');assert.deepEqual(s.aegisEnd.ids,['3H']);
+  // a Hushed Aegis protects nothing
+  const h=setup([C('2','C')],[X('9','H','Q'),C('8','D')],[C('5','H'),Object.assign(X('3','H','Y'),{ag:2,hu:2})],[C('4','S')]);h.crazy=true;h.turn=1;
+  act(h,1,{t:'play',id:'9H'});assert.equal(h.p[0].field.length,0);
+  // an Aegis that leaves the table loses its light
+  const r=setup([X('3','H','R'),C('2','C')],[C('9','S')],[Object.assign(X('6','H','Y'),{ag:2})],[C('10','S')]);r.crazy=true;
+  act(r,0,{t:'play',id:'3H'});assert.ok(r.p[0].hand.some(c=>c.id==='6H'&&!c.ag));
+});
+
 console.log('\n'+n+' checks passed');
