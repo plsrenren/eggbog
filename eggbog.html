@@ -221,6 +221,10 @@ header h2{margin:0;font-size:1.3rem}
   .field .col.many .card:hover{transform:none}   /* a stack opens sideways instead (#peek) */
 }
 /* Stack preview: hover (mouse) or press and hold (touch) a stack of 2+ cards and it slides open sideways, oldest first, top card outlined in gold */
+/* card counts: hover (hold on touch) a hand for its card count, the deck for deck + discard */
+.cnt-tag{position:fixed;z-index:46;background:var(--gold);color:#1d1d1d;font-weight:800;font-size:.85rem;border-radius:999px;padding:3px 11px;box-shadow:0 2px 10px #000a;white-space:nowrap;pointer-events:none}
+.cnt-box{position:fixed;z-index:46;background:linear-gradient(#0c1f4af5,#050f2af5);border:1px solid #f2c14e88;border-radius:12px;box-shadow:0 10px 30px #000c;padding:6px 12px;color:#fff;font-size:.85rem;line-height:1.6;pointer-events:none;white-space:nowrap}
+.cnt-box div{display:flex;justify-content:space-between;gap:16px}.cnt-box b{color:var(--gold);font-size:1rem}
 #peek{position:fixed;z-index:46;display:flex;padding:6px;border-radius:12px;background:linear-gradient(#0c1f4af2,#050f2af2);box-shadow:0 0 0 2px #f2c14e66,0 8px 30px #000b;pointer-events:none}
 #peek .card{position:relative;margin:0;flex:none;box-shadow:0 2px 6px #0008}
 #peek .card+.card{margin-left:-8px}
@@ -3566,6 +3570,54 @@ function peekBind(){
     col.oncontextmenu=e=>{if(col.classList.contains('many'))e.preventDefault();};
   });
 }
+// ---- Card counts: hover a hand (press and hold on touch) for its count; the deck shows deck + discard ----
+let cntZone=null,cntTimer=null;
+function cntRect(z){   // the area a zone covers on screen, or null when it has nothing in it
+  const els=z==='deck'?[$('deck')]:[...document.querySelectorAll(z==='opp'?'#oppHand .oc':'#hand .card:not(.dragging)')];
+  const rs=els.filter(Boolean).map(e=>e.getBoundingClientRect()).filter(r=>r.width);
+  if(!rs.length)return null;
+  return {left:Math.min(...rs.map(r=>r.left)),right:Math.max(...rs.map(r=>r.right)),top:Math.min(...rs.map(r=>r.top)),bottom:Math.max(...rs.map(r=>r.bottom))};
+}
+function cntAt(x,y){
+  if(!view||view.phase==='over'||document.querySelector('.card.dragging,.ghost,.modal'))return null;
+  for(const z of ['deck','opp','me']){const r=cntRect(z);if(r&&x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom)return z;}
+  return null;
+}
+function cntHide(){clearTimeout(cntTimer);cntTimer=null;cntZone=null;document.querySelectorAll('.cnt-tag,.cnt-box').forEach(e=>e.remove());}
+function cntShow(z){
+  cntHide();const r=cntRect(z);if(!r||!view)return;
+  cntZone=z;const W=innerWidth,el=document.createElement('div');
+  if(z==='deck'){
+    el.className='cnt-box';
+    el.innerHTML=`<div><span>🂠 Deck</span><b>${view.deck}</b></div><div><span>🔥 Discard pile</span><b>${view.discard}</b></div>`;
+  }else{
+    const n=z==='opp'?view.opp.hand:view.me.hand.length;
+    el.className='cnt-tag';el.textContent=n+(n===1?' card':' cards');
+  }
+  document.body.appendChild(el);
+  const b=el.getBoundingClientRect();
+  const left=z==='deck'?r.right-b.width:(r.left+r.right)/2-b.width/2;
+  el.style.left=Math.max(6,Math.min(W-b.width-6,left))+'px';
+  el.style.top=(z==='me'?r.top-b.height-6:r.bottom+(z==='deck'?8:4))+'px';
+  if(!reduced())el.animate([{opacity:0,transform:'translateY(-3px)'},{opacity:1,transform:'none'}],{duration:120});
+}
+document.addEventListener('pointermove',e=>{   // mouse: open after a short hover, close on leaving
+  if(e.pointerType!=='mouse')return;
+  const z=cntAt(e.clientX,e.clientY);
+  if(z===cntZone&&(z||!cntTimer))return;
+  if(cntZone&&z!==cntZone)cntHide();
+  clearTimeout(cntTimer);cntTimer=null;
+  if(z)cntTimer=setTimeout(()=>{cntTimer=null;if(z===cntAt(e.clientX,e.clientY))cntShow(z);},220);
+},{passive:true});
+document.addEventListener('pointerdown',e=>{   // touch: press and hold; a move (drag) or lifting the finger closes it
+  if(e.pointerType==='mouse'){cntHide();return;}
+  const z=cntAt(e.clientX,e.clientY);if(!z)return;
+  const sx=e.clientX,sy=e.clientY;
+  cntHide();cntTimer=setTimeout(()=>{cntTimer=null;cntShow(z);},320);
+  const move=ev=>{if(Math.hypot(ev.clientX-sx,ev.clientY-sy)>10)end();};
+  const end=()=>{cntHide();document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',end);document.removeEventListener('pointercancel',end);};
+  document.addEventListener('pointermove',move);document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
+},true);
 function fieldHTML(cards,top,targets){
   return SUITS.map(s=>`<div class="col${top?' top':''}${cards.filter(c=>c.s===s).length>1?' many':''}" data-suit="${s}">`+
     cards.filter(c=>c.s===s).map(c=>cardEl(c,targets&&targets.has(c.id)?'targetable':'')).join('')+`</div>`).join('');
@@ -4072,6 +4124,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   fRe.forEach(id=>{$(id).classList.add('relay');$(id).innerHTML=fNew[id];});   // rebuilt: a card under the pointer must not replay its hover zoom
   fitCols();
   peekRefresh();
+  if(cntZone)requestAnimationFrame(()=>{if(cntZone)cntShow(cntZone);});   // an open card count follows the new numbers
   if(fRe.length){flushStyle($('myField'));fRe.forEach(id=>$(id).classList.remove('relay'));}
   for(const id of ['oppField','myField'])domSnap[id]={gen:fNew[id],dom:$(id).innerHTML};
   hushFx(prev,v);
