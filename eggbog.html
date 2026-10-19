@@ -206,6 +206,8 @@ header h2{margin:0;font-size:1.3rem}
 #myField .card.ag-on,#oppField .card.ag-on,#peek .card.ag-on{border:2px solid #f2c14e;background:linear-gradient(160deg,#fffef6,#fbefc4);box-shadow:0 0 0 2px #fff,0 0 14px 4px #ffe9a0cc}
 .card .agp{position:absolute;right:3px;bottom:15px;display:flex;gap:2px;z-index:3;pointer-events:none}
 .card .agp i{width:6px;height:6px;border-radius:50%;background:#f2c14e;box-shadow:0 0 4px #ffe27a}
+.card .agp.gp{display:none}   /* Greed's draws left: only shown on the table */
+#myField .card .agp.gp,#oppField .card .agp.gp,#peek .card .agp.gp{display:flex}
 .aegis-beam{position:fixed;pointer-events:none;z-index:46;border-radius:10px;filter:blur(4px);background:linear-gradient(90deg,#fff0 0%,#fffbe688 22%,#fff 50%,#fffbe688 78%,#fff0 100%),linear-gradient(180deg,#fff 0%,#fff8 60%,#fff0 100%);background-blend-mode:screen}
 .aegis-mote{position:fixed;width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 6px 2px #ffe9a0;pointer-events:none;z-index:47}
 .card.r4,.card.sturdy.r4{background:var(--card);border:2px solid #8e98a2;box-shadow:inset 0 0 0 1px #ffffffcc,inset 0 0 4px #5b646c66,0 1px 3px #0006}
@@ -829,7 +831,7 @@ const ABILITY_TEXT={
   M:'Mimic: when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Soul, Sturdy and Rune included). If nothing was played before it, it does nothing.',
   T:'Steal: your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned. Their last card can\'t be stolen.',
   L:'Rune: when a round ends because someone concedes, you draw two cards if this card is on your side, whether you conceded or your opponent did. Each Rune on your side draws its own two cards. If you run out of cards with a Rune on your side and still have your concede (not in round 3), you can concede the round instead of losing the game.',
-  G:'Greed: while this card is on your field, you draw a card every time the turn passes from your opponent to you. Nothing happens when it is played, and it stops once it is removed.',
+  G:'Greed: while this card is on your field, you draw a card every time the turn passes from your opponent to you, up to 3 cards (the dots on it show how many are left). Nothing happens when it is played, and it stops once it is removed or all 3 are drawn. If it leaves the table and comes back, it starts again with 3.',
   O:'Morph: the top (most recently played) card of the same suit on your opponent\'s side turns into an Egg worth 1 point and loses its effect. It hits Sturdy cards too (they lose Sturdy). It turns back when it leaves the table. An Egg on top is not affected.',
   U:'Hush: every card on your opponent\'s side is silenced for as long as it stays on the table: it keeps its value but loses its effect (a Sturdy card can be removed, Soul, Greed and Rune do nothing). Cards they play after it are not silenced. A silenced card that gets Morphed loses its silence.',
   R:'Rewind: every other card of this suit on your side goes back to your hand (the Rewind stays on the table, and so do other Rewinds). They come back as they were before they were played: a Morphed card is itself again, a Hushed card is no longer silenced, the Egg loses its suit. Nothing triggers when they leave (a Soul does not draw). If your hand fills up (10 cards), the rest are burned.',
@@ -850,7 +852,7 @@ const ABILITY_TIP={   // short hover tooltips; the Rules and effects screens use
   M:'Mimic: copies the card played just before it.',
   T:'Steal: take a card of their choice from the opponent; one of yours burns.',
   L:'Rune: draw 2 when a round ends by concede.',
-  G:'Greed: draw a card at the start of each of your turns while on the field.',
+  G:'Greed: draw a card at the start of each of your turns while on the field (3 times at most).',
   O:'Morph: turns the opponent\'s top card of this suit into a 1-point Egg.',
   U:'Hush: silences every card on the opponent\'s side.',
   W:'Draft: you both draw a card; you draw one more if your hand is smaller.',
@@ -944,8 +946,11 @@ function removeCard(s,owner,c){
 // A Mimic turns into the effect it copies for as long as it stays on the table; once it leaves the field it is a Mimic again
 // Raise: the owner's most recently destroyed card that is still in the discard pile (a reshuffle clears the list)
 function raiseTarget(s,i){const L=s.p[i].lost||[];for(let k=L.length-1;k>=0;k--){const c=s.discard.find(x=>x.id===L[k]);if(c)return c;}return null;}
-function unmirror(c){delete c.ch;delete c.ag;if(c.was==='M'){c.f='M';delete c.was;}}   // (a Bolt's stored charge and an Aegis's light are lost when it leaves the table too)
+function unmirror(c){delete c.ch;delete c.ag;delete c.gu;if(c.was==='M'){c.f='M';delete c.was;}}   // (a Bolt's stored charge and an Aegis's light are lost when it leaves the table too)
 // Aegis: while one is shining (c.ag = turns left) its owner's cards of its suit can't be destroyed, like Sturdy (a Hushed or Morphed Aegis stops)
+// Greed draws GREED_MAX cards at most (c.gu = draws used), then it is spent
+const GREED_MAX=3;
+function greedLive(c){return F(c)==='G'&&(c.gu||0)<GREED_MAX;}
 function aegisUp(field,suit){return field.some(a=>a.ag&&F(a)==='Y'&&a.s===suit);}
 function guarded(field,x){return F(x)==='4'||aegisUp(field,x.s);}
 // A charged Bolt (one that had nothing to hit) fires when the opponent plays a card of its suit, after that card's own effect:
@@ -1119,8 +1124,8 @@ function settle(s){
       s.turn=op;s.firstTurn=false;
       {const end=[];s.p[op].field.forEach(a=>{if(a.ag&&--a.ag<=0){delete a.ag;end.push(a.id);}});   // Aegis: one turn less each time the turn comes back to its owner
         if(end.length){s.aegisEnd={n:((s.aegisEnd&&s.aegisEnd.n)||0)+1,who:op,ids:end};log(s,op,'Aegis: the light fades');}}
-      const gr=s.p[op].field.filter(c=>F(c)==='G').length; // Greed on the field: draw when the turn switches to you
-      if(gr){s.greedFx={n:((s.greedFx&&s.greedFx.n)||0)+1,who:op,ids:s.p[op].field.filter(c=>F(c)==='G').map(c=>c.id)};log(s,op,'Greed: draws '+gr+' card'+(gr>1?'s':'')+' as the turn passes');for(let g=0;g<gr;g++)queueDraw(s,op,'greedturn');if(s.drawQ.length)return;}
+      const gl=s.p[op].field.filter(greedLive),gr=gl.length; // Greed on the field: draw when the turn switches to you (until it is spent)
+      if(gr){gl.forEach(c=>{c.gu=(c.gu||0)+1;});s.greedFx={n:((s.greedFx&&s.greedFx.n)||0)+1,who:op,ids:gl.map(c=>c.id)};log(s,op,'Greed: draws '+gr+' card'+(gr>1?'s':'')+' as the turn passes'+(gl.some(c=>c.gu>=GREED_MAX)?' (spent)':''));for(let g=0;g<gr;g++)queueDraw(s,op,'greedturn');if(s.drawQ.length)return;}
       continue;}
     if(s.p[me].hand.length===0&&!runeStuck(s,me))outOfCards(s,me);   // with a Rune they may still concede (or give up)
     return;
@@ -1377,7 +1382,7 @@ function cpuScorePlay1(s,who,c,suit,mix){
   if(sim.pending&&sim.pending.t==='discover'&&sim.pending.by===who)sc+=2;
   {const chN=x=>x.p[who].field.filter(k=>k.ch).length;sc+=3*(chN(sim)-chN(s));}
   {const agV=x=>x.p[who].field.filter(k=>F(k)!=='4'&&aegisUp(x.p[who].field,k.s)).reduce((n,k)=>n+cardVal(k),0);sc+=.15*(agV(sim)-agV(s));}   // shielded points are safer   // a Bolt that stores a charge is worth something later
-  if(CPU_CFG.greedHunt){const gN=x=>x.p[op].field.filter(k=>F(k)==='G').length;sc+=CPU_CFG.greedHunt*(gN(s)-gN(sim));}
+  if(CPU_CFG.greedHunt){const gN=x=>x.p[op].field.filter(k=>greedLive(k)).reduce((n,k)=>n+GREED_MAX-(k.gu||0),0)/GREED_MAX;sc+=CPU_CFG.greedHunt*(gN(s)-gN(sim));}
   return sc;
 }
 function cpuWantsConcede(s,who,level){
@@ -1750,7 +1755,7 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
   else if(cf==='U'){const n=v.opp.field.length;lines.push(n?'🤫 Hush: silences '+n+' of '+OPP+'\'s card'+(n>1?'s':'')+' for good':'🤫 Hush: nothing to silence');}
   else if(cf==='O'){const tg=morphTarget(v.opp.field,c.s);lines.push(tg?'🥚 Morph: their '+cardStr(tg)+' becomes an Egg (1 point)':'🥚 Morph: nothing to turn into an Egg');}
   else if(cf==='T')lines.push(v.opp.hand===1?'🔒 Steal: '+OPP+'\'s last card is safe, nothing happens':'🫳 Steal: '+OPP+' gives you a card, you burn one');
-  else if(cf==='G')lines.push('💰 Greed: you draw each time your turn starts');
+  else if(cf==='G')lines.push('💰 Greed: you draw each time your turn starts (3 times)');
   else if(cf==='4')lines.push('🛡️ Sturdy: can never be removed');
   else if(cf==='Y')lines.push('✨ Aegis: your '+SYM[c.s]+' cards can\'t be destroyed until the turn after next');
   else if(cf==='L')lines.push('🏳️ Rune: draw 2 when a round is conceded');
@@ -3557,9 +3562,9 @@ function cardEl(c,cls){
   const egg=c.r==='EG';
   const tip=ABILITY[f]?ABILITY_TIP[f]:egg&&c.id!=='EGG'?'Morphed Egg: worth '+cardVal(c)+'. Turns back when it leaves the table.':egg?'Egg: worth '+cardVal(c)+(cardVal(c)>1?' points.':' point.'):'';
   const art=egg?EGG_ART:(ART[f]||'');
-  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K','J','Q','L','G'].includes(f)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''}${morphHold.has(c.id)?' mo-hold':''}${raiseHold.has(c.id)?' rz-hold':''}${c.hu&&!hushHold.has(c.id)?' hushed':''}${c.ch&&f==='Q'&&!c.hu?' bch':''}${c.ag&&f==='Y'&&!c.hu?' ag-on':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
+  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K','J','Q','L','G'].includes(f)&&!(f==='G'&&(c.gu||0)>=GREED_MAX)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''}${morphHold.has(c.id)?' mo-hold':''}${raiseHold.has(c.id)?' rz-hold':''}${c.hu&&!hushHold.has(c.id)?' hushed':''}${c.ch&&f==='Q'&&!c.hu?' bch':''}${c.ag&&f==='Y'&&!c.hu?' ag-on':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
     `<div class="cr">${jk?'★':egg?cardVal(c):c.r}<span>${SYM[c.s]}</span></div><div class="cs">${SYM[c.s]}</div>${art}`+
-    (ABILITY[f]?`<div class="ab">${ABILITY[f]}</div>`:egg?`<div class="ab">Egg</div>`:'')+(c.ag&&f==='Y'&&!c.hu?`<div class="agp">${'<i></i>'.repeat(c.ag)}</div>`:'')+`</div>`;
+    (ABILITY[f]?`<div class="ab">${ABILITY[f]}</div>`:egg?`<div class="ab">Egg</div>`:'')+(c.ag&&f==='Y'&&!c.hu?`<div class="agp">${'<i></i>'.repeat(c.ag)}</div>`:'')+(f==='G'&&!c.hu&&(c.gu||0)<GREED_MAX?`<div class="agp gp">${'<i></i>'.repeat(GREED_MAX-(c.gu||0))}</div>`:'')+`</div>`;
 }
 // A tall stack of cards squeezes tighter instead of making the table taller
 function fitCols(){   // all writes, then all reads, then all writes: one layout, not one per column

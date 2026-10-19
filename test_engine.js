@@ -1,9 +1,9 @@
 const fs=require('fs');
 const html=fs.readFileSync('eggbog.html','utf8');
 const m=html.match(/\/\/ ==ENGINE==([\s\S]*?)\/\/ ==END ENGINE==/);
-const src=m[1]+'\nmodule.exports={newGame,act,viewFor,actor,total,cardVal,mkDeck,startRound,settle,cpuChoose,fillDeck,F,resolveStart};';
+const src=m[1]+'\nmodule.exports={newGame,act,viewFor,actor,total,cardVal,mkDeck,startRound,settle,cpuChoose,fillDeck,F,resolveStart,unmirror};';
 const mod={exports:{}};new Function('module',src)(mod);
-const {newGame,act,viewFor,actor,total,cardVal,mkDeck}=mod.exports;
+const {newGame,act,viewFor,actor,total,cardVal,mkDeck,unmirror}=mod.exports;
 const assert=require('assert');
 let n=0;const t=(name,fn)=>{fn();n++;console.log('ok -',name);};
 const C=(r,s)=>({id:r+s,r,s});
@@ -324,6 +324,16 @@ t('Greed: while on your field, draw a card whenever the turn passes to you',()=>
   assert.equal(s.turn,0);assert.equal(s.drawQ.length,1);assert.ok(s.drawQ.every(e=>e.who===0&&e.reason==='greedturn'));
   const h0=s.p[0].hand.length;assert.equal(act(s,0,{t:'draw'}),null);
   assert.equal(s.p[0].hand.length,h0+1,'drew exactly one card, no burn');assert.equal(s.discard.length,0);
+});
+t('Greed: draws 3 cards at most, then it is spent; leaving the table resets it',()=>{
+  const s=setup([C('6','C')],[C('10','S'),C('3','H')],[X('4','S','G')],[C('2','D')],[C('9','D'),C('8','D'),C('7','D'),C('6','D'),C('5','D')]);
+  s.p[0].field[0].gu=2;
+  act(s,0,{t:'play',id:'6C'});act(s,1,{t:'play',id:'10S'});
+  assert.equal(s.drawQ.length,1,'the third draw still happens');assert.equal(s.p[0].field[0].gu,3);
+  const z=setup([C('6','C')],[C('10','S')],[X('4','S','G')],[C('2','D')],[C('9','D'),C('8','D'),C('7','D'),C('6','D'),C('5','D')]);
+  z.p[0].field[0].gu=3;
+  act(z,0,{t:'play',id:'6C'});act(z,1,{t:'play',id:'10S'});assert.equal(z.drawQ.length,0,'a spent Greed draws nothing');
+  const g=z.p[0].field[0];unmirror(g);assert.equal(g.gu,undefined,'leaving the table resets its draws');
 });
 t('Greed: nothing on play, two Greeds draw two, none once removed',()=>{
   const s=setup([X('4','S','G'),C('2','C')],[C('2','D')],[],[C('8','D')],[C('9','D'),C('8','D'),C('7','D'),C('6','D'),C('5','D')]);
