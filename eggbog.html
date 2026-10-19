@@ -212,7 +212,9 @@ header h2{margin:0;font-size:1.3rem}
 .card .dmp{position:absolute;right:3px;bottom:15px;display:flex;gap:2px;z-index:3;pointer-events:none}
 .card .dmp i{width:6px;height:6px;border-radius:50%;background:#ff4d6d;box-shadow:0 0 5px #ff4d6d}
 /* Doom: a counting-down Doom turns dark purple (red dots = turns left); the cards it will destroy glow purple */
-#myField .card.dm-on,#oppField .card.dm-on,#peek .card.dm-on{border:2px solid #8e5bd6;background:linear-gradient(160deg,#3a2350,#160c22);color:#ece6f5;box-shadow:0 0 0 1px #000,0 0 14px 3px #a64dff88}
+#myField .card.dm-on,#oppField .card.dm-on,#peek .card.dm-on{border:2px solid #7d6be0;background:linear-gradient(160deg,#2c2a5e,#0f0f2a);color:#ece6f5;box-shadow:0 0 0 1px #000,0 0 14px 3px #7f6dff88}   /* clubs and spades lean blue */
+#myField .card.dm-on.red,#oppField .card.dm-on.red,#peek .card.dm-on.red{border-color:#c0609e;background:linear-gradient(160deg,#4e2142,#1d0a19);box-shadow:0 0 0 1px #000,0 0 14px 3px #d0559c88}   /* hearts and diamonds lean red */
+.card .dm-x{position:absolute;inset:-2px;margin:0;z-index:6;pointer-events:none}   /* the old look laid over a card while it fades into its new one */
 #myField .card.dm-on .cr,#oppField .card.dm-on .cr,#peek .card.dm-on .cr,#myField .card.dm-on .ab,#oppField .card.dm-on .ab,#peek .card.dm-on .ab{color:#ece6f5}
 #myField .card.dm-on.red .cr,#oppField .card.dm-on.red .cr,#peek .card.dm-on.red .cr{color:#ff9db0}
 #myField .card.dmd,#oppField .card.dmd,#peek .card.dmd{box-shadow:0 0 0 1.5px #a64dffcc,0 0 12px 3px #a64dff99}
@@ -3354,13 +3356,25 @@ function aegisFx(prev,v){
   }
 }
 // Doom: when played, the marked cards flash purple; when it goes off, a purple slash sweeps across their side and cuts each marked card in half
+// The Doom look fades in and out instead of switching at once: a copy of the card's old face is laid over it and faded away,
+// and the purple glow on the cards it marks grows or dies down (when a Doom is played, Hushed or Morphed, or goes off)
 function doomFx(prev,v){
-  if(!prev||prev.you!==v.you||!v.doom||v.doom.n<=((prev.doom&&prev.doom.n)||0))return;
-  doomSound(false);
+  if(!prev||prev.you!==v.you)return;
+  if(v.doom&&v.doom.n>((prev.doom&&prev.doom.n)||0))doomSound(false);
   if(reduced()||!document.body.animate)return;
-  const side=v.doom.by===v.you?'#oppField':'#myField';
-  setTimeout(()=>v.doom.ids.forEach(id=>{const e=document.querySelector(side+' .card[data-id="'+id+'"]');
-    if(e)e.animate([{boxShadow:'0 0 0 0 #a64dff00'},{boxShadow:'0 0 0 3px #c27bff,0 0 22px 8px #a64dffcc',offset:.35},{boxShadow:'0 0 0 1.5px #a64dffcc,0 0 12px 3px #a64dff99'}],{duration:900,easing:'ease-out'});}),420);   // let the Doom card land first
+  const live=w=>{const m=new Map();[...w.me.field,...w.opp.field].forEach(c=>{if(c.dm&&c.f==='V'&&!c.hu)m.set(c.id,c);});return m;};
+  const marked=w=>new Set([...w.opp.field.filter(c=>doomed(w.opp.field,w.me.field,c)),...w.me.field.filter(c=>doomed(w.me.field,w.opp.field,c))].map(c=>c.id));
+  const el=id=>document.querySelector('#myField .card[data-id="'+id+'"],#oppField .card[data-id="'+id+'"]');
+  const hushed=new Set(v.hush&&v.hush.n>((prev.hush&&prev.hush.n)||0)?v.hush.ids:[]);
+  const fade=(e,html,delay)=>{const g=document.createElement('div');g.innerHTML=html;const o=g.firstChild;o.classList.add('dm-x');o.removeAttribute('title');e.appendChild(o);
+    o.animate([{opacity:1},{opacity:0}],{duration:900,delay,easing:'ease-in-out',fill:'both'}).onfinish=()=>o.remove();};
+  const GLOW='0 0 0 1.5px #a64dffcc,0 0 12px 3px #a64dff99',NONE='0 0 0 0 #a64dff00';
+  const spent=v.doomHit&&v.doomHit.n>((prev.doomHit&&prev.doomHit.n)||0);   // it went off: it stays dark until the slash is done
+  const L0=live(prev),L1=live(v),M0=marked(prev),M1=marked(v);
+  for(const [id,c] of L1)if(!L0.has(id)){const e=el(id);if(e)fade(e,cardEl(Object.assign({},c,{dm:undefined})),450);}   // just played: it darkens once it has landed
+  for(const [id,c] of L0)if(!L1.has(id)){const e=el(id);if(e&&!e.classList.contains('mo-hold'))fade(e,cardEl(c),hushed.has(id)?700:spent?1700:0);}   // silenced or spent: the dark look melts away
+  M1.forEach(id=>{if(M0.has(id))return;const e=el(id);if(e)e.animate([{boxShadow:NONE},{boxShadow:GLOW}],{duration:900,delay:450,easing:'ease-in-out',fill:'backwards'});});
+  M0.forEach(id=>{if(M1.has(id))return;const e=el(id);if(e)e.animate([{boxShadow:GLOW},{boxShadow:NONE}],{duration:900,delay:hushed.size?700:0,easing:'ease-in-out',fill:'backwards'});});
 }
 function doomSlash(side,clones){
   doomSound(true);
