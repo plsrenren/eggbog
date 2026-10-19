@@ -1780,7 +1780,7 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
   else if(cf==='W'){const fewer=v.me.hand.length-1<v.opp.hand;lines.push(fewer?'🌬️ Draft: you draw 2, '+OPP+' draws 1':'🌬️ Draft: you and '+OPP+' each draw a card');}
   else if(cf==='R'){back=v.me.field.filter(x=>x.s===c.s&&!(efx(x,v)==='R'&&!x.hu));const n=back.length,room=HAND_MAX-(v.me.hand.length-1);lines.push(n?'⏪ Rewind: '+n+' of your card'+(n>1?'s go':' goes')+' back to your hand'+(n>room?' ('+(n-room)+' burn'+(n-room>1?'':'s')+': hand full)':''):'⏪ Rewind: nothing to take back');}
   else if(cf==='Z')lines.push(v.me.raise?'🌀 Raise: your '+cardStr(v.me.raise)+' comes back':'🌀 Raise: nothing to bring back');
-  else if(cf==='U'){const n=v.opp.field.length;lines.push(n?'🤫 Hush: silences '+n+' of '+OPP+'\'s card'+(n>1?'s':'')+' for good':'🤫 Hush: nothing to silence');}
+  else if(cf==='U'){const n=v.opp.field.filter(x=>!x.hu).length;lines.push(n?'🤫 Hush: silences '+n+' of '+OPP+'\'s card'+(n>1?'s':'')+' for good':'🤫 Hush: nothing new to silence');}
   else if(cf==='O'){const tg=morphTarget(v.opp.field,c.s);lines.push(tg?'🥚 Morph: their '+cardStr(tg)+' becomes an Egg (1 point)':'🥚 Morph: nothing to turn into an Egg');}
   else if(cf==='T')lines.push(v.opp.hand===1?'🔒 Steal: '+OPP+'\'s last card is safe, nothing happens':'🫳 Steal: '+OPP+' gives you a card, you burn one');
   else if(cf==='G')lines.push('💰 Greed: you draw each time your turn starts (3 times)');
@@ -3534,7 +3534,8 @@ function hushSound(){
 function hushFx(prev,v){
   if(!prev||!v.hush||prev.you!==v.you||v.hush.n<=((prev.hush&&prev.hush.n)||0))return;
   hushSound();
-  const h=v.hush,ids=h.ids.slice();if(reduced()||!ids.length)return;
+  const was=new Set([...prev.me.field,...prev.opp.field].filter(c=>c.hu).map(c=>c.id));   // cards that were already silenced keep their look, no second stamp
+  const h=v.hush,ids=h.ids.filter(id=>!was.has(id));if(reduced()||!ids.length)return;
   const mine=h.by===v.you,side=$(mine?'oppSide':'mySide'),fld=mine?'#oppField':'#myField';
   const q=id=>document.querySelector(fld+' .card[data-id="'+id+'"]');
   ids.forEach(id=>{hushHold.add(id);const e=q(id);if(e)e.classList.remove('hushed');});
