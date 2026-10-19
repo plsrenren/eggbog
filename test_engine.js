@@ -864,4 +864,24 @@ t('Aegis: your cards of its suit survive removal until the turn comes back to yo
   act(r,0,{t:'play',id:'3H'});assert.ok(r.p[0].hand.some(c=>c.id==='6H'&&!c.ag));
 });
 
+t('Doom: the cards they had when it was played are destroyed after their second turn',()=>{
+  const s=setup([X('6','S','V'),X('10','C',''),C('2','C')],[C('9','C'),C('4','H'),C('3','S')],[],[C('3','H'),X('2','D','4')]);s.crazy=true;
+  assert.equal(act(s,0,{t:'play',id:'6S'}),null);
+  const dm=()=>s.p[0].field.find(c=>c.id==='6S');
+  assert.equal(dm().dm,2);assert.equal(s.turn,1);assert.deepEqual(viewFor(s,1).doom.ids,['3H','2D']);
+  assert.equal(act(s,1,{t:'play',id:'9C'}),null);   // played after: not marked
+  assert.equal(s.turn,0);assert.equal(dm().dm,1);assert.ok(!s.p[1].field.find(c=>c.id==='9C').dz);
+  assert.equal(act(s,0,{t:'play',id:'10C'}),null);assert.equal(s.turn,1);
+  assert.equal(act(s,1,{t:'play',id:'4H'}),null);   // their second turn ends: Doom goes off
+  assert.deepEqual(s.p[1].field.map(c=>c.id),['2D','9C','4H'],'the Sturdy card and the later cards stay');
+  assert.deepEqual(s.doomHit.ids,['3H']);assert.equal(dm().dm,undefined);
+  assert.equal(s.turn,1,'Doom put them behind again, so the turn bounces straight back to them');
+  // a Hushed Doom does nothing
+  const h=setup([C('2','C')],[C('9','D'),C('8','D')],[Object.assign(X('6','S','V'),{dm:1,hu:2})],[Object.assign(C('3','H'),{dz:['6S']})]);h.crazy=true;h.turn=1;
+  act(h,1,{t:'play',id:'9D'});assert.deepEqual(h.p[1].field.map(c=>c.id),['3H','9D']);
+  // a Doom that leaves the table fizzles, and a marked card that comes back later is safe
+  const r=setup([X('3','S','R'),C('2','C')],[C('9','S')],[Object.assign(X('6','S','V'),{dm:2})],[Object.assign(C('10','H'),{dz:['6S']})]);r.crazy=true;
+  act(r,0,{t:'play',id:'3S'});assert.ok(r.p[0].hand.some(c=>c.id==='6S'&&!c.dm));
+});
+
 console.log('\n'+n+' checks passed');

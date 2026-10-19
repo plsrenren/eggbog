@@ -209,6 +209,14 @@ header h2{margin:0;font-size:1.3rem}
 .card .agp.gp{display:none}   /* Greed's draws left: only shown on the table */
 #myField .card .agp.gp,#oppField .card .agp.gp,#peek .card .agp.gp{display:flex}
 .aegis-beam{position:fixed;pointer-events:none;z-index:46;border-radius:10px;filter:blur(4px);background:linear-gradient(90deg,#fff0 0%,#fffbe688 22%,#fff 50%,#fffbe688 78%,#fff0 100%),linear-gradient(180deg,#fff 0%,#fff8 60%,#fff0 100%);background-blend-mode:screen}
+.card .dmp{position:absolute;right:3px;bottom:15px;display:flex;gap:2px;z-index:3;pointer-events:none}
+.card .dmp i{width:6px;height:6px;border-radius:50%;background:#ff4d6d;box-shadow:0 0 5px #ff4d6d}
+/* Doom: a counting-down Doom turns dark purple (red dots = turns left); the cards it will destroy glow purple */
+#myField .card.dm-on,#oppField .card.dm-on,#peek .card.dm-on{border:2px solid #8e5bd6;background:linear-gradient(160deg,#3a2350,#160c22);color:#ece6f5;box-shadow:0 0 0 1px #000,0 0 14px 3px #a64dff88}
+#myField .card.dm-on .cr,#oppField .card.dm-on .cr,#peek .card.dm-on .cr,#myField .card.dm-on .ab,#oppField .card.dm-on .ab,#peek .card.dm-on .ab{color:#ece6f5}
+#myField .card.dm-on.red .cr,#oppField .card.dm-on.red .cr,#peek .card.dm-on.red .cr{color:#ff9db0}
+#myField .card.dmd,#oppField .card.dmd,#peek .card.dmd{box-shadow:0 0 0 1.5px #a64dffcc,0 0 12px 3px #a64dff99}
+.dm-slash{position:fixed;pointer-events:none;z-index:70;overflow:visible}
 .aegis-mote{position:fixed;width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 6px 2px #ffe9a0;pointer-events:none;z-index:47}
 .card.r4,.card.sturdy.r4{background:var(--card);border:2px solid #8e98a2;box-shadow:inset 0 0 0 1px #ffffffcc,inset 0 0 4px #5b646c66,0 1px 3px #0006}
 .card.r4::before{content:'';position:absolute;inset:0;border-radius:6px;background:radial-gradient(circle at 6px 6px,#fff 0 1px,#6c757d 1.6px,#0000 2.4px),radial-gradient(circle at calc(100% - 6px) 6px,#fff 0 1px,#6c757d 1.6px,#0000 2.4px),radial-gradient(circle at 6px calc(100% - 6px),#fff 0 1px,#6c757d 1.6px,#0000 2.4px),radial-gradient(circle at calc(100% - 6px) calc(100% - 6px),#fff 0 1px,#6c757d 1.6px,#0000 2.4px);pointer-events:none}
@@ -818,7 +826,7 @@ const SUITS=['C','S','H','D'];
 const SUIT_RANK={C:0,S:1,H:2,D:3,'*':4};
 const SYM={C:'♣',S:'♠',H:'♥',D:'♦','*':''};
 const DISCOVER_N=3; // cards the opponent draws for a Scry; they keep one for you, the rest are discarded
-const ABILITY={A:'Draw','2':'Soul','3':'Scry','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Blaze',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',O:'Morph',U:'Hush',W:'Draft',R:'Rewind',Z:'Raise',Y:'Aegis',X:'Surge'};
+const ABILITY={A:'Draw','2':'Soul','3':'Scry','4':'Sturdy','5':'Swap',J:'Frost',Q:'Bolt',K:'Blaze',M:'Mimic',T:'Steal',L:'Rune',G:'Greed',O:'Morph',U:'Hush',W:'Draft',R:'Rewind',Z:'Raise',Y:'Aegis',V:'Doom',X:'Surge'};
 const ABILITY_TEXT={
   A:'Draw: draw one card from the deck into your hand.',
   '2':'Soul: if this card is removed from the field, its owner draws one card.',
@@ -837,6 +845,7 @@ const ABILITY_TEXT={
   R:'Rewind: every other card of this suit on your side goes back to your hand (the Rewind stays on the table, and so do other Rewinds). They come back as they were before they were played: a Morphed card is itself again, a Hushed card is no longer silenced, the Egg loses its suit. Nothing triggers when they leave (a Soul does not draw). If your hand fills up (10 cards), the rest are burned.',
   Z:'Raise: your most recently destroyed card comes back from the discard pile onto your side, in its own suit\'s column. Its effect does not trigger again (a Sturdy, Soul, Greed or Rune works again while it stays on the table). If several of your cards were destroyed at once, the one you played last comes back. If none of your cards has been destroyed yet (or they were shuffled back into the deck), nothing happens.',
   Y:'Aegis: a pillar of light shines down on this card\'s column: your cards of its suit (the Aegis included, and any you play there later) can\'t be destroyed until the turn after next. It fades when the turn comes back to you for the second time. A Hushed or Morphed Aegis stops protecting.',
+  V:'Doom: marks every card your opponent has on the table right now (cards they play later are safe). When the turn comes back to you for the second time, after their second turn, the marked cards are destroyed, unless they are Sturdy or shielded by an Aegis. A Hushed or Morphed Doom does nothing, and it fizzles if it leaves the table first.',
   W:'Draft: a gust blows cards to both sides: you and your opponent each draw a card. If you have fewer cards in your hand than your opponent (counted after playing the Draft), you draw one more.',
   X:'Surge: can be played on any suit. It burns up, then draws 5 cards from the deck. The 3 highest are played for you and the 2 lowest for your opponent, taking turns with you first, one at a time, each with its own effect. The Surge also makes any choice those cards need (which card Scry keeps, which card Steal takes), at random.'
 };
@@ -859,6 +868,7 @@ const ABILITY_TIP={   // short hover tooltips; the Rules and effects screens use
   R:'Rewind: your other cards of this suit go back to your hand.',
   Z:'Raise: your most recently destroyed card comes back onto your side.',
   Y:'Aegis: your cards of this suit can\'t be destroyed until the turn after next.',
+  V:'Doom: after their second turn, the cards they have now are destroyed.',
   X:'Surge: plays 5 cards from the deck: the top 3 for you, the bottom 2 for them.'
 };
 function F(c){if(c.hu)return '';return c.f===undefined?(DEF_F[c.r]||''):c.f;}   // a card silenced by Hush has no effect
@@ -871,7 +881,7 @@ const EGG_VAL={crazy:1,normal:5};
 const DEF_F={A:'A','2':'2','3':'3','4':'4','5':'5',J:'J',Q:'Q',K:'K'};
 const FX_KEYS=['A','2','3','4','5','J','Q','K'];
 const CRAZY_HAND=7;
-const CRAZY_KEYS=FX_KEYS.concat(['M','T','L','G','O','U','W','R','Z','Y']);   // the extra effects only exist in Crazy mode
+const CRAZY_KEYS=FX_KEYS.concat(['M','T','L','G','O','U','W','R','Z','Y','V']);   // the extra effects only exist in Crazy mode
 const CRAZY_DEFAULT=CRAZY_KEYS.filter(k=>k!=='A'&&k!=='5'&&k!=='3');   // Crazy mode starts without Draw, Swap and Scry (they can still be switched on in the effects menu)
 // crazy mode: every single card gets its own random effect (each card picks independently, so counts vary from game to game)
 function mkDeck(crazy,rng,enabled){
@@ -946,13 +956,17 @@ function removeCard(s,owner,c){
 // A Mimic turns into the effect it copies for as long as it stays on the table; once it leaves the field it is a Mimic again
 // Raise: the owner's most recently destroyed card that is still in the discard pile (a reshuffle clears the list)
 function raiseTarget(s,i){const L=s.p[i].lost||[];for(let k=L.length-1;k>=0;k--){const c=s.discard.find(x=>x.id===L[k]);if(c)return c;}return null;}
-function unmirror(c){delete c.ch;delete c.ag;delete c.gu;if(c.was==='M'){c.f='M';delete c.was;}}   // (a Bolt's stored charge and an Aegis's light are lost when it leaves the table too)
+function unmirror(c){delete c.ch;delete c.ag;delete c.gu;delete c.dm;delete c.dz;if(c.was==='M'){c.f='M';delete c.was;}}   // (a Bolt's stored charge and an Aegis's light are lost when it leaves the table too)
 // Aegis: while one is shining (c.ag = turns left) its owner's cards of its suit can't be destroyed, like Sturdy (a Hushed or Morphed Aegis stops)
 // Greed draws GREED_MAX cards at most (c.gu = draws used), then it is spent
 const GREED_MAX=3;
 function greedLive(c){return F(c)==='G'&&(c.gu||0)<GREED_MAX;}
 function aegisUp(field,suit){return field.some(a=>a.ag&&F(a)==='Y'&&a.s===suit);}
 function guarded(field,x){return F(x)==='4'||aegisUp(field,x.s);}
+// Doom: when played it marks the opponent's cards on the table (x.dz = ids of the Dooms aiming at them) and counts down like Aegis (c.dm);
+// when the turn comes back to its owner for the second time the marked cards are destroyed (Sturdy and Aegis still protect). A Hushed or Morphed Doom does nothing.
+function doomLive(d){return d.dm&&F(d)==='V';}
+function doomed(field,oppField,x){return !!(x.dz&&!guarded(field,x)&&oppField.some(d=>doomLive(d)&&x.dz.includes(d.id)));}
 // A charged Bolt (one that had nothing to hit) fires when the opponent plays a card of its suit, after that card's own effect:
 // it destroys all their cards of that suit, the new one included (Sturdy blocks it as usual). One Bolt fires per card played.
 function boltCheck(s,i,c){
@@ -1053,6 +1067,11 @@ function resolve(s,i,c){
       c.ag=2;s.aegis={n:((s.aegis&&s.aegis.n)||0)+1,by:i,src:c.id,suit:c.s};
       log(s,i,'Aegis: '+SYM[c.s]+' cards can\'t be destroyed until the turn after next');
       break;}
+    case 'V':{ // Doom: the opponent's cards on the table now are marked; they go after their second turn (see settle)
+      c.dm=2;const ids=s.p[opp].field.map(x=>{(x.dz=x.dz||[]).push(c.id);return x.id;});
+      s.doom={n:((s.doom&&s.doom.n)||0)+1,by:i,src:c.id,ids};
+      {const n=s.p[opp].field.filter(x=>!guarded(s.p[opp].field,x)).length;log(s,i,n?'Doom: '+n+' card'+(n>1?'s are':' is')+' marked for after their second turn':'Doom: nothing to mark');}
+      break;}
     case 'G': // Greed does nothing when played: while it is on your field you draw a card each time the turn passes to you (see settle)
       break;
     case 'K':{
@@ -1118,14 +1137,19 @@ function settle(s){
     while(s.jokerQ.length&&!s.pending&&!s.drawQ.length)jokerStep(s);
     if(s.jokerQ.length||s.pending||s.drawQ.length)return;
   }
-  for(let k=0;k<2;k++){
+  for(let k=0;k<4;k++){   // (a Doom going off can put the other player ahead again, so the turn may bounce straight back)
     const me=s.turn,op=1-me;
     if(total(s,me)>total(s,op)){
       s.turn=op;s.firstTurn=false;
       {const end=[];s.p[op].field.forEach(a=>{if(a.ag&&--a.ag<=0){delete a.ag;end.push(a.id);}});   // Aegis: one turn less each time the turn comes back to its owner
         if(end.length){s.aegisEnd={n:((s.aegisEnd&&s.aegisEnd.n)||0)+1,who:op,ids:end};log(s,op,'Aegis: the light fades');}}
+      {const hit=[],src=[];s.p[op].field.forEach(d=>{if(!d.dm)return;if(--d.dm>0)return;delete d.dm;if(F(d)!=='V')return;   // Doom: the turn is back to its owner for the second time
+        src.push(d.id);const f=s.p[me].field;f.forEach(x=>{if(x.dz&&x.dz.includes(d.id)&&!guarded(f,x)&&!hit.includes(x))hit.push(x);});});
+        if(src.length){s.doomHit={n:((s.doomHit&&s.doomHit.n)||0)+1,by:op,srcs:src,ids:hit.map(x=>x.id),cards:hit.map(cp)};
+          log(s,op,hit.length?'Doom: '+hit.length+' card'+(hit.length>1?'s are':' is')+' destroyed':'Doom: nothing left to destroy');hit.forEach(x=>removeCard(s,me,x));}}
       const gl=s.p[op].field.filter(greedLive),gr=gl.length; // Greed on the field: draw when the turn switches to you (until it is spent)
-      if(gr){gl.forEach(c=>{c.gu=(c.gu||0)+1;});s.greedFx={n:((s.greedFx&&s.greedFx.n)||0)+1,who:op,ids:gl.map(c=>c.id)};log(s,op,'Greed: draws '+gr+' card'+(gr>1?'s':'')+' as the turn passes'+(gl.some(c=>c.gu>=GREED_MAX)?' (spent)':''));for(let g=0;g<gr;g++)queueDraw(s,op,'greedturn');if(s.drawQ.length)return;}
+      if(gr){gl.forEach(c=>{c.gu=(c.gu||0)+1;});s.greedFx={n:((s.greedFx&&s.greedFx.n)||0)+1,who:op,ids:gl.map(c=>c.id)};log(s,op,'Greed: draws '+gr+' card'+(gr>1?'s':'')+' as the turn passes'+(gl.some(c=>c.gu>=GREED_MAX)?' (spent)':''));for(let g=0;g<gr;g++)queueDraw(s,op,'greedturn');}
+      if(s.drawQ.length)return;   // (Greed or a Soul that Doom destroyed draws first)
       continue;}
     if(s.p[me].hand.length===0&&!runeStuck(s,me))outOfCards(s,me);   // with a Rune they may still concede (or give up)
     return;
@@ -1346,7 +1370,7 @@ function viewFor(s,i){
       if(i===pd.chooser)pending.opts=pd.opts; // only the chooser sees the cards
     }
   }
-  return {you:i,logN:s.logN||0,flag:s.flag||null,pack:s.pack?{n:s.pack.n,who:s.pack.who,cards:s.pack.who===i?s.pack.cards:s.pack.cards.map(()=>null)}:null,oppReasons:s.drawQ.filter(e=>e.who!==i).map(e=>e.reason),burn:s.burn?{n:s.burn.n,who:s.burn.who,full:!!s.burn.full,cards:s.burn.who===i?s.burn.cards:s.burn.cards.map(()=>null)}:null,fxOn:s.fx||null,crazy:!!s.crazy,fm:s.fm||null,mirror:s.mirror||null,morph:s.morph||null,hush:s.hush||null,draft:s.draft||null,rewind:s.rewind||null,raise:s.raise||null,aegis:s.aegis||null,aegisEnd:s.aegisEnd||null,boltCharge:s.boltCharge||null,boltZap:s.boltZap||null,lastFx:s.lastFx||null,stolen:s.stolen||null,discover:s.discFx?{n:s.discFx.n,by:s.discFx.by,kept:s.discFx.by===i?s.discFx.kept:null,gift:s.discFx.gift,burnt:s.discFx.by===i?s.discFx.burnt:s.discFx.burnt.map(()=>null)}:null,greed:s.greedFx||null,stealSafe:s.stealSafe||null,joker:s.joker||null,jq:(s.jokerQ||[]).length,reshuffles:s.reshuffles||0,shuffled:s.lastShuffle||0,phase:s.phase,round:s.round,turn:s.turn,chooser:s.chooser,deck:s.deck.length,discard:s.discard.length,
+  return {you:i,logN:s.logN||0,flag:s.flag||null,pack:s.pack?{n:s.pack.n,who:s.pack.who,cards:s.pack.who===i?s.pack.cards:s.pack.cards.map(()=>null)}:null,oppReasons:s.drawQ.filter(e=>e.who!==i).map(e=>e.reason),burn:s.burn?{n:s.burn.n,who:s.burn.who,full:!!s.burn.full,cards:s.burn.who===i?s.burn.cards:s.burn.cards.map(()=>null)}:null,fxOn:s.fx||null,crazy:!!s.crazy,fm:s.fm||null,mirror:s.mirror||null,morph:s.morph||null,hush:s.hush||null,draft:s.draft||null,rewind:s.rewind||null,raise:s.raise||null,aegis:s.aegis||null,aegisEnd:s.aegisEnd||null,doom:s.doom||null,doomHit:s.doomHit||null,boltCharge:s.boltCharge||null,boltZap:s.boltZap||null,lastFx:s.lastFx||null,stolen:s.stolen||null,discover:s.discFx?{n:s.discFx.n,by:s.discFx.by,kept:s.discFx.by===i?s.discFx.kept:null,gift:s.discFx.gift,burnt:s.discFx.by===i?s.discFx.burnt:s.discFx.burnt.map(()=>null)}:null,greed:s.greedFx||null,stealSafe:s.stealSafe||null,joker:s.joker||null,jq:(s.jokerQ||[]).length,reshuffles:s.reshuffles||0,shuffled:s.lastShuffle||0,phase:s.phase,round:s.round,turn:s.turn,chooser:s.chooser,deck:s.deck.length,discard:s.discard.length,
     me:{hand:me.hand,field:me.field,wins:me.wins,mull:me.mull,pack:me.pack,conceded:!!me.conceded,firstTurn:!!s.firstTurn,stuck:runeStuck(s,i)&&!busy(s),newCards:(s.stats&&s.stats.mullIn&&s.stats.mullIn[i])||[],oldCards:(s.stats&&s.stats.mull&&s.stats.mull[i])||[],raise:raiseTarget(s,i)},
     opp:{hand:op.hand.length,field:op.field,wins:op.wins,mull:op.mull,pack:op.pack,raise:raiseTarget(s,1-i)},
     draws:s.drawQ.filter(e=>e.who===i).map(e=>e.reason),drawsOpp:s.drawQ.filter(e=>e.who!==i).length,
@@ -1356,7 +1380,7 @@ function viewFor(s,i){
 // A deliberately sloppy computer player: random mulligans, random cards, random choices,
 // and it sometimes gives up a round when far behind. It never plans ahead.
 // ---- Computer player: 'easy' plays at random, 'normal' plays sensibly, 'hard' plans its cards and rounds ----
-const CPU_HV={A:2.5,'2':1.2,'3':2.5,'4':2,'5':2.5,J:4,Q:5,K:6,M:2.5,T:3,L:.5,G:.5,O:3,U:2.5,W:1.5,R:1,Z:1.5,Y:1.5,X:4};   // extra reluctance to spend a special card
+const CPU_HV={A:2.5,'2':1.2,'3':2.5,'4':2,'5':2.5,J:4,Q:5,K:6,M:2.5,T:3,L:.5,G:.5,O:3,U:2.5,W:1.5,R:1,Z:1.5,Y:1.5,V:2,X:4};   // extra reluctance to spend a special card
 function cardKeep(c){return cardVal(c)+CPU_CFG.hvScale*(CPU_HV[F(c)]||0);}
 let CPU_ROLL=false;   // true while the expert imagines whole games: cheaper Surge estimates
 const CPU_CFG={marginW:.2,mullMax:7,start:'opp',stratK:1,hvScale:1,greedHunt:0,concedeMode:0,stratFrac:0};   // stratFrac 0 = automatic: Hard concedes a bit more readily in Crazy mode   // greedHunt: bonus for taking an opponent's Greed off the field
@@ -1382,6 +1406,7 @@ function cpuScorePlay1(s,who,c,suit,mix){
   if(sim.pending&&sim.pending.t==='discover'&&sim.pending.by===who)sc+=2;
   {const chN=x=>x.p[who].field.filter(k=>k.ch).length;sc+=3*(chN(sim)-chN(s));}
   {const agV=x=>x.p[who].field.filter(k=>F(k)!=='4'&&aegisUp(x.p[who].field,k.s)).reduce((n,k)=>n+cardVal(k),0);sc+=.15*(agV(sim)-agV(s));}   // shielded points are safer   // a Bolt that stores a charge is worth something later
+  {const dV=(x,a,b)=>x.p[b].field.filter(k=>doomed(x.p[b].field,x.p[a].field,k)).reduce((n,k)=>n+cardVal(k),0);sc+=.5*((dV(sim,who,op)-dV(s,who,op))-(dV(sim,op,who)-dV(s,op,who)));}   // cards under a Doom count as half gone
   if(CPU_CFG.greedHunt){const gN=x=>x.p[op].field.filter(k=>greedLive(k)).reduce((n,k)=>n+GREED_MAX-(k.gu||0),0)/GREED_MAX;sc+=CPU_CFG.greedHunt*(gN(s)-gN(sim));}
   return sc;
 }
@@ -1538,8 +1563,9 @@ try{const j=JSON.parse(localStorage.getItem(FXKEY)||'null');
     if(!j.v8){if(!fxCfg.crazy.includes('R'))fxCfg.crazy.push('R');saveFx();}   // one-time: Rewind joins the Eggbog effects
     if(!j.v9){if(!fxCfg.crazy.includes('Z'))fxCfg.crazy.push('Z');saveFx();}   // one-time: Raise joins the Eggbog effects
     if(!j.v10){if(!fxCfg.crazy.includes('Y'))fxCfg.crazy.push('Y');saveFx();}   // one-time: Aegis joins the Eggbog effects
+    if(!j.v11){if(!fxCfg.crazy.includes('V'))fxCfg.crazy.push('V');saveFx();}   // one-time: Doom joins the Eggbog effects
     if(!fxCfg.crazy.length)fxCfg.crazy=CRAZY_DEFAULT.slice();}}catch(e){}
-function saveFx(){try{localStorage.setItem(FXKEY,JSON.stringify(Object.assign({v2:1,v3:1,v4:1,v5:1,v6:1,v7:1,v8:1,v9:1,v10:1},fxCfg)));}catch(e){}}
+function saveFx(){try{localStorage.setItem(FXKEY,JSON.stringify(Object.assign({v2:1,v3:1,v4:1,v5:1,v6:1,v7:1,v8:1,v9:1,v10:1,v11:1},fxCfg)));}catch(e){}}
 let crazyOn=true;   // Eggbog (the random-effects mode, internally 'crazy') is the default; Classic is the original rules
 try{crazyOn=localStorage.getItem('eggbog-mode')!=='classic';}catch(e){}
 function gameOpts(){return {paced:true,crazy:crazyOn,fx:(crazyOn?fxCfg.crazy:fxCfg.normal).slice()};}
@@ -1757,6 +1783,7 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
   else if(cf==='T')lines.push(v.opp.hand===1?'🔒 Steal: '+OPP+'\'s last card is safe, nothing happens':'🫳 Steal: '+OPP+' gives you a card, you burn one');
   else if(cf==='G')lines.push('💰 Greed: you draw each time your turn starts (3 times)');
   else if(cf==='4')lines.push('🛡️ Sturdy: can never be removed');
+  else if(cf==='V'){const n=v.opp.field.filter(x=>!guarded(v.opp.field,x)).length;lines.push(v.opp.field.length?'💀 Doom: after '+OPP+'\'s second turn, the '+v.opp.field.length+' card'+(v.opp.field.length>1?'s':'')+' they have now are destroyed'+(n<v.opp.field.length?' (shielded ones survive)':''):'💀 Doom: nothing to mark');}
   else if(cf==='Y')lines.push('✨ Aegis: your '+SYM[c.s]+' cards can\'t be destroyed until the turn after next');
   else if(cf==='L')lines.push('🏳️ Rune: draw 2 when a round is conceded');
   else if(cf==='2')lines.push('👻 Soul: draw a card when it is removed');
@@ -1829,6 +1856,7 @@ function ghostShow(id,suit){
       else if(cf==='T'){if(view&&view.opp.hand>1)glide(oppHand(),hand(),0);}
       else if(cf==='Z'){if(raiseGh){const r=R(raiseGh);raisePortal(r,1300,G);raiseGh.style.visibility='';raiseRise(raiseGh,r,1100,150,.5);}else if(mine)raisePortal(R(mine),700,G);}
       else if(cf==='Y'){const cr=R(col);aegisBeam(cr,G,1600);}
+      else if(cf==='V')document.querySelectorAll('#oppField .card').forEach(e=>e.animate([{boxShadow:'0 0 0 0 #a64dff00'},{boxShadow:'0 0 0 1.5px #a64dffcc,0 0 12px 3px #a64dff99',offset:.4},{boxShadow:'0 0 0 0 #a64dff00'}],{duration:1600}));
       else if(cf==='R'){if(mine)rewindClock(R(mine),G);backEls.forEach((e,k)=>rewindFly({html:e.outerHTML,r:R(e)},hand(),k*110,G,880));}
       else if(cf==='X'){const ms=R($('mySide')),os=R($('oppSide'));[0,1,2,3,4].forEach(i=>glide(deck(),i%2?os:ms,i*130));}
     },at);
@@ -3185,6 +3213,7 @@ const FL_MID='M20.5 11.5c.7 3.6 4.3 6.2 5.6 10 .7-.8 1-1.9 1-3.1 1.6 2.3 2.4 5 2
 const FL_CORE='M20 21c.8 2.4 3.4 4.2 4 6.8.5 2.8-1.4 6-4 6s-4.6-2.8-4.2-5.6c.3-2.4 2.4-4.2 4.2-7.2z';
 let BLAZE_LOOK='cartoon';
 const ART={
+  V:'<svg class="art" viewBox="0 0 40 40"><circle cx="20" cy="20" r="16" fill="#8e5bd6" opacity=".2"/><line x1="13" y1="37" x2="25" y2="5" stroke="#5b3a1e" stroke-width="2.8" stroke-linecap="round"/><path d="M24.5 6.5 Q11 1 3 14 Q13 8 23 11.5Z" fill="#d9deea" stroke="#3a2350" stroke-width="1.2" stroke-linejoin="round"/><path d="M4.5 13.2 Q12 7 22.5 10.5" stroke="#b58cf0" stroke-width="1.3" fill="none"/></svg>',
   Y:'<svg class="art" viewBox="0 0 40 40"><path d="M14 0 H26 L24 40 H16Z" fill="#fffbe6" opacity=".55"/><path d="M20 5 L32 9 V19 Q32 29 20 35 Q8 29 8 19 V9Z" fill="#e9eef8" stroke="#55627a" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 8 V32" stroke="#fff" stroke-width="5" opacity=".9"/><path d="M20 8 V32" stroke="#ffe27a" stroke-width="1.6"/><path d="M13 15 L20 12 L27 15" stroke="#9aa6bd" stroke-width="1.2" fill="none"/></svg>',
   Z:'<svg class="art" viewBox="0 0 40 40"><ellipse cx="20" cy="32" rx="16" ry="5.5" fill="#7dff9a" opacity=".25"/><ellipse cx="20" cy="32" rx="13" ry="4" fill="#0f3d24" stroke="#4fe08a" stroke-width="2"/><ellipse cx="20" cy="32.4" rx="8" ry="2" fill="#1c6b3f"/><g transform="rotate(-8 20 18)"><rect x="13" y="6" width="14" height="20" rx="2.2" fill="#fdfcf7" stroke="#1d3a2a" stroke-width="1.6"/><path d="M20 12.2 c-1.4 -2.6 -5 -1.6 -4.4 1 c0.4 1.8 2.6 3.2 4.4 4.8 c1.8 -1.6 4 -3 4.4 -4.8 c0.6 -2.6 -3 -3.6 -4.4 -1z" fill="#c0392b"/><path d="M15.5 21.5 H24.5" stroke="#1d3a2a" stroke-width="1" opacity=".35"/></g><path d="M9 27 V20 M31 27 V18 M6 24 V21 M34 24 V22" stroke="#9dffb4" stroke-width="1.5" stroke-linecap="round" opacity=".85"/></svg>',
   M:'<svg class="art" viewBox="0 0 40 40"><path d="M5 9 Q14 6 22 9 Q23 22 13.5 28 Q4 22 5 9Z" fill="#cfd8ff" stroke="#3a3f7a" stroke-width="1.8"/><path d="M18 13 Q26 10 35 13 Q36 26 26.5 32 Q17 26 18 13Z" fill="#b48cff" stroke="#3a2370" stroke-width="1.8"/><path d="M8.5 14 q2 -2 4 0 M15 14 q2 -2 4 0 M10 21 q3.5 3 7 0" stroke="#3a3f7a" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M21.5 18 q2 -2 4 0 M28 18 q2 -2 4 0 M23 25 q3.5 3 7 0" stroke="#fff" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>',
@@ -3323,6 +3352,58 @@ function aegisFx(prev,v){
     if(!reduced()&&document.body.animate){const e=v.aegisEnd,mine=e.who===v.you,f=(mine?prev.me.field:prev.opp.field);
       e.ids.forEach(id=>{const c=f.find(x=>x.id===id);const r=c&&colR(mine,c.s);if(r)aegisBeam(r,null,900,true);});}
   }
+}
+// Doom: when played, the marked cards flash purple; when it goes off, a purple slash sweeps across their side and cuts each marked card in half
+function doomFx(prev,v){
+  if(!prev||prev.you!==v.you||!v.doom||v.doom.n<=((prev.doom&&prev.doom.n)||0))return;
+  doomSound(false);
+  if(reduced()||!document.body.animate)return;
+  const side=v.doom.by===v.you?'#oppField':'#myField';
+  setTimeout(()=>v.doom.ids.forEach(id=>{const e=document.querySelector(side+' .card[data-id="'+id+'"]');
+    if(e)e.animate([{boxShadow:'0 0 0 0 #a64dff00'},{boxShadow:'0 0 0 3px #c27bff,0 0 22px 8px #a64dffcc',offset:.35},{boxShadow:'0 0 0 1.5px #a64dffcc,0 0 12px 3px #a64dff99'}],{duration:900,easing:'ease-out'});}),420);   // let the Doom card land first
+}
+function doomSlash(side,clones){
+  doomSound(true);
+  const fe=document.querySelector(side);if(!fe){clones.forEach(k=>k.el.remove());return;}
+  if(reduced()||!document.body.animate){clones.forEach(k=>k.el.remove());return;}
+  const f=fe.getBoundingClientRect(),W=f.width+120,H=Math.max(f.height,60),x0=f.left-60,y0=f.top;
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','dm-slash');svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  svg.style.cssText=`left:${x0}px;top:${y0}px;width:${W}px;height:${H}px`;
+  const d=`M0 ${H*.62} Q${W/2} ${H*.3} ${W} ${H*.38}`;
+  svg.innerHTML=`<defs><linearGradient id="dmSl" x1="0" x2="1"><stop offset="0" stop-color="#a64dff" stop-opacity="0"/><stop offset=".55" stop-color="#e7d6ff"/><stop offset="1" stop-color="#fff"/></linearGradient><filter id="dmBl"><feGaussianBlur stdDeviation="5"/></filter></defs>`+
+    `<path d="${d}" stroke="#a64dff" stroke-width="16" fill="none" filter="url(#dmBl)" stroke-linecap="round"/><path class="c" d="${d}" stroke="url(#dmSl)" stroke-width="5" fill="none" stroke-linecap="round"/>`;
+  document.body.appendChild(svg);
+  const path=svg.querySelector('.c'),L=path.getTotalLength();
+  svg.querySelectorAll('path').forEach(p=>{p.style.strokeDasharray=`${L*.45} ${L*2}`;p.animate([{strokeDashoffset:L*.45},{strokeDashoffset:-L*1.05}],{duration:520,easing:'cubic-bezier(.5,0,.3,1)',fill:'forwards'});});
+  const cut=path.cloneNode();cut.setAttribute('stroke','#e7d6ff');cut.setAttribute('stroke-width','1.5');cut.style.strokeDasharray='';cut.style.opacity=0;svg.appendChild(cut);
+  cut.animate([{opacity:0},{opacity:1,offset:.3},{opacity:0}],{duration:900,delay:300,fill:'forwards'});
+  setTimeout(()=>svg.remove(),1600);
+  clones.forEach(k=>{const r=k.o.r,t=Math.max(0,Math.min(1,(r.left+r.width/2-x0)/W));
+    const pt=path.getPointAtLength(L*t),yc=Math.max(.2,Math.min(.8,(pt.y+y0-r.top)/r.height)),a=Math.round((yc-.07)*100),b=Math.round((yc+.07)*100);
+    setTimeout(()=>{for(const half of [0,1]){const cl=half?k.el.cloneNode(true):k.el;if(half)document.body.appendChild(cl);
+        cl.style.clipPath=half?`polygon(0 ${b}%,100% ${a}%,100% 100%,0 100%)`:`polygon(0 0,100% 0,100% ${a}%,0 ${b}%)`;
+        cl.animate([{transform:'none',opacity:1,filter:'none'},{transform:'none',opacity:1,offset:.12},{transform:`translate(${half?10:-10}px,${half?34:-20}px) rotate(${half?9:-9}deg)`,opacity:0,filter:'grayscale(1) brightness(.45)'}],{duration:900,easing:'ease-in',fill:'forwards'}).onfinish=()=>cl.remove();}},80+t*420);});
+  setTimeout(()=>document.querySelectorAll(side+' .card.sturdy').forEach(e=>e.animate([{transform:'translateX(0)'},{transform:'translateX(-4px)'},{transform:'translateX(4px)'},{transform:'translateX(0)'}],{duration:260,iterations:2})),350);
+}
+// played: a low ominous bell with a dark drone; going off: the swish of a blade
+function doomSound(slash){
+  if(!soundOn)return;
+  try{audioCtx=audioCtx||new (window.AudioContext||window.webkitAudioContext)();if(audioCtx.state==='suspended')audioCtx.resume();
+    const A=audioCtx,sr=A.sampleRate;
+    if(slash){const t0=A.currentTime,n=A.createBufferSource(),f=A.createBiquadFilter(),g=A.createGain();
+      n.buffer=noiseBuf('white',Math.floor(sr*.5),(d,k)=>{for(let i=0;i<k;i++)d[i]=Math.random()*2-1;});
+      f.type='bandpass';f.Q.value=2.5;f.frequency.setValueAtTime(900,t0);f.frequency.exponentialRampToValueAtTime(5200,t0+.32);
+      g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(.35,t0+.18);g.gain.exponentialRampToValueAtTime(.0001,t0+.45);
+      n.connect(f);f.connect(g);g.connect(A.destination);n.start(t0);n.stop(t0+.5);
+      const o=A.createOscillator(),og=A.createGain();o.type='sine';o.frequency.setValueAtTime(110,t0+.3);o.frequency.exponentialRampToValueAtTime(45,t0+.8);
+      og.gain.setValueAtTime(.0001,t0+.3);og.gain.exponentialRampToValueAtTime(.25,t0+.33);og.gain.exponentialRampToValueAtTime(.0001,t0+.9);o.connect(og);og.connect(A.destination);o.start(t0+.3);o.stop(t0+.95);
+      return;}
+    const t0=A.currentTime+.42;
+    [[98,.18],[196,.07],[293,.04],[466,.025]].forEach(([fr,v])=>{const o=A.createOscillator(),g=A.createGain();o.type='sine';o.frequency.value=fr;
+      g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(v,t0+.02);g.gain.exponentialRampToValueAtTime(.0001,t0+2.2);o.connect(g);g.connect(A.destination);o.start(t0);o.stop(t0+2.3);});
+    const o=A.createOscillator(),g=A.createGain(),lp=A.createBiquadFilter();o.type='sawtooth';o.frequency.value=55;lp.type='lowpass';lp.frequency.value=220;
+    g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(.06,t0+.5);g.gain.exponentialRampToValueAtTime(.0001,t0+1.8);o.connect(lp);lp.connect(g);g.connect(A.destination);o.start(t0);o.stop(t0+1.9);
+  }catch(e){}
 }
 // Raise: a green portal opens where the card belongs and the destroyed card floats back up out of it
 const raiseHold=new Set();
@@ -3562,9 +3643,9 @@ function cardEl(c,cls){
   const egg=c.r==='EG';
   const tip=ABILITY[f]?ABILITY_TIP[f]:egg&&c.id!=='EGG'?'Morphed Egg: worth '+cardVal(c)+'. Turns back when it leaves the table.':egg?'Egg: worth '+cardVal(c)+(cardVal(c)>1?' points.':' point.'):'';
   const art=egg?EGG_ART:(ART[f]||'');
-  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K','J','Q','L','G'].includes(f)&&!(f==='G'&&(c.gu||0)>=GREED_MAX)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''}${morphHold.has(c.id)?' mo-hold':''}${raiseHold.has(c.id)?' rz-hold':''}${c.hu&&!hushHold.has(c.id)?' hushed':''}${c.ch&&f==='Q'&&!c.hu?' bch':''}${c.ag&&f==='Y'&&!c.hu?' ag-on':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
+  return `<div class="card${red}${f==='4'?' sturdy':''}${['2','4','K','J','Q','L','G'].includes(f)&&!(f==='G'&&(c.gu||0)>=GREED_MAX)?' r'+f:''}${art?' art-on':''}${jk?' joker':''}${egg?' egg':''}${morphHold.has(c.id)?' mo-hold':''}${raiseHold.has(c.id)?' rz-hold':''}${c.hu&&!hushHold.has(c.id)?' hushed':''}${c.ch&&f==='Q'&&!c.hu?' bch':''}${c.ag&&f==='Y'&&!c.hu?' ag-on':''}${c.dm&&f==='V'&&!c.hu?' dm-on':''} ${cls||''}" data-id="${c.id}" title="${tip.replace(/"/g,'&quot;')}">`+
     `<div class="cr">${jk?'★':egg?cardVal(c):c.r}<span>${SYM[c.s]}</span></div><div class="cs">${SYM[c.s]}</div>${art}`+
-    (ABILITY[f]?`<div class="ab">${ABILITY[f]}</div>`:egg?`<div class="ab">Egg</div>`:'')+(c.ag&&f==='Y'&&!c.hu?`<div class="agp">${'<i></i>'.repeat(c.ag)}</div>`:'')+(f==='G'&&!c.hu&&(c.gu||0)<GREED_MAX?`<div class="agp gp">${'<i></i>'.repeat(GREED_MAX-(c.gu||0))}</div>`:'')+`</div>`;
+    (ABILITY[f]?`<div class="ab">${ABILITY[f]}</div>`:egg?`<div class="ab">Egg</div>`:'')+(c.ag&&f==='Y'&&!c.hu?`<div class="agp">${'<i></i>'.repeat(c.ag)}</div>`:'')+(c.dm&&f==='V'&&!c.hu?`<div class="dmp">${'<i></i>'.repeat(c.dm)}</div>`:'')+(f==='G'&&!c.hu&&(c.gu||0)<GREED_MAX?`<div class="agp gp">${'<i></i>'.repeat(GREED_MAX-(c.gu||0))}</div>`:'')+`</div>`;
 }
 // A tall stack of cards squeezes tighter instead of making the table taller
 function fitCols(){   // all writes, then all reads, then all writes: one layout, not one per column
@@ -3689,9 +3770,9 @@ document.addEventListener('pointerdown',e=>{   // touch: press and hold; a move 
   const end=()=>{cntHide();document.removeEventListener('pointermove',move);document.removeEventListener('pointerup',end);document.removeEventListener('pointercancel',end);};
   document.addEventListener('pointermove',move);document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
 },true);
-function fieldHTML(cards,top,targets){
+function fieldHTML(cards,top,targets,other){
   return SUITS.map(s=>`<div class="col${top?' top':''}${cards.filter(c=>c.s===s).length>1?' many':''}${aegisUp(cards,s)?' aegis':''}" data-suit="${s}">`+
-    cards.filter(c=>c.s===s).map(c=>cardEl(c,targets&&targets.has(c.id)?'targetable':'')).join('')+`</div>`).join('');
+    cards.filter(c=>c.s===s).map(c=>cardEl(c,(targets&&targets.has(c.id)?'targetable':'')+(other&&doomed(cards,other,c)?' dmd':''))).join('')+`</div>`).join('');
 }
 const SORT_ARROWS='<svg viewBox="0 0 22 22" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18V4M3 8l4-4 4 4"/><path d="M15 4v14M11 14l4 4 4-4"/></svg>';
 function sortBySuit(h){return h.slice().sort((a,b)=>SUIT_RANK[a.s]-SUIT_RANK[b.s]||cardVal(a)-cardVal(b)||rk(a)-rk(b));}
@@ -4064,20 +4145,25 @@ function faceFx(prev,v,oldCards){
   // a charged Bolt struck: the card that set it off may already be gone, so it is drawn from the Bolt's own record
   const zap=v.boltZap&&v.boltZap.n>((prev.boltZap&&prev.boltZap.n)||0)?v.boltZap:null;
   const zSide=zap?(zap.by===v.you?'#oppField':'#myField'):null,zIds=new Set(zap?zap.ids:[]);
+  // a Doom went off as the turn came back to its owner: a slash cuts the marked cards
+  const dh=v.doomHit&&v.doomHit.n>((prev.doomHit&&prev.doomHit.n)||0)?v.doomHit:null;
+  const dSide=dh?(dh.by===v.you?'#oppField':'#myField'):null,dIds=new Set(dh?dh.ids:[]);
   const all=[...v.me.field.map(c=>({c,side:'#myField'})),...v.opp.field.map(c=>({c,side:'#oppField'}))];
   if(zap)zap.cards.forEach(c=>{if(!had(c.id)&&!all.some(x=>x.c.id===c.id))all.push({c,side:zSide,zapped:true});});
   const pl=all.find(x=>!had(x.c.id)&&['J','Q','K'].includes(efx(x.c,v)));
-  if(!pl&&!zap)return handled;
+  if(!pl&&!zap&&!dh)return handled;
   const removed=[...oldCards].filter(([id])=>!document.querySelector('#oppField .card[data-id="'+id+'"],#myField .card[data-id="'+id+'"]'));
   removed.forEach(([id])=>handled.add(id));
   const T=480+(pl&&mirrorShow.has(pl.c.id)?520:0); // let the played card land first (and a Mimic finish flipping)
   // never run while a full-screen event (the opening "who goes first" reveal, the pack) still covers the board
   const later=fn=>{const go=()=>{if($('duel')||$('pack')||$('pf')){setTimeout(go,150);return;}setTimeout(fn,T);};setTimeout(go,0);};
   const ZT=pl?1000:0;   // the stored charge strikes after the played card's own effect
-  fxUntil=Math.max(fxUntil,Date.now()+T+1300+(zap?ZT+900:0));
+  const DT=(pl?1000:200)+(zap?ZT+900:0);   // Doom goes off after the card that ended their turn has done its own thing
+  fxUntil=Math.max(fxUntil,Date.now()+T+1300+(zap?ZT+900:0)+(dh?DT+700:0));
   const mk=(o,z)=>{const g=document.createElement('div');g.innerHTML=o.html;const e=g.firstChild;e.classList.remove('targetable','doomed');
     e.style.cssText=`position:fixed;left:${o.r.left}px;top:${o.r.top}px;margin:0;z-index:${z||14};pointer-events:none`;document.body.appendChild(e);pinAt(e,o.r);return e;};
-  const clones=pinBatch(()=>removed.filter(([id])=>!zIds.has(id)).map(([id,o])=>({id,o,el:mk(o)})));
+  const clones=pinBatch(()=>removed.filter(([id])=>!zIds.has(id)&&!dIds.has(id)).map(([id,o])=>({id,o,el:mk(o)})));
+  const dClones=dh?pinBatch(()=>removed.filter(([id])=>dIds.has(id)).map(([id,o])=>({id,o,el:mk(o)}))):[];
   let zClones=[];
   if(zap){
     zClones=pinBatch(()=>removed.filter(([id])=>zIds.has(id)).map(([id,o])=>({id,o,el:mk(o)})));
@@ -4101,8 +4187,9 @@ function faceFx(prev,v,oldCards){
   const kind=pl?efx(pl.c,v):'Q';
   if(pl)later(()=>removalAnim(kind,pl,clones,null));
   if(zap)later(()=>setTimeout(()=>{toast('⚡ The charged Bolt strikes!');removalAnim('Q',{side:zSide==='#oppField'?'#myField':'#oppField',c:{id:zap.src,s:zap.suit}},zClones,null);},ZT));
+  if(dh)later(()=>setTimeout(()=>{toast('💀 Doom strikes!');doomSlash(dSide,dClones);},DT));
   // a broken Soul card lets a wisp of light float to the deck; its draw waits for the wisp to arrive
-  const souls=clones.concat(zClones).filter(k=>{const c=[...prev.me.field,...prev.opp.field].find(x=>x.id===k.id);return c&&efx(c,prev)==='2';});
+  const souls=clones.concat(zClones,dClones).filter(k=>{const c=[...prev.me.field,...prev.opp.field].find(x=>x.id===k.id);return c&&efx(c,prev)==='2';});
   if(souls.length&&!reduced()){const at=T+({J:650,Q:700,K:900}[kind]||700);
     souls.forEach((k,i)=>setTimeout(()=>soulWisp(k.o.r),at+i*140));
     soulDrawAt=Date.now()+at+(souls.length-1)*140+SOUL_FLY;fxUntil=Math.max(fxUntil,soulDrawAt);}
@@ -4190,7 +4277,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   const targets=mustTarget?new Set(pend.opts):null;
   // a side is rebuilt only when it would come out different, or something has touched it since the last update
   // (rebuilding both sides and the hand on every update was the main cost of each play)
-  const fNew={oppField:fieldHTML(v.opp.field,true,targets),myField:fieldHTML(v.me.field,false,null)};
+  const fNew={oppField:fieldHTML(v.opp.field,true,targets,v.me.field),myField:fieldHTML(v.me.field,false,null,v.opp.field)};
   const fRe=['oppField','myField'].filter(id=>!(domSnap[id]&&domSnap[id].gen===fNew[id]&&domSnap[id].dom===$(id).innerHTML));
   fRe.forEach(id=>{$(id).classList.add('relay');$(id).innerHTML=fNew[id];});   // rebuilt: a card under the pointer must not replay its hover zoom
   fitCols();
@@ -4203,6 +4290,7 @@ function render(v){applyTheme(v&&v.crazy);document.documentElement.classList.tog
   morphFx(prev,v,oldCards);
   raiseFx(prev,v);
   aegisFx(prev,v);
+  doomFx(prev,v);
   $('oppField').querySelectorAll('.targetable').forEach(el=>el.onclick=()=>dispatch({t:'pick',id:el.dataset.id}));
 
   // hand
