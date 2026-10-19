@@ -1139,7 +1139,8 @@ function settle(s){
     while(s.jokerQ.length&&!s.pending&&!s.drawQ.length)jokerStep(s);
     if(s.jokerQ.length||s.pending||s.drawQ.length)return;
   }
-  for(let k=0;k<4;k++){   // (a Doom going off can put the other player ahead again, so the turn may bounce straight back)
+  for(let k=0;;k++){   // (a Doom going off can put the other player ahead again, so the turn may bounce back and forth; each bounce needs a Doom to go off, so it stops)
+    if(k>40)break;   // safety net
     const me=s.turn,op=1-me;
     if(total(s,me)>total(s,op)){
       s.turn=op;s.firstTurn=false;

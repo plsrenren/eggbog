@@ -884,4 +884,14 @@ t('Doom: the cards they had when it was played are destroyed after their second 
   act(r,0,{t:'play',id:'3S'});assert.ok(r.p[0].hand.some(c=>c.id==='6S'&&!c.dm));
 });
 
+t('Dooms going off back and forth: the turn keeps bouncing until someone is really behind, and an empty hand still loses',()=>{
+  const D=(r,su,dm)=>Object.assign(X(r,su,'V'),{dm});
+  const s=setup([C('6','C')],[C('9','D')],[D('2','H',1),Object.assign(C('9','S'),{dz:['3D']}),Object.assign(C('7','S'),{dz:['4D']})],
+    [D('3','D',1),D('4','D',2),Object.assign(C('10','H'),{dz:['2H']}),C('6','H')]);s.crazy=true;
+  assert.equal(act(s,0,{t:'play',id:'6C'}),null);
+  assert.deepEqual(s.p[0].field.map(c=>c.id),['2H','6C'],'both of their Dooms went off');
+  assert.deepEqual(s.p[1].field.map(c=>c.id),['3D','4D','6H'],'yours went off in between');
+  assert.equal(s.phase,'over');assert.equal(s.winner,1,'you are behind with no cards left');
+});
+
 console.log('\n'+n+' checks passed');
