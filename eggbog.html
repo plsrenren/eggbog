@@ -204,13 +204,14 @@ header h2{margin:0;font-size:1.3rem}
 .col.aegis .card{z-index:1}
 .col.aegis .card:not(.hushed){box-shadow:0 0 0 2px #fff,0 0 12px 3px #ffffffcc}
 #myField .card.ag-on,#oppField .card.ag-on,#peek .card.ag-on{border:2px solid #f2c14e;background:linear-gradient(160deg,#fffef6,#fbefc4);box-shadow:0 0 0 2px #fff,0 0 14px 4px #ffe9a0cc}
-.card .agp{position:absolute;right:3px;bottom:15px;display:flex;gap:2px;z-index:3;pointer-events:none}
+.card .agp{position:absolute;right:3px;top:4px;display:flex;gap:2px;z-index:3;pointer-events:none}
 .card .agp i{width:6px;height:6px;border-radius:50%;background:#f2c14e;box-shadow:0 0 4px #ffe27a}
 .card .agp.gp{display:none}   /* Greed's draws left: only shown on the table */
 #myField .card .agp.gp,#oppField .card .agp.gp,#peek .card .agp.gp{display:flex}
 .aegis-beam{position:fixed;pointer-events:none;z-index:46;border-radius:10px;filter:blur(4px);background:linear-gradient(90deg,#fff0 0%,#fffbe688 22%,#fff 50%,#fffbe688 78%,#fff0 100%),linear-gradient(180deg,#fff 0%,#fff8 60%,#fff0 100%);background-blend-mode:screen}
-.card .dmp{position:absolute;right:3px;bottom:15px;display:flex;gap:2px;z-index:3;pointer-events:none}
+.card .dmp{position:absolute;right:3px;top:4px;display:flex;gap:2px;z-index:3;pointer-events:none}
 .card .dmp i{width:6px;height:6px;border-radius:50%;background:#ff4d6d;box-shadow:0 0 5px #ff4d6d}
+@media(max-width:480px),(max-height:520px){.card .agp,.card .dmp{right:2px;top:3px;gap:1px}.card .agp i,.card .dmp i{width:5px;height:5px}}   /* small cards: dots stay clear of a "10" rank */
 /* Doom: a counting-down Doom turns dark purple (red dots = turns left); the cards it will destroy glow purple */
 #myField .card.dm-on,#oppField .card.dm-on,#peek .card.dm-on{border:2px solid #7d6be0;background:linear-gradient(160deg,#2c2a5e,#0f0f2a);color:#ece6f5;box-shadow:0 0 0 1px #000,0 0 14px 3px #7f6dff88}   /* clubs and spades lean blue */
 #myField .card.dm-on.red,#oppField .card.dm-on.red,#peek .card.dm-on.red{border-color:#c0609e;background:linear-gradient(160deg,#4e2142,#1d0a19);box-shadow:0 0 0 1px #000,0 0 14px 3px #d0559c88}   /* hearts and diamonds lean red */
