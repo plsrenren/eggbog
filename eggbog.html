@@ -836,7 +836,7 @@ const ABILITY_TEXT={
   '4':'Sturdy: this card cannot be removed from the field by any means.',
   '5':'Swap: this card moves to your opponent\'s side. If they have a card of the same suit, the most recently played one swaps sides with it.',
   J:'Frost: freeze and shatter the top (most recently played) card of its suit and of the other suit of the same colour (♥/♦ or ♣/♠) on your opponent\'s side. A Sturdy card on top blocks it for that suit.',
-  Q:'Bolt: lightning destroys all cards of the same suit on your opponent\'s side (a Sturdy card is struck but survives). If they have no card of that suit, it holds a charge: the next time your opponent plays a card of that suit, the charge strikes after that card\'s own effect and destroys all their cards of that suit, the new one included.',
+  Q:'Bolt: lightning destroys all cards of the same suit on your opponent\'s side (a Sturdy card is struck but survives). If they have no card of that suit, it holds a charge: the next time your opponent plays a card of that suit, the charge strikes after that card\'s own effect and destroys all their cards of that suit, the new one included. The charge is used up even if a shield stops it.',
   K:'Blaze: burn away all removable cards from both sides, excluding the King itself.',
   M:'Mimic: when played, it turns into a copy of the card played just before it, on either side, and has that effect for as long as it stays on the table (Soul, Sturdy and Rune included). If nothing was played before it, it does nothing.',
   T:'Steal: your opponent chooses a card from their hand and gives it to you, then one random card from your own hand is burned. Their last card can\'t be stolen.',
@@ -858,7 +858,7 @@ const ABILITY_TIP={   // short hover tooltips; the Rules and effects screens use
   '4':'Sturdy: can\'t be removed.',
   '5':'Swap: moves to the opponent\'s side and swaps with their top card of this suit.',
   J:'Frost: shatters the opponent\'s top card of this suit and of its same-colour suit.',
-  Q:'Bolt: destroys all the opponent\'s cards of this suit (Sturdy survives). None of that suit: it holds a charge for their next card of this suit.',
+  Q:'Bolt: destroys all the opponent\'s cards of this suit (Sturdy survives). None of that suit: it holds a charge that strikes their next card of this suit.',
   K:'Blaze: burns all removable cards on both sides.',
   M:'Mimic: copies the card played just before it.',
   T:'Steal: take a card of their choice from the opponent; one of yours burns.',
@@ -970,15 +970,15 @@ function guarded(field,x){return F(x)==='4'||aegisUp(field,x.s);}
 function doomLive(d){return d.dm&&F(d)==='V';}
 function doomed(field,oppField,x){return !!(x.dz&&!guarded(field,x)&&oppField.some(d=>doomLive(d)&&x.dz.includes(d.id)));}
 // A charged Bolt (one that had nothing to hit) fires when the opponent plays a card of its suit, after that card's own effect:
-// it destroys all their cards of that suit, the new one included (Sturdy blocks it as usual). One Bolt fires per card played.
+// it destroys all their cards of that suit, the new one included (Sturdy and Aegis block it as usual). One Bolt fires per card played,
+// and the charge is used up even when nothing is destroyed.
 function boltCheck(s,i,c){
   if(s.pending){s.boltWait={i,c};return;}   // wait for the card's own choice (Steal, Scry) to be made first
   const op=1-i,b=s.p[op].field.find(x=>x.ch&&F(x)==='Q'&&x.s===c.s);   // a Hushed or Morphed Bolt is silenced and doesn't fire
   if(!b)return;
   const tg=s.p[i].field.filter(x=>x.s===c.s&&!guarded(s.p[i].field,x));
-  if(!tg.length)return;   // nothing to hit (Sturdy, or the card already left): the charge stays
   delete b.ch;
-  log(s,op,'Bolt: the stored charge strikes');
+  log(s,op,tg.length?'Bolt: the stored charge strikes':'Bolt: the stored charge strikes, but the shield holds');
   s.boltZap={n:((s.boltZap&&s.boltZap.n)||0)+1,by:op,src:b.id,suit:c.s,ids:tg.map(x=>x.id),cards:tg.map(cp)};
   tg.forEach(x=>removeCard(s,i,x));
 }
@@ -1798,7 +1798,7 @@ function ghostPlan(v,c,suit){   // what playing c (on the suit column) would do,
     if(dr[1])lines.push('👻 '+OPP+' draws '+dr[1]+' (Soul)');
   }else if(cf==='Q')lines.push(v.opp.field.some(x=>x.s===c.s)?'🛡️ Bolt strikes, but the shield holds':'⚡ Nothing to hit: it holds a charge');
   else if(cf==='J'||cf==='K')lines.push('💨 Nothing to remove');
-  if(boltWaiting(v.opp.field.filter(x=>!gone.some(g=>g.c.id===x.id)),c,v)&&cf!=='Y'&&!aegisUp(v.me.field,c.s))lines.push('⚡ '+OPP+'\'s charged Bolt strikes your '+SYM[c.s]+' cards');
+  if(boltWaiting(v.opp.field.filter(x=>!gone.some(g=>g.c.id===x.id)),c,v))lines.push(cf!=='Y'&&!aegisUp(v.me.field,c.s)?'⚡ '+OPP+'\'s charged Bolt strikes your '+SYM[c.s]+' cards':'🛡️ '+OPP+'\'s charged Bolt strikes, but the shield holds (the charge is used up)');
   const t=projectTotals(v,c),d=t.me-t.opp;
   lines.push(d>0?'✅ You lead by '+d+': your turn ends':d===0?'⚖️ Tied: you play again':'⚠️ Still behind by '+(-d)+': you play again');
   return {gone,swap,lines,back,turnEnds:d>0};

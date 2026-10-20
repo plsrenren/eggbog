@@ -800,9 +800,13 @@ t('Bolt with nothing to hit holds a charge; it strikes after the opponent\'s nex
   const st=setup([X('9','S','Q'),X('2','C','')],[X('3','S','4')],[C('5','C')],[X('6','S','4')]);st.crazy=true;
   act(st,0,{t:'play',id:'9S'});assert.ok(!st.p[0].field.find(c=>c.id==='9S').ch,'no charge');assert.ok(!st.boltCharge);
   assert.ok(st.p[1].field.some(c=>c.id==='6S'),'Sturdy survives');
-  // a charged Bolt: another Sturdy can't set it off (the charge stays)
+  // a charged Bolt: a Sturdy sets it off too; it survives, but the charge is used up
   const sc=setup([C('2','C')],[X('3','S','4')],[C('5','C'),Object.assign(X('9','S','Q'),{ch:1})],[X('6','S','4')]);sc.crazy=true;sc.turn=1;
-  act(sc,1,{t:'play',id:'3S'});assert.equal(sc.p[1].field.length,2);assert.equal(sc.p[0].field.find(c=>c.id==='9S').ch,1);
+  act(sc,1,{t:'play',id:'3S'});assert.equal(sc.p[1].field.length,2);assert.ok(!sc.p[0].field.find(c=>c.id==='9S').ch,'charge spent');
+  assert.deepEqual(viewFor(sc,0).boltZap.ids,[],'struck, nothing destroyed');
+  // the same when the new card is shielded by Aegis
+  const sa=setup([C('2','C')],[X('3','S','Y')],[C('5','C'),Object.assign(X('9','S','Q'),{ch:1})],[]);sa.crazy=true;sa.turn=1;
+  act(sa,1,{t:'play',id:'3S'});assert.ok(sa.p[1].field.some(c=>c.id==='3S'),'Aegis survives');assert.ok(!sa.p[0].field.find(c=>c.id==='9S').ch,'charge spent');
 });
 
 t('Charged Bolt: waits for a Steal choice; Hush silences it; a Blaze burns it before it fires',()=>{
