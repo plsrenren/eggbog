@@ -198,7 +198,8 @@ header h2{margin:0;font-size:1.3rem}
 @media (prefers-reduced-motion:reduce){.card.bch,.card.bch::before{animation:none}}
 /* Aegis: a pillar of light stands over a protected column; the cards in it get a bright white edge, the Aegis card itself turns white-gold */
 .col.aegis{position:relative}
-.col.aegis::after{content:'';position:absolute;left:50%;top:-14px;bottom:-8px;width:calc(100% + 22px);min-width:76px;translate:-50% 0;pointer-events:none;z-index:0;border-radius:8px;filter:blur(3px);
+.col.aegis::after{content:'';position:absolute;left:50%;top:-30px;bottom:-22px;width:calc(100% + 22px);min-width:76px;translate:-50% 0;pointer-events:none;z-index:0;border-radius:30px;filter:blur(3px);
+  -webkit-mask-image:linear-gradient(180deg,#0000 0%,#000 20%,#000 82%,#0000 100%);mask-image:linear-gradient(180deg,#0000 0%,#000 20%,#000 82%,#0000 100%);
   background:linear-gradient(90deg,#fff0 0%,#fffbe655 25%,#ffffffaa 50%,#fffbe655 75%,#fff0 100%),linear-gradient(180deg,#fff9 0%,#fff3 70%,#fff0 100%);background-blend-mode:screen;animation:aegisGlow 2.6s ease-in-out infinite alternate}
 @keyframes aegisGlow{from{opacity:.75}to{opacity:1}}
 .col.aegis .card{z-index:1}
